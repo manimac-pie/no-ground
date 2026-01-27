@@ -14,7 +14,7 @@ const INTERNAL_HEIGHT = 450;
 
 // Physics tuning (flat, forgiving MVP values)
 const GRAVITY = 1800; // px/s^2
-const JUMP_VELOCITY = -760; // px/s (negative is up)
+const JUMP_VELOCITY = -800; // px/s (negative is up)
 const MAX_FALL_SPEED = 1800;
 
 // Feel adjustments
