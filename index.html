@@ -1,0 +1,50 @@
+
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#111111" />
+    <title>No Ground</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #111;
+        overflow: hidden;
+        touch-action: none; /* prevents gestures like double-tap zoom on supported browsers */
+      }
+
+      /* Center the canvas and let JS handle sizing */
+      #game {
+        display: block;
+        margin: 0 auto;
+        background: #111;
+      }
+
+      /* Optional: used later for a rotate-to-landscape prompt */
+      #overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 24px;
+        color: #f2f2f2;
+        font: 600 18px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        background: rgba(0, 0, 0, 0.65);
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game" aria-label="No Ground game canvas" role="img"></canvas>
+    <div id="overlay">Rotate your device to landscape.</div>
+
+    <!-- No build step: load the entrypoint directly -->
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

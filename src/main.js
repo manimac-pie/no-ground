@@ -1,0 +1,101 @@
+// No Ground (Canvas) — main entrypoint
+// Responsibilities:
+// - Create a consistent internal coordinate system (800x450)
+// - Scale the canvas to fit the viewport (PC + mobile)
+// - Drive the main loop (requestAnimationFrame)
+
+import { createInput } from "./input.js";
+import { createGame } from "./game.js";
+import { render } from "./render.js";
+
+const INTERNAL_WIDTH = 800;
+const INTERNAL_HEIGHT = 450;
+
+const canvas = document.getElementById("game");
+if (!canvas) {
+  throw new Error("Canvas element '#game' not found.");
+}
+
+const overlay = document.getElementById("overlay");
+const ctx = canvas.getContext("2d");
+if (!ctx) {
+  throw new Error("2D canvas context not available.");
+}
+
+const input = createInput(canvas);
+const game = createGame();
+
+let scale = 1;
+let dpr = 1;
+
+function computeScale() {
+  // Fit to viewport while preserving aspect ratio.
+  // Keep scale >= 1 on desktop? No — allow shrinking for small screens.
+  const vw = Math.max(1, window.innerWidth);
+  const vh = Math.max(1, window.innerHeight);
+  return Math.min(vw / INTERNAL_WIDTH, vh / INTERNAL_HEIGHT);
+}
+
+function setCanvasSize() {
+  scale = computeScale();
+  dpr = Math.min(2, window.devicePixelRatio || 1); // cap for performance on mobile
+
+  const displayW = Math.floor(INTERNAL_WIDTH * scale);
+  const displayH = Math.floor(INTERNAL_HEIGHT * scale);
+
+  // CSS size (layout pixels)
+  canvas.style.width = `${displayW}px`;
+  canvas.style.height = `${displayH}px`;
+
+  // Backing store size (device pixels)
+  canvas.width = Math.max(1, Math.floor(displayW * dpr));
+  canvas.height = Math.max(1, Math.floor(displayH * dpr));
+
+  // Map internal coordinates -> device pixels
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+
+  // Crisp lines for flat/minimal visuals
+  ctx.imageSmoothingEnabled = false;
+}
+
+function updateOverlay() {
+  if (!overlay) return;
+
+  // Landscape-first guidance for phones.
+  // Heuristic: if in portrait and screen is phone-ish, show overlay.
+  const portrait = window.innerHeight > window.innerWidth;
+  const phoneish = Math.min(window.innerWidth, window.innerHeight) < 700;
+
+  overlay.style.display = portrait && phoneish ? "flex" : "none";
+}
+
+function onResize() {
+  setCanvasSize();
+  updateOverlay();
+}
+
+window.addEventListener("resize", onResize, { passive: true });
+window.addEventListener("orientationchange", onResize, { passive: true });
+
+// Initial layout
+onResize();
+
+// Main loop (placeholder: confirms timing + scaling; gameplay comes next)
+let last = performance.now();
+
+function tick(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  // Update + render
+  game.update(dt, input);
+  render(ctx, game.state);
+
+  requestAnimationFrame(tick);
+}
+
+window.addEventListener("beforeunload", () => {
+  input.destroy();
+});
+
+requestAnimationFrame(tick);
