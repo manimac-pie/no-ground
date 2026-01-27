@@ -9,36 +9,47 @@
 // This module owns game state + physics.
 // It does NOT draw or read DOM events.
 
+
 const INTERNAL_WIDTH = 800;
 const INTERNAL_HEIGHT = 450;
 
+// World layout
+const GROUND_Y = 390; // lethal ground level
+const PLATFORM_H = 16;
+
 // Physics tuning (flat, forgiving MVP values)
 const GRAVITY = 1800; // px/s^2
-const JUMP_VELOCITY = -800; // px/s (negative is up)
+const JUMP_VELOCITY = -630; // px/s (negative is up)
 const MAX_FALL_SPEED = 1800;
 
 // Feel adjustments
-const FALL_GRAVITY_MULT = 1.25; // stronger gravity when falling
-const JUMP_CUT_MULT = 2.2; // stronger gravity when jump is released early while rising
+const FALL_GRAVITY_MULT = 1.20; // stronger gravity when falling (slightly softened)
+const JUMP_CUT_MULT = 2.0; // target multiplier when jump is released early while rising
+const JUMP_CUT_RAMP_PER_SEC = 18; // how quickly jump-cut ramps in (higher = snappier)
+
+const LAND_GRACE_SEC = 0.06; // tiny grace window right after landing
 
 // Runner speed (world moves left)
 const SPEED_START = 260; // px/s
-const SPEED_MAX = 520;
-const SPEED_RAMP_PER_SEC = 6; // px/s added per second of survival
+const SPEED_MAX = 480;
+const SPEED_RAMP_PER_SEC = 6; // target px/s added per second of survival
+const SPEED_SMOOTH = 7.5; // how quickly speed eases to target (higher = snappier)
 
-// Platforms
-const GROUND_Y = 390;
-const PLATFORM_H = 24;
+// Platform generation tuning (balanced for "lethal ground")
+const SAFE_CLEARANCE = 80; // how far above the lethal ground most platforms sit
 
-const PLATFORM_MIN_W = 140;
-const PLATFORM_MAX_W = 320;
+const PLATFORM_MIN_W = 160;
+const PLATFORM_MAX_W = 360;
 
-const GAP_MIN = 60;
-const GAP_MAX_EASY = 160;
-const GAP_MAX_HARD = 260;
+const GAP_MIN = 56;
+const GAP_MAX_EASY = 150;
+const GAP_MAX_HARD = 220;
 
-// Height offsets from base ground (smaller = higher platform)
-const HEIGHT_LEVELS = [0, 40, 80];
+// Height offsets from the safe baseline (higher = harder)
+const HEIGHT_LEVELS = [0, 30, 60, 90, 120];
+
+// Limit sudden vertical changes between platforms (fairness)
+const MAX_PLATFORM_STEP = 60; // base value, scales with difficulty
 
 // Player
 const PLAYER_W = 34;
@@ -46,8 +57,8 @@ const PLAYER_H = 34;
 const PLAYER_X = 160;
 
 // Feel-good helpers
-const COYOTE_TIME_SEC = 0.11; // grace window after leaving a platform
-const JUMP_BUFFER_SEC = 0.11; // grace window after pressing jump early
+const COYOTE_TIME_SEC = 0.13; // grace window after leaving a platform
+const JUMP_BUFFER_SEC = 0.13; // grace window after pressing jump early
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
@@ -78,15 +89,19 @@ export function createGame() {
     // For variable jump height
     jumpHeld: false,
 
+    // Smooth jump-cut ramp (0..1)
+    jumpCut: 0,
+
     player: {
       x: PLAYER_X,
-      y: GROUND_Y - PLAYER_H,
+      y: GROUND_Y - SAFE_CLEARANCE - PLAYER_H,
       w: PLAYER_W,
       h: PLAYER_H,
       vy: 0,
       onGround: true,
       jumpsRemaining: 2,
       coyote: 0,
+      landGrace: 0,
     },
 
     // Platforms are axis-aligned rectangles:
@@ -112,22 +127,36 @@ export function createGame() {
     const d = difficulty01();
     const lastRight = rightmostPlatformX();
 
-    // Gap grows with difficulty.
+    // Gap grows with difficulty, but capped to remain fair with lethal ground.
     const gapMax = GAP_MAX_EASY + (GAP_MAX_HARD - GAP_MAX_EASY) * d;
     const gap = randRange(GAP_MIN, gapMax);
 
-    const w = randRange(PLATFORM_MIN_W, PLATFORM_MAX_W);
+    // Slightly wider platforms as difficulty increases to keep flow readable.
+    const wMin = PLATFORM_MIN_W + 10 * d;
+    const wMax = PLATFORM_MAX_W + 20 * d;
+    const w = randRange(wMin, wMax);
 
-    // Height variation grows with difficulty.
-    // Early: mostly ground level. Later: more varied.
-    let y = GROUND_Y;
-    if (d > 0.15) {
-      const level = d < 0.45 ? pick([0, 40]) : pick(HEIGHT_LEVELS);
-      y = GROUND_Y - level;
+    // Safe baseline: platforms float above lethal ground.
+    const baseY = GROUND_Y - SAFE_CLEARANCE;
+
+    // Prefer low variance early; increase variety later.
+    const levels = d < 0.35 ? [0, 30] : HEIGHT_LEVELS;
+    const level = d < 0.15 ? 0 : pick(levels);
+
+    let y = baseY - level;
+
+    // Limit sudden vertical step changes.
+    // Use the last spawned platform as reference (if any).
+    const prev = state.platforms.length ? state.platforms[state.platforms.length - 1] : null;
+    if (prev) {
+      const step = MAX_PLATFORM_STEP + d * 50; // more vertical freedom later
+      const target = clamp(y, prev.y - step, prev.y + step);
+      y = target;
     }
 
     // Keep platforms within a safe vertical range.
-    y = clamp(y, 220, GROUND_Y);
+    // (Never place them on the lethal ground.)
+    y = clamp(y, 180, GROUND_Y - 40);
 
     state.platforms.push({
       x: lastRight + gap,
@@ -143,8 +172,8 @@ export function createGame() {
     // Start with a safe, long platform.
     state.platforms.push({
       x: 0,
-      y: GROUND_Y,
-      w: INTERNAL_WIDTH + 260,
+      y: GROUND_Y - SAFE_CLEARANCE, // start safely above lethal ground
+      w: INTERNAL_WIDTH * 0.65, // shorter intro platform
       h: PLATFORM_H,
     });
 
@@ -162,13 +191,15 @@ export function createGame() {
     state.speed = SPEED_START;
     state.jumpBuffer = 0;
     state.jumpHeld = false;
+    state.jumpCut = 0;
 
     state.player.x = PLAYER_X;
-    state.player.y = GROUND_Y - PLAYER_H;
+    state.player.y = GROUND_Y - SAFE_CLEARANCE - PLAYER_H;
     state.player.vy = 0;
     state.player.onGround = true;
     state.player.jumpsRemaining = 2;
     state.player.coyote = COYOTE_TIME_SEC;
+    state.player.landGrace = 0;
 
     resetPlatforms();
   }
@@ -202,7 +233,7 @@ export function createGame() {
     if (p.jumpsRemaining <= 0) return false;
 
     if (p.jumpsRemaining === 2) {
-      return p.onGround || p.coyote > 0;
+      return p.onGround || p.coyote > 0 || p.landGrace > 0;
     }
 
     return true;
@@ -242,12 +273,25 @@ export function createGame() {
 
     // Gravity (with feel adjustments)
     // - Falling accelerates a bit faster (snappier landings)
-    // - Releasing jump early increases gravity while rising (variable jump height)
+    // - Releasing jump early ramps in extra gravity over a few frames (smoother jump-cut)
     let g = GRAVITY;
+
     if (p.vy > 0) {
+      // Falling
+      state.jumpCut = 0;
       g *= FALL_GRAVITY_MULT;
-    } else if (p.vy < 0 && !state.jumpHeld) {
-      g *= JUMP_CUT_MULT;
+    } else if (p.vy < 0) {
+      // Rising
+      if (state.jumpHeld) {
+        state.jumpCut = 0;
+      } else {
+        state.jumpCut = clamp(state.jumpCut + JUMP_CUT_RAMP_PER_SEC * dt, 0, 1);
+      }
+
+      const cutMult = 1 + (JUMP_CUT_MULT - 1) * state.jumpCut;
+      g *= cutMult;
+    } else {
+      state.jumpCut = 0;
     }
 
     p.vy += g * dt;
@@ -279,6 +323,7 @@ export function createGame() {
           p.onGround = true;
           p.jumpsRemaining = 2;
           p.coyote = COYOTE_TIME_SEC;
+          p.landGrace = LAND_GRACE_SEC;
           break;
         }
       }
@@ -288,9 +333,12 @@ export function createGame() {
       p.coyote = COYOTE_TIME_SEC;
     }
 
-    // Lose condition
-    if (p.y > INTERNAL_HEIGHT + 200) {
+    // Lethal ground rule:
+    // If the player touches the ground level, the game ends immediately.
+    const playerBottom = p.y + p.h;
+    if (playerBottom >= GROUND_Y + 1) {
       endGame();
+      return;
     }
   }
 
@@ -300,6 +348,7 @@ export function createGame() {
     // Decay timers
     state.jumpBuffer = Math.max(0, state.jumpBuffer - dt);
     state.player.coyote = Math.max(0, state.player.coyote - dt);
+    state.player.landGrace = Math.max(0, state.player.landGrace - dt);
 
     const jumpPressed = input?.consumeJumpPressed?.() === true;
     state.jumpHeld = input?.jumpHeld === true;
@@ -316,7 +365,10 @@ export function createGame() {
       return state;
     }
 
-    state.speed = clamp(state.speed + SPEED_RAMP_PER_SEC * dt, SPEED_START, SPEED_MAX);
+    // Smooth speed ramp: compute a target speed based on survival time and ease toward it.
+    const targetSpeed = clamp(SPEED_START + SPEED_RAMP_PER_SEC * state.time, SPEED_START, SPEED_MAX);
+    const alpha = 1 - Math.exp(-SPEED_SMOOTH * dt);
+    state.speed = clamp(state.speed + (targetSpeed - state.speed) * alpha, SPEED_START, SPEED_MAX);
 
     if (jumpPressed) {
       state.jumpBuffer = JUMP_BUFFER_SEC;

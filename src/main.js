@@ -80,15 +80,30 @@ window.addEventListener("orientationchange", onResize, { passive: true });
 // Initial layout
 onResize();
 
-// Main loop (placeholder: confirms timing + scaling; gameplay comes next)
+// Main loop — fixed timestep for stable physics + smoother feel
 let last = performance.now();
+let acc = 0;
+const FIXED_DT = 1 / 60;
+const MAX_FRAME_DT = 0.10; // cap big jumps (tab switch, hitch)
+const MAX_STEPS = 5; // avoid spiral of death on slow devices
 
 function tick(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  let frameDt = (now - last) / 1000;
   last = now;
 
-  // Update + render
-  game.update(dt, input);
+  if (!Number.isFinite(frameDt) || frameDt < 0) frameDt = 0;
+  frameDt = Math.min(MAX_FRAME_DT, frameDt);
+
+  acc += frameDt;
+
+  let steps = 0;
+  while (acc >= FIXED_DT && steps < MAX_STEPS) {
+    game.update(FIXED_DT, input);
+    acc -= FIXED_DT;
+    steps++;
+  }
+
+  // Render once per frame
   render(ctx, game.state);
 
   requestAnimationFrame(tick);
@@ -96,6 +111,13 @@ function tick(now) {
 
 window.addEventListener("beforeunload", () => {
   input.destroy();
+});
+
+window.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  // Reset timing when returning to the tab
+  last = performance.now();
+  acc = 0;
 });
 
 requestAnimationFrame(tick);
