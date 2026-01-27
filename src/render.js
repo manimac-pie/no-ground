@@ -778,6 +778,5 @@ export function render(ctx, state) {
 
     ctx.font = "500 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
     ctx.fillStyle = "rgba(242,242,242,0.52)";
-    centerText(ctx, "Tip: tap shorter for a low hop", cx0, cardY + 212);
   }
 }
