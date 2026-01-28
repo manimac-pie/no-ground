@@ -10,7 +10,7 @@ import { DIVE_ANTICIPATION_SEC, DIVE_SPIKE_ANGLE_RAD } from "../game/constants.j
 import { world } from "../game.js";
 
 import { clamp, smoothstep01, roundedRectPath } from "./playerKit.js";
-import { drawRunner } from "./playerBody.js";
+import { drawRunner } from "./_playerBody.tmp.js";
 import {
   diveStrengthFromVY,
   drawAfterimage,
