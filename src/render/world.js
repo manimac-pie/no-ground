@@ -4,16 +4,6 @@ import { world } from "../game.js";
 /*
   World rendering: background + parallax + lethal ground + buildings/roofs + air gates + vignette.
 
-  Usage (Option B split):
-    import {
-      drawBackground,
-      drawParallax,
-      drawLethalGround,
-      drawBuildingsAndRoofs,
-      drawGates,
-      drawVignette,
-    } from "./render/world.js";
-
   Notes:
   - COLORS is passed in so this module stays decoupled from your palette location.
   - animTime should be the time that freezes when game ends (so ground/fx stop moving).
@@ -243,6 +233,114 @@ function pickBuildingColor(seed, COLORS) {
   return hash01(seed) < 0.5 ? COLORS.buildingA : COLORS.buildingB;
 }
 
+/*
+  Stronger, more visible "whole building" cracks.
+
+  - Uses plat.crack01 as the base driver (same as roof).
+  - Boosts cracks on heavy dive landings (state.heavyLandT) when the player is on this plat.
+  - Draws two layers: dark primary + lighter highlight so it reads on any facade color.
+*/
+function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, impact01, COLORS, animTime) {
+  if (crack01 <= 0.01 || h < 34 || w < 54) return;
+
+  const c = clamp(crack01, 0, 1);
+  const impact = clamp(impact01, 0, 1);
+
+  // More cracks as it gets worse (and extra when impact)
+  const mainCount = 2 + Math.floor(c * 4) + (impact > 0 ? 1 : 0);
+
+  // Subtle pulse near failure / on impact
+  const pulse =
+    (c > 0.70 ? (0.70 + 0.30 * (0.5 + 0.5 * Math.sin((animTime || 0) * 14))) : 1) *
+    (impact > 0 ? (1.0 + 0.35 * impact) : 1.0);
+
+  // Keep cracks inside the body area
+  const inset = 2;
+
+  function drawLayer(alpha, stroke, offsetX, offsetY, lwMul) {
+    ctx.save();
+    ctx.globalAlpha = alpha * pulse;
+    ctx.strokeStyle = stroke;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    for (let i = 0; i < mainCount; i++) {
+      const a = hash01(seed * 17.3 + i * 9.7);
+      const b = hash01(seed * 29.1 + i * 6.1);
+
+      // Start somewhere near the upper third and run downward (vertical fracture)
+      const x0 = x + inset + (w - inset * 2) * (0.15 + 0.70 * a);
+      const y0 = y + inset + (h - inset * 2) * (0.10 + 0.18 * b);
+
+      const len = (h - inset * 2) * (0.55 + 0.25 * hash01(seed * 3.7 + i * 5.9));
+      const segs = 6 + Math.floor(c * 6);
+      const lw = (0.9 + 1.0 * hash01(seed * 44.7 + i * 7.1)) * lwMul;
+
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(x0 + offsetX, y0 + offsetY);
+
+      for (let s = 1; s <= segs; s++) {
+        const tt = s / segs;
+
+        // Horizontal jitter (zig-zag), increases as crack worsens
+        const j =
+          (hash01(seed * 77.7 + i * 13.3 + s * 5.1) - 0.5) *
+          (6 + 12 * c + 10 * impact);
+
+        // Occasional "branch" kink
+        const branch =
+          (hash01(seed * 12.9 + i * 8.1 + s * 1.9) > (0.86 - 0.18 * c))
+            ? (hash01(seed * 91.1 + i * 2.3 + s * 4.7) - 0.5) * (10 + 16 * c)
+            : 0;
+
+        ctx.lineTo(x0 + j + branch + offsetX, y0 + len * tt + offsetY);
+      }
+
+      ctx.stroke();
+
+      // Small horizontal fracture near the bottom for variety
+      if (c > 0.55 && hash01(seed * 5.3 + i * 3.9) > 0.55) {
+        const yy = y0 + len * (0.70 + 0.20 * hash01(seed * 6.7 + i * 1.7));
+        const span = w * (0.20 + 0.30 * hash01(seed * 8.9 + i * 2.1));
+        ctx.beginPath();
+        ctx.moveTo(x0 - span * 0.5 + offsetX, yy + offsetY);
+        ctx.lineTo(x0 + span * 0.5 + offsetX, yy + offsetY + (hash01(seed * 2.1 + i) - 0.5) * 4);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // Primary dark layer (reads on bright facades)
+  drawLayer(
+    clamp(0.22 + 0.55 * c, 0, 0.72),
+    "rgba(0,0,0,0.42)",
+    0,
+    0,
+    1.0
+  );
+
+  // Highlight layer (reads on dark facades)
+  drawLayer(
+    clamp(0.10 + 0.22 * c, 0, 0.32),
+    "rgba(255,255,255,0.16)",
+    0.6,
+    -0.4,
+    0.75
+  );
+
+  // Subtle "danger band" near top when close to collapse
+  if (c > 0.72) {
+    ctx.save();
+    ctx.globalAlpha = (0.08 + 0.14 * (c - 0.72) / 0.28) * pulse;
+    ctx.fillStyle = "rgba(255,85,110,0.18)";
+    ctx.fillRect(x, y, w, 2);
+    ctx.restore();
+  }
+}
+
 function drawRoof(ctx, plat, seed, animTime, COLORS, state) {
   const x = plat.x;
   const y = plat.y;
@@ -265,14 +363,12 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, state) {
   ctx.fillRect(x, y, w, 2);
 
   // Motion telegraph (for rising/crumbling roofs)
-  // plat.motion: "rise" | "crumble" | "none" (set by game/platforms.js)
   const motion = plat.motion || "none";
   const motionT = clamp(plat.motionT ?? 1, 0, 1);
   if (motion !== "none" && motionT < 1) {
     const a = 0.25 + 0.55 * (1 - motionT);
 
     if (motion === "rise") {
-      // cool glow + upward ticks
       ctx.save();
       ctx.globalAlpha = a;
       ctx.fillStyle = "rgba(120,205,255,0.30)";
@@ -286,7 +382,6 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, state) {
       }
       ctx.restore();
     } else if (motion === "crumble") {
-      // warm warning band + falling specks
       ctx.save();
       ctx.globalAlpha = a;
       ctx.fillStyle = "rgba(255,85,110,0.22)";
@@ -311,13 +406,18 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, state) {
   const crackBoost = isImpactPlat ? (0.35 * impact01) : 0;
   const crack01 = clamp((plat.crack01 ?? 0) + crackBoost, 0, 1);
   if (crack01 > 0.01) {
-    const pulseBase = crack01 > 0.70 ? (0.65 + 0.35 * (0.5 + 0.5 * Math.sin(animTime * 16))) : 1;
+    const pulseBase =
+      crack01 > 0.70
+        ? (0.65 + 0.35 * (0.5 + 0.5 * Math.sin((animTime || 0) * 16)))
+        : 1;
     const pulse = isImpactPlat ? pulseBase * (1.1 + 0.25 * impact01) : pulseBase;
     const count = 2 + Math.floor(crack01 * 5);
 
     ctx.save();
     ctx.globalAlpha = clamp(crack01 * 0.9, 0, 0.9) * pulse;
     ctx.strokeStyle = crack01 > 0.75 ? COLORS.crackHi : COLORS.crack;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
 
     for (let i = 0; i < count; i++) {
       const a = hash01(seed * 21.3 + i * 11.7);
@@ -336,7 +436,9 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, state) {
 
       for (let s = 1; s <= segs; s++) {
         const tt = s / segs;
-        const j = (hash01(seed * 77.7 + i * 13.3 + s * 5.1) - 0.5) * (6 + 10 * crack01);
+        const j =
+          (hash01(seed * 77.7 + i * 13.3 + s * 5.1) - 0.5) *
+          (6 + 10 * crack01);
         ctx.lineTo(x0 + len * tt, y0 + j);
       }
       ctx.stroke();
@@ -345,9 +447,11 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, state) {
       ctx.globalAlpha *= 0.45;
       ctx.lineWidth = Math.max(0.6, lw - 0.3);
       ctx.strokeStyle = "rgba(255,255,255,0.20)";
+      ctx.save();
       ctx.translate(0.6, -0.4);
       ctx.stroke();
-      ctx.translate(-0.6, 0.4);
+      ctx.restore();
+
       ctx.globalAlpha /= 0.45;
       ctx.strokeStyle = crack01 > 0.75 ? COLORS.crackHi : COLORS.crack;
     }
@@ -403,50 +507,6 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, state) {
   }
 }
 
-function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, impact01) {
-  if (crack01 <= 0.01 || h < 40 || w < 60) return;
-
-  const count = 1 + Math.floor(crack01 * 3) + (impact01 > 0 ? 1 : 0);
-  const pulse = impact01 > 0 ? (1 + 0.3 * impact01) : 1;
-
-  ctx.save();
-  ctx.globalAlpha = clamp(crack01 * 0.55, 0, 0.55) * pulse;
-  ctx.strokeStyle = "rgba(0,0,0,0.35)";
-
-  for (let i = 0; i < count; i++) {
-    const a = hash01(seed * 17.3 + i * 9.7);
-    const b = hash01(seed * 29.1 + i * 6.1);
-    const x0 = x + w * (0.15 + 0.70 * a);
-    const y0 = y + h * (0.15 + 0.10 * b);
-    const len = h * (0.35 + 0.35 * hash01(seed * 3.7 + i * 5.9));
-
-    const segs = 5 + Math.floor(crack01 * 4);
-    const lw = 0.8 + 0.8 * hash01(seed * 44.7 + i * 7.1);
-
-    ctx.lineWidth = lw;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    for (let s = 1; s <= segs; s++) {
-      const tt = s / segs;
-      const j = (hash01(seed * 77.7 + i * 13.3 + s * 5.1) - 0.5) * (6 + 8 * crack01);
-      ctx.lineTo(x0 + j, y0 + len * tt);
-    }
-    ctx.stroke();
-
-    // Subtle highlight for depth
-    ctx.globalAlpha *= 0.45;
-    ctx.lineWidth = Math.max(0.6, lw - 0.3);
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
-    ctx.translate(0.4, -0.3);
-    ctx.stroke();
-    ctx.translate(-0.4, 0.3);
-    ctx.globalAlpha /= 0.45;
-    ctx.strokeStyle = "rgba(0,0,0,0.35)";
-  }
-
-  ctx.restore();
-}
-
 export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollapseStart, dt = 1 / 60) {
   if (!Array.isArray(state.platforms)) return;
 
@@ -457,9 +517,7 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
   }
   prevHeavyLandT = heavyNow;
 
-  // Advance rubble sim here (keeps it self-contained)
-  // Advance rubble sim here (keeps it self-contained)
-// Use provided dt so rubble stays consistent under variable FPS.
+  // Use provided dt so rubble stays consistent under variable FPS.
   stepRubble(dt);
 
   for (const plat of state.platforms) {
@@ -507,14 +565,15 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
       ctx.restore();
     }
 
-    // building cracks (react to dive impact)
+    // building cracks (whole building, stronger + readable)
     {
       const heavyT = Number.isFinite(state?.heavyLandT) ? state.heavyLandT : 0;
       const impact01 = clamp(heavyT / 0.22, 0, 1);
       const isImpactPlat = state?.player?.groundPlat === plat && impact01 > 0;
       const crackBoost = isImpactPlat ? (0.35 * impact01) : 0;
       const crack01 = clamp((plat.crack01 ?? 0) + crackBoost, 0, 1);
-      drawBuildingCracks(ctx, bodyX, bodyY, bodyW, bodyH, seed, crack01, impact01);
+
+      drawBuildingCracks(ctx, bodyX, bodyY, bodyW, bodyH, seed, crack01, impact01, COLORS, animTime);
     }
 
     // windows (stable + cheap)
