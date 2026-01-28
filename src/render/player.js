@@ -20,7 +20,7 @@ import {
   drawHeavyLandingBurst,
   drawHeavyLandingRing,
   drawLandingRubble,
-} from "./playerFix_tmp.js";
+} from "./playerFx.js";
 
 // Render-only smoothing for dive pose (prevents snapping frame-to-frame)
 let _diveK = 0; // 0..1 smoothed
