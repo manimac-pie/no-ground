@@ -9,7 +9,7 @@ import {
   GATE_H,
   GROUND_Y,
 } from "./constants.js";
-import { clamp, pick, trickFromIntent, aabbOverlap } from "./utils.js";
+import { clamp, pick, aabbOverlap } from "./utils.js";
 import { difficulty01 } from "./platforms.js";
 
 // Gate spacing to prevent stacked labels/overlaps
@@ -26,18 +26,24 @@ export function startSpin(state, intent = "neutral") {
   if (p.spinning) return false;
   if (p.spinCooldown > 0) return false;
 
-  const info = trickFromIntent(intent);
-
+  // Flip-only mapping for A/D:
+  // - "backflip" => flip, dir -1
+  // - "frontflip" => flip, dir +1
+  // Anything else: default to a simple spin (dir alternates).
+  const i = intent || "neutral";
   p.spinning = true;
   p.spinT = SPIN_DURATION;
   p.spinProg = 0;
+  p.trickIntent = i;
 
-  p.trickKind = info.kind;
-  p.trickIntent = intent || "neutral";
-
-  if (info.kind === "corkscrew") {
-    p.spinDir = info.dir;
+  if (i === "backflip") {
+    p.trickKind = "flip";
+    p.spinDir = -1;
+  } else if (i === "frontflip") {
+    p.trickKind = "flip";
+    p.spinDir = 1;
   } else {
+    p.trickKind = "spin";
     p.spinDir = p.spinDir === 1 ? -1 : 1;
   }
 
@@ -83,10 +89,12 @@ export function maybeSpawnGateAhead(state) {
   const ref = state.platforms.length ? state.platforms[state.platforms.length - 1] : null;
   if (!ref) return;
 
-  // Current available trick kinds (A/D triggers corkscrew; neutral triggers spin).
-  // W/S are reserved for float/dive and are not trick intents.
-  const reqPool = ["spin", "corkscrew"];
-  const requiredKind = (d > 0.45 && Math.random() < 0.62) ? "corkscrew" : pick(reqPool);
+  // Current available trick kinds:
+  // - A/D trigger flips (backflip/frontflip)
+  // - (optional) neutral can trigger a simple spin
+  // W/S are reserved for float/dive.
+  const reqPool = ["spin", "flip"];
+  const requiredKind = (d > 0.45 && Math.random() < 0.62) ? "flip" : pick(reqPool);
 
   const gx = ref.x + ref.w * (0.25 + 0.50 * Math.random());
   const gy = clamp(ref.y - 70 - 35 * Math.random(), 130, GROUND_Y - 140);

@@ -447,7 +447,7 @@ function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, impact01) {
   ctx.restore();
 }
 
-export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollapseStart) {
+export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollapseStart, dt = 1 / 60) {
   if (!Array.isArray(state.platforms)) return;
 
   // Spawn rubble when a heavy landing starts (edge-triggered)
@@ -458,7 +458,9 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
   prevHeavyLandT = heavyNow;
 
   // Advance rubble sim here (keeps it self-contained)
-  stepRubble(1 / 60);
+  // Advance rubble sim here (keeps it self-contained)
+// Use provided dt so rubble stays consistent under variable FPS.
+  stepRubble(dt);
 
   for (const plat of state.platforms) {
     const seed = getPlatformSeed(plat);

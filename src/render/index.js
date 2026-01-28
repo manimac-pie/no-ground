@@ -1,5 +1,3 @@
-
-
 // src/render/index.js
 // Single render orchestrator (prevents duplicate draws).
 
@@ -49,6 +47,9 @@ export const COLORS = {
 let prevOnGround = true;
 let prevGameOver = false;
 
+// Frame dt for render-only effects (rubble/particles). Kept local so game logic stays dt-driven elsewhere.
+let _prevFrameT = 0;
+
 export function render(ctx, state) {
   const W = world.INTERNAL_WIDTH;
   const H = world.INTERNAL_HEIGHT;
@@ -70,6 +71,15 @@ export function render(ctx, state) {
   const uiTime = state.uiTime || 0;
   const animTime = state.animTime || 0;
 
+  // Render dt (seconds) for purely visual sims; clamp to avoid huge jumps after tab switches.
+  const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  let dt = 1 / 60;
+  if (_prevFrameT > 0) {
+    dt = (now - _prevFrameT) / 1000;
+  }
+  _prevFrameT = now;
+  dt = Math.max(0, Math.min(1 / 20, dt)); // clamp to [0, 50ms]
+
   // Clear
   ctx.clearRect(0, 0, W, H);
 
@@ -81,7 +91,7 @@ export function render(ctx, state) {
   // World objects
   ctx.save();
 
-  drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS);
+  drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, undefined, dt);
   drawGates(ctx, state, W, animTime);
 
   drawPlayerShadow(ctx, player);

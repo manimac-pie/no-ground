@@ -6,7 +6,7 @@
 
 import { createInput } from "./input.js";
 import { createGame } from "./game.js";
-import { render } from "./render.js";
+import { render } from "./render/index.js";
 
 const INTERNAL_WIDTH = 800;
 const INTERNAL_HEIGHT = 450;

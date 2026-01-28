@@ -4,7 +4,7 @@
 // - Jump hold: used for variable jump height
 // - Float: W held (mid-air control)
 // - Dive: S press (one-shot pulse), plus optional held flag
-// - Tricks: A/D (directional corkscrew) + optional X/Shift for neutral trick
+// - Flips: A (backflip) / D (front flip)
 
 export function createInput(canvas) {
   if (!canvas) throw new Error("createInput(canvas): canvas is required.");
@@ -20,8 +20,8 @@ export function createInput(canvas) {
     floatHeld: false, // W
     diveHeld: false,  // S (kept for UI/debug; gameplay uses divePressed -> latched)
 
-    // One-frame trick intent
-    trickIntent: null, // "left"|"right"|"neutral"|null
+    // One-frame flip intent
+    trickIntent: null, // "backflip"|"frontflip"|null
 
     // Pointer tracking
     pointerDown: false,
@@ -42,8 +42,6 @@ export function createInput(canvas) {
     state.divePressed = true;
   }
 
-  // Quick tap => neutral trick pulse on release.
-  const TAP_MAX_MS = 160;
 
   function onKeyDown(e) {
     const key = e.code;
@@ -51,10 +49,9 @@ export function createInput(canvas) {
     const isJumpKey = key === "Space" || key === "ArrowUp";
     const isFloatKey = key === "KeyW";
     const isDiveKey = key === "KeyS";
-    const isTrickDirKey = key === "KeyA" || key === "KeyD";
-    const isTrickKey = key === "KeyX" || key === "ShiftLeft" || key === "ShiftRight";
+    const isFlipKey = key === "KeyA" || key === "KeyD";
 
-    if (!isJumpKey && !isFloatKey && !isDiveKey && !isTrickDirKey && !isTrickKey) return;
+    if (!isJumpKey && !isFloatKey && !isDiveKey && !isFlipKey) return;
 
     // Prevent page scroll / browser shortcuts interfering.
     e.preventDefault();
@@ -85,13 +82,9 @@ export function createInput(canvas) {
       return;
     }
 
-    if (isTrickDirKey) {
-      pressTrick(key === "KeyA" ? "left" : "right");
+    if (isFlipKey) {
+      pressTrick(key === "KeyA" ? "backflip" : "frontflip");
       return;
-    }
-
-    if (isTrickKey) {
-      pressTrick("neutral");
     }
   }
 
@@ -145,13 +138,7 @@ export function createInput(canvas) {
 
     e.preventDefault();
 
-    // Quick tap release => neutral trick pulse.
-    if (wasActive && downAt) {
-      const ms = performance.now() - downAt;
-      if (ms <= TAP_MAX_MS) {
-        pressTrick("neutral");
-      }
-    }
+    // No pointer-based tricks; pointer is jump-only.
   }
 
   function onPointerCancel() {
