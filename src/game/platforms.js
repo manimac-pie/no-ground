@@ -86,7 +86,8 @@ export function resetPlatforms(state, maybeSpawnGateAhead) {
   }
 
   if (typeof maybeSpawnGateAhead === "function") {
-    while (state.gates.length < 3) {
+    // Cap attempts so a low random chance can't lock the main thread.
+    for (let i = 0; i < 20 && state.gates.length < 3; i++) {
       maybeSpawnGateAhead(state);
       if (rightmostPlatformX(state) < INTERNAL_WIDTH + 620) break;
     }

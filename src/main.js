@@ -15,6 +15,7 @@ const canvas = document.getElementById("game");
 if (!canvas) {
   throw new Error("Canvas element '#game' not found.");
 }
+
 // Make canvas focusable so keyboard input is reliable after a click/tap.
 canvas.tabIndex = 0;
 canvas.setAttribute("aria-label", "No Ground game canvas");
@@ -57,7 +58,8 @@ function computeScale() {
 
 function setCanvasSize() {
   scale = computeScale();
-  dpr = Math.min(2, window.devicePixelRatio || 1); // cap for performance on mobile
+  // Cap DPR for performance on high-DPI screens.
+  dpr = Math.min(1.5, window.devicePixelRatio || 1);
 
   const displayW = Math.floor(INTERNAL_WIDTH * scale);
   const displayH = Math.floor(INTERNAL_HEIGHT * scale);
@@ -121,15 +123,6 @@ function tick(now) {
     acc -= FIXED_DT;
     steps++;
   }
-
-  // Render once per frame
-  // DEBUG: guaranteed-visible marker (remove after confirming)
-  ctx.save();
-  // Ensure we draw in internal coordinates even if something changes the transform.
-  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
-  ctx.fillStyle = "#ff2e88";
-  ctx.fillRect(0, 0, 60, 60);
-  ctx.restore();
 
   render(ctx, game.state);
 

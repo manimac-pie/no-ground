@@ -73,11 +73,6 @@ export function render(ctx, state) {
   // Clear
   ctx.clearRect(0, 0, W, H);
 
-  // DEBUG: if you can see this pink square, render() is running and the canvas is visible.
-  // Remove after confirming.
-  ctx.fillStyle = "#ff2e88";
-  ctx.fillRect(10, 10, 24, 24);
-
   // Background
   drawBackground(ctx, W, H, COLORS);
   drawParallax(ctx, W, H, state.distance || 0);
