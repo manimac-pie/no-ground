@@ -8,6 +8,7 @@ import {
   PLAYER_H,
   SPEED_START,
   COYOTE_TIME_SEC,
+  FLOAT_FUEL_MAX,
 } from "./constants.js";
 
 export function createInitialState() {
@@ -47,6 +48,7 @@ export function createInitialState() {
       spinDir: 1,
       spinCooldown: 0,
       trickLandWindow: 0,
+      floatFuel: FLOAT_FUEL_MAX,
 
       trickKind: "spin",
       trickIntent: "neutral",
@@ -57,6 +59,7 @@ export function createInitialState() {
 
     lastLandQuality: null,
     lastLandQualityT: 0,
+    heavyLandT: 0,
   };
 }
 
@@ -78,8 +81,10 @@ export function resetRunState(state) {
   state.jumpCut = 0;
 
   state.gates.length = 0;
+  state._nextGateDist = 0;
   state.lastLandQuality = null;
   state.lastLandQualityT = 0;
+  state.heavyLandT = 0;
 
   const p = state.player;
   p.x = PLAYER_X;
@@ -99,4 +104,5 @@ export function resetRunState(state) {
   p.trickLandWindow = 0;
   p.trickKind = "spin";
   p.trickIntent = "neutral";
+  p.floatFuel = FLOAT_FUEL_MAX;
 }

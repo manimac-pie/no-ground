@@ -15,7 +15,15 @@ export const MAX_FALL_SPEED = 1800;
 // Feel adjustments
 export const FALL_GRAVITY_MULT = 1.20;
 export const JUMP_CUT_MULT = 2.0;
+
 export const JUMP_CUT_RAMP_PER_SEC = 18;
+
+// Air control (W = float, S = dive)
+export const FLOAT_FUEL_MAX = 0.38;            // seconds of float available
+export const FLOAT_FUEL_REGEN_PER_SEC = 0.70;  // fuel/sec regained while grounded
+export const FLOAT_GRAVITY_MULT = 0.35;        // gravity multiplier while floating
+export const DIVE_GRAVITY_MULT = 1.85;         // extra gravity while diving (slightly slower descent)
+export const DIVE_MAX_FALL_SPEED = 2200;       // faster terminal speed when diving
 
 export const LAND_GRACE_SEC = 0.06;
 
@@ -69,3 +77,13 @@ export const PLAYER_X = 160;
 // Input grace
 export const COYOTE_TIME_SEC = 0.13;
 export const JUMP_BUFFER_SEC = 0.13;
+
+// Dive feel / animation timing
+// Used by game/player.js for phase timing, and by render/player.js for stable pose targets.
+export const DIVE_ANTICIPATION_SEC = 0.11; // seconds of anticipation before full dive commit
+export const DIVE_SPIKE_ANGLE_RAD = 0.82;  // visual target angle for dive commit (~47 degrees)
+
+// Render-only pose tuning (keep here so it’s easy to tweak without hunting values)
+export const DIVE_SILHOUETTE_SHOULDER_W = 0.74;
+export const DIVE_SILHOUETTE_MID_W = 0.54;
+export const DIVE_SILHOUETTE_TIP_W = 0.14;

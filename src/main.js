@@ -42,6 +42,9 @@ const focusCanvas = () => {
 canvas.addEventListener("pointerdown", focusCanvas, { passive: true });
 canvas.addEventListener("mousedown", focusCanvas, { passive: true });
 
+// Also focus on any key press so desktop users don't have to click the canvas first.
+document.addEventListener("keydown", focusCanvas, { passive: true });
+
 // Prevent context menu on right click / long press.
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
@@ -100,6 +103,9 @@ window.addEventListener("orientationchange", onResize, { passive: true });
 
 // Initial layout
 onResize();
+
+// Attempt to focus immediately (some browsers require user gesture; harmless if ignored)
+focusCanvas();
 
 // Main loop — fixed timestep for stable physics + smoother feel
 let last = performance.now();

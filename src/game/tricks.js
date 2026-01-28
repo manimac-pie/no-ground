@@ -19,6 +19,9 @@ const GATE_MIN_DY = 80;  // minimum vertical separation when x is close
 export function startSpin(state, intent = "neutral") {
   const p = state.player;
 
+  // Diving cancels tricks and should not allow new ones until after landing.
+  if (p.diving === true) return false;
+
   if (p.onGround) return false;
   if (p.spinning) return false;
   if (p.spinCooldown > 0) return false;
@@ -44,6 +47,14 @@ export function startSpin(state, intent = "neutral") {
 
 export function updateTricks(state, dt) {
   const p = state.player;
+
+  // Safety: if dive mode is active, ensure trick state is cleared.
+  if (p.diving === true) {
+    p.spinning = false;
+    p.spinT = 0;
+    p.spinProg = 0;
+    return;
+  }
 
   if (p.spinCooldown > 0) p.spinCooldown = Math.max(0, p.spinCooldown - dt);
 
@@ -72,8 +83,10 @@ export function maybeSpawnGateAhead(state) {
   const ref = state.platforms.length ? state.platforms[state.platforms.length - 1] : null;
   if (!ref) return;
 
-  const reqPool = d < 0.35 ? ["spin", "corkscrew"] : ["spin", "corkscrew", "flip", "stall"];
-  const requiredKind = pick(reqPool);
+  // Current available trick kinds (A/D triggers corkscrew; neutral triggers spin).
+  // W/S are reserved for float/dive and are not trick intents.
+  const reqPool = ["spin", "corkscrew"];
+  const requiredKind = (d > 0.45 && Math.random() < 0.62) ? "corkscrew" : pick(reqPool);
 
   const gx = ref.x + ref.w * (0.25 + 0.50 * Math.random());
   const gy = clamp(ref.y - 70 - 35 * Math.random(), 130, GROUND_Y - 140);

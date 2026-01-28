@@ -149,6 +149,72 @@ export function drawVignette(ctx, W, H) {
   ctx.fillRect(0, 0, W, H);
 }
 
+// ---------------- rubble particles (heavy landings) ----------------
+// Small roof chips spawned on heavy dive landings.
+const rubble = [];
+let prevHeavyLandT = 0;
+
+function spawnRubbleBurst(state, COLORS) {
+  const p = state.player;
+  if (!p) return;
+
+  // Spawn from the roof line if we have a supporting platform.
+  const gp = p.groundPlat;
+  const baseX = p.x + p.w * 0.5;
+  const baseY = gp ? gp.y : (p.y + p.h);
+
+  const n = 18;
+  for (let i = 0; i < n; i++) {
+    const a = Math.PI * (0.15 + 0.70 * Math.random()); // mostly sideways/up
+    const sp = 160 + 260 * Math.random();
+    const dir = Math.random() < 0.5 ? -1 : 1;
+
+    rubble.push({
+      x: baseX + (Math.random() * 10 - 5),
+      y: baseY + 1,
+      vx: Math.cos(a) * sp * dir,
+      vy: -Math.sin(a) * sp,
+      life: 0.55 + Math.random() * 0.25,
+      age: 0,
+      s: 2 + Math.random() * 2,
+      // Slight color variation for chips
+      c: Math.random() < 0.55 ? COLORS.roofDetail : "rgba(242,242,242,0.12)",
+    });
+  }
+}
+
+function stepRubble(dt) {
+  const G = 1400;
+  for (let i = rubble.length - 1; i >= 0; i--) {
+    const r = rubble[i];
+    r.age += dt;
+    if (r.age >= r.life) {
+      rubble.splice(i, 1);
+      continue;
+    }
+
+    r.vy += G * dt;
+    r.x += r.vx * dt;
+    r.y += r.vy * dt;
+
+    // If it falls below lethal ground, kill it.
+    if (r.y > world.GROUND_Y + 80) {
+      rubble.splice(i, 1);
+    }
+  }
+}
+
+function drawRubble(ctx) {
+  for (const r of rubble) {
+    const a = 1 - r.age / r.life;
+    ctx.save();
+    ctx.globalAlpha = 0.18 + 0.32 * a;
+    ctx.fillStyle = r.c;
+    ctx.fillRect(r.x, r.y, r.s, r.s);
+    ctx.restore();
+  }
+}
+
 // ---------------- buildings / roofs ----------------
 
 // stable per-platform seed so windows/details don't flicker
@@ -177,7 +243,7 @@ function pickBuildingColor(seed, COLORS) {
   return hash01(seed) < 0.5 ? COLORS.buildingA : COLORS.buildingB;
 }
 
-function drawRoof(ctx, plat, seed, animTime, COLORS) {
+function drawRoof(ctx, plat, seed, animTime, COLORS, state) {
   const x = plat.x;
   const y = plat.y;
   const w = plat.w;
@@ -198,16 +264,60 @@ function drawRoof(ctx, plat, seed, animTime, COLORS) {
   ctx.fillStyle = COLORS.platformEdge;
   ctx.fillRect(x, y, w, 2);
 
-  // cracks based on plat.crack01
-  const crack01 = clamp(plat.crack01 ?? 0, 0, 1);
+  // Motion telegraph (for rising/crumbling roofs)
+  // plat.motion: "rise" | "crumble" | "none" (set by game/platforms.js)
+  const motion = plat.motion || "none";
+  const motionT = clamp(plat.motionT ?? 1, 0, 1);
+  if (motion !== "none" && motionT < 1) {
+    const a = 0.25 + 0.55 * (1 - motionT);
+
+    if (motion === "rise") {
+      // cool glow + upward ticks
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = "rgba(120,205,255,0.30)";
+      ctx.fillRect(x, y - 1, w, 3);
+
+      ctx.fillStyle = "rgba(120,205,255,0.18)";
+      const tickN = Math.min(10, Math.max(3, Math.floor(w / 70)));
+      for (let i = 0; i < tickN; i++) {
+        const px = x + (w * (i + 0.5)) / tickN;
+        ctx.fillRect(px, y - 7, 2, 6);
+      }
+      ctx.restore();
+    } else if (motion === "crumble") {
+      // warm warning band + falling specks
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.fillStyle = "rgba(255,85,110,0.22)";
+      ctx.fillRect(x, y - 1, w, 3);
+
+      ctx.fillStyle = "rgba(242,242,242,0.08)";
+      const specks = Math.min(14, Math.max(6, Math.floor(w / 35)));
+      for (let i = 0; i < specks; i++) {
+        const r = hash01(seed * 91.7 + i * 13.1);
+        const px = x + w * r;
+        const py = y + 4 + (hash01(seed * 33.3 + i * 7.7) * 10);
+        ctx.fillRect(px, py, 2, 2);
+      }
+      ctx.restore();
+    }
+  }
+
+  // cracks based on plat.crack01 (+ impact boost on dive landing)
+  const heavyT = Number.isFinite(state?.heavyLandT) ? state.heavyLandT : 0;
+  const impact01 = clamp(heavyT / 0.22, 0, 1);
+  const isImpactPlat = state?.player?.groundPlat === plat && impact01 > 0;
+  const crackBoost = isImpactPlat ? (0.35 * impact01) : 0;
+  const crack01 = clamp((plat.crack01 ?? 0) + crackBoost, 0, 1);
   if (crack01 > 0.01) {
-    const pulse = crack01 > 0.70 ? (0.65 + 0.35 * (0.5 + 0.5 * Math.sin(animTime * 16))) : 1;
+    const pulseBase = crack01 > 0.70 ? (0.65 + 0.35 * (0.5 + 0.5 * Math.sin(animTime * 16))) : 1;
+    const pulse = isImpactPlat ? pulseBase * (1.1 + 0.25 * impact01) : pulseBase;
     const count = 2 + Math.floor(crack01 * 5);
 
     ctx.save();
     ctx.globalAlpha = clamp(crack01 * 0.9, 0, 0.9) * pulse;
     ctx.strokeStyle = crack01 > 0.75 ? COLORS.crackHi : COLORS.crack;
-    ctx.lineWidth = 1;
 
     for (let i = 0; i < count; i++) {
       const a = hash01(seed * 21.3 + i * 11.7);
@@ -217,16 +327,29 @@ function drawRoof(ctx, plat, seed, animTime, COLORS) {
       const y0 = y + 2 + (h - 4) * (0.25 + 0.50 * b);
       const len = w * (0.18 + 0.45 * hash01(seed * 9.9 + i * 3.1));
 
+      const segs = 4 + Math.floor(crack01 * 4);
+      const lw = 0.8 + 0.7 * hash01(seed * 55.1 + i * 7.9);
+
+      ctx.lineWidth = lw;
       ctx.beginPath();
       ctx.moveTo(x0, y0);
 
-      const segs = 4 + Math.floor(crack01 * 4);
       for (let s = 1; s <= segs; s++) {
         const tt = s / segs;
         const j = (hash01(seed * 77.7 + i * 13.3 + s * 5.1) - 0.5) * (6 + 10 * crack01);
         ctx.lineTo(x0 + len * tt, y0 + j);
       }
       ctx.stroke();
+
+      // Subtle highlight pass for depth
+      ctx.globalAlpha *= 0.45;
+      ctx.lineWidth = Math.max(0.6, lw - 0.3);
+      ctx.strokeStyle = "rgba(255,255,255,0.20)";
+      ctx.translate(0.6, -0.4);
+      ctx.stroke();
+      ctx.translate(-0.6, 0.4);
+      ctx.globalAlpha /= 0.45;
+      ctx.strokeStyle = crack01 > 0.75 ? COLORS.crackHi : COLORS.crack;
     }
 
     if (crack01 > 0.70) {
@@ -280,8 +403,62 @@ function drawRoof(ctx, plat, seed, animTime, COLORS) {
   }
 }
 
+function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, impact01) {
+  if (crack01 <= 0.01 || h < 40 || w < 60) return;
+
+  const count = 1 + Math.floor(crack01 * 3) + (impact01 > 0 ? 1 : 0);
+  const pulse = impact01 > 0 ? (1 + 0.3 * impact01) : 1;
+
+  ctx.save();
+  ctx.globalAlpha = clamp(crack01 * 0.55, 0, 0.55) * pulse;
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+
+  for (let i = 0; i < count; i++) {
+    const a = hash01(seed * 17.3 + i * 9.7);
+    const b = hash01(seed * 29.1 + i * 6.1);
+    const x0 = x + w * (0.15 + 0.70 * a);
+    const y0 = y + h * (0.15 + 0.10 * b);
+    const len = h * (0.35 + 0.35 * hash01(seed * 3.7 + i * 5.9));
+
+    const segs = 5 + Math.floor(crack01 * 4);
+    const lw = 0.8 + 0.8 * hash01(seed * 44.7 + i * 7.1);
+
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    for (let s = 1; s <= segs; s++) {
+      const tt = s / segs;
+      const j = (hash01(seed * 77.7 + i * 13.3 + s * 5.1) - 0.5) * (6 + 8 * crack01);
+      ctx.lineTo(x0 + j, y0 + len * tt);
+    }
+    ctx.stroke();
+
+    // Subtle highlight for depth
+    ctx.globalAlpha *= 0.45;
+    ctx.lineWidth = Math.max(0.6, lw - 0.3);
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.translate(0.4, -0.3);
+    ctx.stroke();
+    ctx.translate(-0.4, 0.3);
+    ctx.globalAlpha /= 0.45;
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  }
+
+  ctx.restore();
+}
+
 export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollapseStart) {
   if (!Array.isArray(state.platforms)) return;
+
+  // Spawn rubble when a heavy landing starts (edge-triggered)
+  const heavyNow = Number.isFinite(state.heavyLandT) ? state.heavyLandT : 0;
+  if (heavyNow > 0 && prevHeavyLandT <= 0) {
+    spawnRubbleBurst(state, COLORS);
+  }
+  prevHeavyLandT = heavyNow;
+
+  // Advance rubble sim here (keeps it self-contained)
+  stepRubble(1 / 60);
 
   for (const plat of state.platforms) {
     const seed = getPlatformSeed(plat);
@@ -304,6 +481,39 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
     // body fill
     ctx.fillStyle = pickBuildingColor(seed, COLORS);
     ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
+
+    // Subtle facade cue while the roof is moving (helps readability)
+    const motion = plat.motion || "none";
+    const motionT = clamp(plat.motionT ?? 1, 0, 1);
+    if (motion !== "none" && motionT < 1 && bodyH > 24) {
+      const a = 0.06 + 0.14 * (1 - motionT);
+      ctx.save();
+      ctx.globalAlpha = a;
+      if (motion === "rise") {
+        const gg = ctx.createLinearGradient(0, bodyY, 0, bodyY + Math.min(bodyH, 140));
+        gg.addColorStop(0, "rgba(120,205,255,0.20)");
+        gg.addColorStop(1, "rgba(120,205,255,0)");
+        ctx.fillStyle = gg;
+        ctx.fillRect(bodyX, bodyY, bodyW, Math.min(bodyH, 140));
+      } else {
+        const gg = ctx.createLinearGradient(0, bodyY, 0, bodyY + Math.min(bodyH, 140));
+        gg.addColorStop(0, "rgba(255,85,110,0.18)");
+        gg.addColorStop(1, "rgba(255,85,110,0)");
+        ctx.fillStyle = gg;
+        ctx.fillRect(bodyX, bodyY, bodyW, Math.min(bodyH, 140));
+      }
+      ctx.restore();
+    }
+
+    // building cracks (react to dive impact)
+    {
+      const heavyT = Number.isFinite(state?.heavyLandT) ? state.heavyLandT : 0;
+      const impact01 = clamp(heavyT / 0.22, 0, 1);
+      const isImpactPlat = state?.player?.groundPlat === plat && impact01 > 0;
+      const crackBoost = isImpactPlat ? (0.35 * impact01) : 0;
+      const crack01 = clamp((plat.crack01 ?? 0) + crackBoost, 0, 1);
+      drawBuildingCracks(ctx, bodyX, bodyY, bodyW, bodyH, seed, crack01, impact01);
+    }
 
     // windows (stable + cheap)
     const pad = 10;
@@ -339,8 +549,11 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
     }
 
     // roof (platform surface)
-    drawRoof(ctx, plat, seed, animTime, COLORS);
+    drawRoof(ctx, plat, seed, animTime, COLORS, state);
   }
+
+  // rubble on top of roofs
+  drawRubble(ctx);
 
   // baseline for readability
   ctx.fillStyle = "rgba(242,242,242,0.06)";
@@ -350,19 +563,19 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
 // ---------------- air gates ----------------
 function gateLabel(kind) {
   switch (kind) {
-    case "flip": return "W";
-    case "corkscrew": return "A/D";
-    case "stall": return "S";
-    default: return "SPIN";
+    case "corkscrew":
+      return "A/D";
+    default:
+      return "SPIN";
   }
 }
 
 function gateSubLabel(kind) {
   switch (kind) {
-    case "flip": return "FLIP";
-    case "corkscrew": return "CORKSCREW";
-    case "stall": return "STALL";
-    default: return "SPIN";
+    case "corkscrew":
+      return "CORKSCREW";
+    default:
+      return "SPIN";
   }
 }
 

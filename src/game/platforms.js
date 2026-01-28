@@ -19,6 +19,11 @@ import {
 } from "./constants.js";
 import { clamp, randRange, pick } from "./utils.js";
 
+function easeInOut01(t) {
+  // smoothstep
+  return t * t * (3 - 2 * t);
+}
+
 export function rightmostPlatformX(state) {
   let best = -Infinity;
   for (const p of state.platforms) best = Math.max(best, p.x + p.w);
@@ -50,16 +55,40 @@ export function spawnNextPlatform(state) {
   const prev = state.platforms.length ? state.platforms[state.platforms.length - 1] : null;
   if (prev) {
     const step = MAX_PLATFORM_STEP + d * 50;
-    y = clamp(y, prev.y - step, prev.y + step);
+    const prevY = Number.isFinite(prev.baseY) ? prev.baseY : prev.y;
+    y = clamp(y, prevY - step, prevY + step);
   }
 
   y = clamp(y, 180, GROUND_Y - 40);
+
+  // Dynamic rooftops: some platforms slowly rise or crumble (sink) after spawning.
+  // Keep subtle and fair; clamp so they never approach the lethal ground too closely.
+  const motionChance = 0.10 + 0.18 * d; // ramps with difficulty
+  const hasMotion = Math.random() < motionChance;
+  const motionKind = hasMotion ? (Math.random() < 0.5 ? "rise" : "crumble") : "none";
+
+  // Amplitude in px (rise = negative direction, crumble = positive direction)
+  const amp = hasMotion ? (14 + 30 * (0.35 + 0.65 * d) * Math.random()) : 0;
+  const motionTargetY = motionKind === "rise" ? -amp : (motionKind === "crumble" ? amp : 0);
+
+  // How quickly it reaches the target
+  const motionRate = hasMotion ? (0.55 + 0.85 * Math.random()) : 0;
 
   state.platforms.push({
     x: lastRight + gap,
     y,
     w,
     h: PLATFORM_H,
+
+    // Motion state
+    baseY: y,
+    motion: motionKind, // "rise" | "crumble" | "none"
+    motionT: hasMotion ? 0 : 1,
+    motionRate,
+    motionTargetY,
+
+    // Collapse state
+    heavyBumped: false,
     stress: 0,
     crack01: 0,
     collapsing: false,
@@ -70,11 +99,23 @@ export function spawnNextPlatform(state) {
 export function resetPlatforms(state, maybeSpawnGateAhead) {
   state.platforms.length = 0;
 
+  const startY = GROUND_Y - SAFE_CLEARANCE;
+
   state.platforms.push({
     x: 0,
-    y: GROUND_Y - SAFE_CLEARANCE,
+    y: startY,
     w: INTERNAL_WIDTH * 0.65,
     h: PLATFORM_H,
+
+    // Motion (none for start)
+    baseY: startY,
+    motion: "none",
+    motionT: 1,
+    motionRate: 0,
+    motionTargetY: 0,
+
+    // Collapse state
+    heavyBumped: false,
     stress: 0,
     crack01: 0,
     collapsing: false,
@@ -126,6 +167,13 @@ export function updatePlatforms(state, dt) {
   const collapseTime =
     ROOF_COLLAPSE_TIME_EASY + (ROOF_COLLAPSE_TIME_HARD - ROOF_COLLAPSE_TIME_EASY) * d;
 
+  // Dive -> faster collapse tuning
+  // - Holding S while on a roof accelerates stress gain.
+  // - A heavy dive landing applies a one-time stress bump (not an instant break).
+  const DIVE_STRESS_MULT = 2.25; // extra stress rate while S is held on a roof
+  const HEAVY_BUMP_FRAC_EASY = 0.22; // fraction of collapseTime added on heavy landing (easy)
+  const HEAVY_BUMP_FRAC_HARD = 0.34; // fraction of collapseTime added on heavy landing (hard)
+
   for (const plat of state.platforms) {
     if (plat.collapsing) {
       plat.vy += ROOF_FALL_GRAVITY * dt;
@@ -133,8 +181,49 @@ export function updatePlatforms(state, dt) {
       continue;
     }
 
+    // Apply gentle rise/crumble motion (non-collapsing only).
+    if (plat.motion && plat.motion !== "none" && plat.motionT < 1) {
+      plat.motionT = clamp(plat.motionT + plat.motionRate * dt, 0, 1);
+      const e = easeInOut01(plat.motionT);
+      let newY = plat.baseY + plat.motionTargetY * e;
+
+      // Fairness clamps: never too close to lethal ground and never too high.
+      newY = clamp(newY, 160, GROUND_Y - 40);
+
+      // If we hit the clamp, finish motion to avoid jitter.
+      if (newY === 160 || newY === GROUND_Y - 40) {
+        plat.motionT = 1;
+      }
+
+      plat.y = newY;
+
+      // If the player is standing on this platform, keep them glued to the top.
+      if (state.running && p.onGround && p.groundPlat === plat) {
+        p.y = plat.y - p.h;
+        p.vy = 0;
+      }
+    }
+
+    // Stress only the roof you're currently standing on.
     if (state.running && p.onGround && p.groundPlat === plat) {
-      plat.stress += dt;
+      // Base stress rate
+      let add = dt;
+
+      // Dive mode (one-press latch) accelerates cracking.
+      // This makes dive landings "burn" roofs faster without instantly breaking them.
+      if (p.diving === true) {
+        add += dt * DIVE_STRESS_MULT;
+      }
+
+      plat.stress += add;
+
+      // One-time heavy landing bump (set by game logic via state.heavyLandT)
+      // Apply only once per platform so you can't farm bumps by lingering.
+      if ((state.heavyLandT || 0) > 0 && !plat.heavyBumped) {
+        const bumpFrac = HEAVY_BUMP_FRAC_EASY + (HEAVY_BUMP_FRAC_HARD - HEAVY_BUMP_FRAC_EASY) * d;
+        plat.stress += collapseTime * bumpFrac;
+        plat.heavyBumped = true;
+      }
     }
 
     plat.crack01 = clamp(plat.stress / collapseTime, 0, 1);
@@ -143,6 +232,15 @@ export function updatePlatforms(state, dt) {
       plat.collapsing = true;
       plat.vy = 0;
       plat.crack01 = 1;
+
+      plat.heavyBumped = false;
+
+      // Freeze motion so it doesn't fight the fall.
+      plat.motion = "none";
+      plat.motionT = 1;
+      plat.baseY = plat.y;
+      plat.motionTargetY = 0;
+      plat.motionRate = 0;
 
       if (p.groundPlat === plat) {
         p.onGround = false;

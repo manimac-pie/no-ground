@@ -1,36 +1,31 @@
 // No Ground — input abstraction
-// Goal: expose a single action: "jump" that works on:
-// - Keyboard (Space / ArrowUp / W)
-// - Mouse (left click)
-// - Touch (tap)
-// This module should not know anything about player physics.
+// Exposes:
+// - Jump: Space / ArrowUp, pointer down (click/tap)
+// - Jump hold: used for variable jump height
+// - Float: W held (mid-air control)
+// - Dive: S press (one-shot pulse), plus optional held flag
+// - Tricks: A/D (directional corkscrew) + optional X/Shift for neutral trick
 
 export function createInput(canvas) {
   if (!canvas) throw new Error("createInput(canvas): canvas is required.");
 
   const state = {
-    // One-frame pulse set when the user presses jump.
-    // Game loop should read then clear via consumeJumpPressed().
+    // One-frame pulses
     jumpPressed: false,
-
-    // True while the jump input is held (used for variable jump height).
-    jumpHeld: false,
-
-    // One-frame pulse set when the user triggers a trick/spin.
-    // Game loop should read then clear via consumeTrickPressed().
     trickPressed: false,
+    divePressed: false,
 
-    // One-frame directional intent for tricks ("up"|"down"|"left"|"right"|"neutral"|null)
-    // Game loop should read then clear via consumeTrickIntent().
-    trickIntent: null,
+    // Holds
+    jumpHeld: false,
+    floatHeld: false, // W
+    diveHeld: false,  // S (kept for UI/debug; gameplay uses divePressed -> latched)
 
-    // Whether pointer is currently down (useful later, e.g., for hold-to-slide).
+    // One-frame trick intent
+    trickIntent: null, // "left"|"right"|"neutral"|null
+
+    // Pointer tracking
     pointerDown: false,
-
-    // Tracks whether we should ignore a press because it started outside canvas.
     _activePointer: false,
-
-    // Timestamp for tap detection
     _pointerDownAt: 0,
   };
 
@@ -43,29 +38,35 @@ export function createInput(canvas) {
     state.trickIntent = intent;
   }
 
-  // If the user taps quickly, we emit a trick pulse on release.
-  // Game logic can decide when it counts (e.g., only while airborne).
+  function pressDive() {
+    state.divePressed = true;
+  }
+
+  // Quick tap => neutral trick pulse on release.
   const TAP_MAX_MS = 160;
 
   function onKeyDown(e) {
     const key = e.code;
 
-    // Jump: Space / Up
     const isJumpKey = key === "Space" || key === "ArrowUp";
-
-    // Directional tricks: WASD
-    const isDirKey = key === "KeyW" || key === "KeyA" || key === "KeyS" || key === "KeyD";
-
-    // Optional fallback trick key (keeps existing behavior for people who learned X/Shift)
+    const isFloatKey = key === "KeyW";
+    const isDiveKey = key === "KeyS";
+    const isTrickDirKey = key === "KeyA" || key === "KeyD";
     const isTrickKey = key === "KeyX" || key === "ShiftLeft" || key === "ShiftRight";
 
-    if (!isJumpKey && !isDirKey && !isTrickKey) return;
+    if (!isJumpKey && !isFloatKey && !isDiveKey && !isTrickDirKey && !isTrickKey) return;
 
-    // Prevent page scroll on space/arrow keys and avoid focus/selection oddities.
+    // Prevent page scroll / browser shortcuts interfering.
     e.preventDefault();
 
-    // Avoid repeating when key is held.
-    if (e.repeat) return;
+    // Avoid repeat pulses when holding a key.
+    if (e.repeat) {
+      // Still allow held flags to remain true; we just don't pulse.
+      if (isJumpKey) state.jumpHeld = true;
+      if (isFloatKey) state.floatHeld = true;
+      if (isDiveKey) state.diveHeld = true;
+      return;
+    }
 
     if (isJumpKey) {
       state.jumpHeld = true;
@@ -73,37 +74,51 @@ export function createInput(canvas) {
       return;
     }
 
-    if (isDirKey) {
-      const intent =
-        key === "KeyW" ? "up" :
-        key === "KeyS" ? "down" :
-        key === "KeyA" ? "left" :
-        "right";
-      pressTrick(intent);
+    if (isFloatKey) {
+      state.floatHeld = true;
       return;
     }
 
-    // Fallback (non-directional)
-    if (isTrickKey) pressTrick("neutral");
+    if (isDiveKey) {
+      state.diveHeld = true;
+      pressDive();
+      return;
+    }
+
+    if (isTrickDirKey) {
+      pressTrick(key === "KeyA" ? "left" : "right");
+      return;
+    }
+
+    if (isTrickKey) {
+      pressTrick("neutral");
+    }
   }
 
   function onKeyUp(e) {
     const key = e.code;
+
     const isJumpKey = key === "Space" || key === "ArrowUp";
-    if (!isJumpKey) return;
+    const isFloatKey = key === "KeyW";
+    const isDiveKey = key === "KeyS";
+
+    if (!isJumpKey && !isFloatKey && !isDiveKey) return;
     e.preventDefault();
-    state.jumpHeld = false;
+
+    if (isJumpKey) state.jumpHeld = false;
+    if (isFloatKey) state.floatHeld = false;
+    if (isDiveKey) state.diveHeld = false;
   }
 
   function isEventInsideCanvas(ev) {
     const rect = canvas.getBoundingClientRect();
-    const x = (ev.clientX ?? 0);
-    const y = (ev.clientY ?? 0);
+    const x = ev.clientX ?? 0;
+    const y = ev.clientY ?? 0;
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
 
   function onPointerDown(e) {
-    // Unifies mouse/touch/pen. We only care about primary button.
+    // Mouse: primary button only.
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     state.pointerDown = true;
@@ -130,8 +145,7 @@ export function createInput(canvas) {
 
     e.preventDefault();
 
-    // Quick tap release => trick pulse.
-    // (Game logic will ignore it when inappropriate.)
+    // Quick tap release => neutral trick pulse.
     if (wasActive && downAt) {
       const ms = performance.now() - downAt;
       if (ms <= TAP_MAX_MS) {
@@ -142,38 +156,59 @@ export function createInput(canvas) {
 
   function onPointerCancel() {
     state.jumpHeld = false;
+    state.floatHeld = false;
+    state.diveHeld = false;
     state.pointerDown = false;
     state._activePointer = false;
     state._pointerDownAt = 0;
   }
 
+  function resetInputs() {
+    state.jumpPressed = false;
+    state.trickPressed = false;
+    state.divePressed = false;
+    state.jumpHeld = false;
+    state.floatHeld = false;
+    state.diveHeld = false;
+    state.trickIntent = null;
+    state.pointerDown = false;
+    state._activePointer = false;
+    state._pointerDownAt = 0;
+  }
+
+  function onVisibilityChange() {
+    if (document.hidden) resetInputs();
+  }
+
   // Attach listeners
   window.addEventListener("keydown", onKeyDown, { passive: false });
   window.addEventListener("keyup", onKeyUp, { passive: false });
+  window.addEventListener("blur", resetInputs, { passive: true });
+  window.addEventListener("visibilitychange", onVisibilityChange, { passive: true });
 
-  // Pointer events are best for cross-device input.
   canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
   window.addEventListener("pointerup", onPointerUp, { passive: false });
   window.addEventListener("pointercancel", onPointerCancel, { passive: true });
 
-  // API for the game loop
   return {
-    // Returns true once per press; resets the pulse.
     consumeJumpPressed() {
       const v = state.jumpPressed;
       state.jumpPressed = false;
       return v;
     },
 
-    // Returns true once per trick press; resets the pulse.
+    consumeDivePressed() {
+      const v = state.divePressed;
+      state.divePressed = false;
+      return v;
+    },
+
     consumeTrickPressed() {
       const v = state.trickPressed;
       state.trickPressed = false;
       return v;
     },
 
-    // Returns the trick intent once per press; resets the intent.
-    // Possible values: "up"|"down"|"left"|"right"|"neutral"|null
     consumeTrickIntent() {
       const v = state.trickIntent;
       state.trickIntent = null;
@@ -184,7 +219,15 @@ export function createInput(canvas) {
       return state.jumpHeld;
     },
 
-    // Read-only state if needed later.
+    get floatHeld() {
+      return state.floatHeld;
+    },
+
+    // Kept for UI/debug; gameplay uses consumeDivePressed() and player.diving latch.
+    get diveHeld() {
+      return state.diveHeld;
+    },
+
     get pointerDown() {
       return state.pointerDown;
     },
@@ -192,6 +235,8 @@ export function createInput(canvas) {
     destroy() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", resetInputs);
+      window.removeEventListener("visibilitychange", onVisibilityChange);
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);

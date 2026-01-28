@@ -61,6 +61,27 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   ctx.font = "500 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   ctx.fillText(`Jumps ${player.jumpsRemaining}`, 20, 52);
 
+  // Float fuel meter (W)
+  if (Number.isFinite(player.floatFuel)) {
+    const max = Number.isFinite(player.floatFuelMax) ? player.floatFuelMax : 0.38;
+    const fuel01 = clamp(max > 0 ? player.floatFuel / max : 0, 0, 1);
+
+    const bx = 200;
+    const by = 42;
+    const bw = 40;
+    const bh = 6;
+
+    ctx.fillStyle = "rgba(242,242,242,0.18)";
+    ctx.fillRect(bx, by, bw, bh);
+
+    ctx.fillStyle = "rgba(120,205,255,0.65)";
+    ctx.fillRect(bx, by, Math.floor(bw * fuel01), bh);
+
+    ctx.fillStyle = "rgba(242,242,242,0.55)";
+    ctx.font = "700 10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+    ctx.fillText("W", bx + bw + 6, by + 6);
+  }
+
   // Style score if present
   if (Number.isFinite(state.styleScore)) {
     const s = Math.floor(state.styleScore || 0);
@@ -158,11 +179,11 @@ export function drawMenus(ctx, state, uiTime, COLORS, W, H) {
 
     ctx.font = "500 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
     ctx.fillStyle = "rgba(242,242,242,0.55)";
-    centerText(ctx, "Tricks mid-air: W flip • A/D corkscrew • S stall • Space jump", cx0, cardY + 194);
+    centerText(ctx, "Space jump • A/D corkscrew • X/Shift spin", cx0, cardY + 194);
 
     ctx.font = "500 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
     ctx.fillStyle = "rgba(242,242,242,0.46)";
-    centerText(ctx, "Air gates: do the labeled trick while passing through", cx0, cardY + 212);
+    centerText(ctx, "W float • S dive • Air gates: match the label", cx0, cardY + 212);
 
     ctx.restore();
     return;
@@ -186,7 +207,7 @@ export function drawMenus(ctx, state, uiTime, COLORS, W, H) {
 
     ctx.fillStyle = COLORS.hudText;
     ctx.font = "900 32px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    centerText(ctx, "Bob touched grass", cx0, cardY + 70);
+    centerText(ctx, "Bob touched the ground :[", cx0, cardY + 70);
 
     ctx.font = "600 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
     ctx.fillStyle = "rgba(242,242,242,0.80)";

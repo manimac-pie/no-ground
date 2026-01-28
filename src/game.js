@@ -50,7 +50,17 @@ export function createGame() {
     const jumpPressed = input?.consumeJumpPressed?.() === true;
     const trickPressed = input?.consumeTrickPressed?.() === true;
     const trickIntent = input?.consumeTrickIntent?.() || "neutral";
+
     state.jumpHeld = input?.jumpHeld === true;
+
+    // Air controls
+    state.floatHeld = input?.floatHeld === true;
+
+    // One-press dive pulse (S): consumed by game/player.js to latch p.diving.
+    state.divePressed = input?.consumeDivePressed?.() === true;
+
+    // Keep held flag for UI/debug if needed (no longer required for gameplay).
+    state.diveHeld = input?.diveHeld === true;
 
     if (!state.running) {
       if (jumpPressed) {
