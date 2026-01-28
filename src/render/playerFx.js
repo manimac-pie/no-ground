@@ -52,7 +52,7 @@ export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
   // Motes (rounded, non-blocky)
   ctx.filter = "none";
   ctx.globalAlpha = 0.22;
-  ctx.fillStyle = d === 1 ? (COLORS.accent || "rgba(120,205,255,0.95)") : "rgba(255,85,110,0.85)";
+  ctx.fillStyle = d === 1 ? (COLORS?.accent || "rgba(120,205,255,0.95)") : "rgba(255,85,110,0.85)";
   const moteN = 5;
   for (let i = 0; i < moteN; i++) {
     const u = (i + 1) / (moteN + 1);

@@ -10,7 +10,7 @@ import { DIVE_ANTICIPATION_SEC, DIVE_SPIKE_ANGLE_RAD } from "../game/constants.j
 import { world } from "../game.js";
 
 import { clamp, smoothstep01, roundedRectPath } from "./playerKit.js";
-import { drawRunner } from "./playerBody.js";
+import { drawRunner } from "./playerbody_tmp.js";
 import {
   diveStrengthFromVY,
   drawAfterimage,
@@ -20,7 +20,7 @@ import {
   drawHeavyLandingBurst,
   drawHeavyLandingRing,
   drawLandingRubble,
-} from "./playerFx.js";
+} from "./playerFix_tmp.js";
 
 // Render-only smoothing for dive pose (prevents snapping frame-to-frame)
 let _diveK = 0; // 0..1 smoothed
