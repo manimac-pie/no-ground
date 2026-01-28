@@ -6,7 +6,7 @@
     import { drawPlayerShadow, drawPlayer } from "./render/player.js";
 */
 
-import { DIVE_ANTICIPATION_SEC, DIVE_SPIKE_ANGLE_RAD } from "../game/constants.js";
+import { DIVE_ANTICIPATION_SEC } from "../game/constants.js";
 import { world } from "../game.js";
 
 import { clamp, smoothstep01, roundedRectPath } from "./playerKit.js";
@@ -143,21 +143,23 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
 
   if (diving) {
     const k = _diveK;
-    const diveAngle = Number.isFinite(DIVE_SPIKE_ANGLE_RAD) ? DIVE_SPIKE_ANGLE_RAD : 0.70;
     const a01 = antic01 > 0 ? smoothstep01(antic01) : 0;
 
+    // Remove dive tilt entirely: keep the character upright during dive.
+    // We still use scale + offsets + streak FX to sell the motion.
+    poseRot = 0;
+
     if (divePhase === "anticipate") {
-      poseRot = finalRot + diveAngle * (0.18 + 0.22 * a01);
+      // Tuck + slight compression (reads as intent) without rotation
       poseSx *= 1.06 + 0.06 * a01;
       poseSy *= 0.96 - 0.10 * a01;
       poseTy += bodyH * 0.02 * a01;
     } else {
-      const lean = diveAngle * (0.72 + 0.22 * k);
-      poseRot = lean;
-
+      // Commit: compact + heavy (wider, shorter) without rotation
       poseSx *= 1.05 + 0.10 * k;
       poseSy *= 0.92 - 0.10 * k;
 
+      // Lead the body slightly forward/down
       poseTx += bodyW * (0.06 + 0.06 * k);
       poseTy += bodyH * (0.05 + 0.03 * k);
     }
@@ -184,8 +186,11 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
 
   // Float/Dive FX (readability for W/S)
   if (diving) {
+    // Always draw the red dive halo so feedback is immediate, even during anticipation.
+    drawDiveFX(ctx, bodyW, bodyH, COLORS, animTime || 0, vy);
+
+    // Streaks only after the anticipation tuck (keeps the first frames clean).
     if (divePhase !== "anticipate") {
-      drawDiveFX(ctx, bodyW, bodyH, COLORS, animTime || 0, vy);
       drawDiveStreaks(ctx, bodyW, bodyH, animTime || 0, _diveK);
     }
   } else if (floating) {

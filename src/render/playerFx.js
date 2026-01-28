@@ -134,19 +134,37 @@ export function diveStrengthFromVY(vy) {
 }
 
 function drawHaloFX(ctx, bodyW, bodyH, t, mode, vy = 0) {
+  ctx.save();
   const diving = mode === "dive";
   const k = diving ? diveStrengthFromVY(vy || 0) : 0;
 
-  ctx.save();
-  ctx.globalAlpha = diving ? (0.50 + 0.10 * k) : 0.55;
+  const floating = mode === "float";
+  // Brighter float halo (slow descent), keep dive as-is.
+  ctx.globalAlpha = diving ? (0.50 + 0.10 * k) : (floating ? 0.78 : 0.55);
 
   ctx.strokeStyle = diving ? "rgba(255,85,110,0.30)" : "rgba(120,205,255,0.30)";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = floating ? 3 : 2;
   ctx.beginPath();
   ctx.ellipse(0, bodyH * 0.05, bodyW * 0.55, bodyH * 0.70, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.fillStyle = diving ? "rgba(255,85,110,0.22)" : "rgba(120,205,255,0.20)";
+  // Extra soft outer glow for float mode (adds brightness without harsh edges)
+  if (floating) {
+    const prevFilter = ctx.filter;
+    ctx.filter = "blur(1.2px)";
+    ctx.globalAlpha *= 0.55;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(0, bodyH * 0.05, bodyW * 0.58, bodyH * 0.74, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.filter = prevFilter;
+
+    // restore primary alpha/width for the rest of the FX
+    ctx.globalAlpha = 0.78;
+    ctx.lineWidth = 3;
+  }
+
+  ctx.fillStyle = diving ? "rgba(255,85,110,0.22)" : (floating ? "rgba(120,205,255,0.30)" : "rgba(120,205,255,0.20)");
   const dir = diving ? 1 : -1;
   for (let i = 0; i < 6; i++) {
     const a = (i * 1.7 + t * (diving ? 5.6 : 6.0)) % (Math.PI * 2);
