@@ -4,7 +4,8 @@
 // - Jump hold: used for variable jump height
 // - Float: W held (mid-air control)
 // - Dive: S press (one-shot pulse), plus optional held flag
-// - Flips: A (backflip) / D (front flip)
+// - Dash: D press (one-shot pulse)
+// - Flip: A (backflip)
 
 export function createInput(canvas) {
   if (!canvas) throw new Error("createInput(canvas): canvas is required.");
@@ -14,6 +15,7 @@ export function createInput(canvas) {
     jumpPressed: false,
     trickPressed: false,
     divePressed: false,
+    dashPressed: false,
 
     // Holds
     jumpHeld: false,
@@ -21,7 +23,7 @@ export function createInput(canvas) {
     diveHeld: false,  // S (kept for UI/debug; gameplay uses divePressed -> latched)
 
     // One-frame flip intent
-    trickIntent: null, // "backflip"|"frontflip"|null
+    trickIntent: null, // "backflip"|null
 
     // Pointer tracking
     pointerDown: false,
@@ -42,6 +44,9 @@ export function createInput(canvas) {
     state.divePressed = true;
   }
 
+  function pressDash() {
+    state.dashPressed = true;
+  }
 
   function onKeyDown(e) {
     const key = e.code;
@@ -49,9 +54,10 @@ export function createInput(canvas) {
     const isJumpKey = key === "Space" || key === "ArrowUp";
     const isFloatKey = key === "KeyW";
     const isDiveKey = key === "KeyS";
-    const isFlipKey = key === "KeyA" || key === "KeyD";
+    const isDashKey = key === "KeyD";
+    const isFlipKey = key === "KeyA";
 
-    if (!isJumpKey && !isFloatKey && !isDiveKey && !isFlipKey) return;
+    if (!isJumpKey && !isFloatKey && !isDiveKey && !isDashKey && !isFlipKey) return;
 
     // Prevent page scroll / browser shortcuts interfering.
     e.preventDefault();
@@ -82,8 +88,13 @@ export function createInput(canvas) {
       return;
     }
 
+    if (isDashKey) {
+      pressDash();
+      return;
+    }
+
     if (isFlipKey) {
-      pressTrick(key === "KeyA" ? "backflip" : "frontflip");
+      pressTrick("backflip");
       return;
     }
   }
@@ -154,6 +165,7 @@ export function createInput(canvas) {
     state.jumpPressed = false;
     state.trickPressed = false;
     state.divePressed = false;
+    state.dashPressed = false;
     state.jumpHeld = false;
     state.floatHeld = false;
     state.diveHeld = false;
@@ -187,6 +199,12 @@ export function createInput(canvas) {
     consumeDivePressed() {
       const v = state.divePressed;
       state.divePressed = false;
+      return v;
+    },
+
+    consumeDashPressed() {
+      const v = state.dashPressed;
+      state.dashPressed = false;
       return v;
     },
 

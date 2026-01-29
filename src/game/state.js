@@ -29,6 +29,7 @@ export function createInitialState() {
     jumpBuffer: 0,
     jumpHeld: false,
     jumpCut: 0,
+    dashPressed: false,
 
     player: {
       x: PLAYER_X,
@@ -52,6 +53,12 @@ export function createInitialState() {
 
       trickKind: "spin",
       trickIntent: "neutral",
+
+      dashCooldown: 0,
+      dashOffset: 0,
+      dashTarget: 0,
+      dashOffsetV: 0,
+      dashImpulseT: 0,
     },
 
     platforms: [],
@@ -78,6 +85,7 @@ export function resetRunState(state) {
   state.jumpBuffer = 0;
   state.jumpHeld = false;
   state.jumpCut = 0;
+  state.dashPressed = false;
 
   state.lastLandQuality = null;
   state.lastLandQualityT = 0;
@@ -102,4 +110,9 @@ export function resetRunState(state) {
   p.trickKind = "spin";
   p.trickIntent = "neutral";
   p.floatFuel = FLOAT_FUEL_MAX;
+  p.dashCooldown = 0;
+  p.dashOffset = 0;
+  p.dashTarget = 0;
+  p.dashOffsetV = 0;
+  p.dashImpulseT = 0;
 }

@@ -18,8 +18,20 @@ const JUMP_CUT_RAMP_PER_SEC = getConst("JUMP_CUT_RAMP_PER_SEC", 18);
 const MAX_FALL_SPEED = getConst("MAX_FALL_SPEED", 1800);
 const DIVE_GRAVITY_MULT = getConst("DIVE_GRAVITY_MULT", 2.2);
 const DIVE_MAX_FALL_SPEED = getConst("DIVE_MAX_FALL_SPEED", 2200);
+const DASH_DISTANCE = getConst("DASH_DISTANCE", 140);
+const DASH_COOLDOWN = getConst("DASH_COOLDOWN", 0.45);
+const DASH_FLOAT_GRAVITY_BOOST = getConst("DASH_FLOAT_GRAVITY_BOOST", 0.18);
+const DASH_VY_SCALE_START = getConst("DASH_VY_SCALE_START", 200);
+const DASH_VY_SCALE_END = getConst("DASH_VY_SCALE_END", 1200);
+const DASH_VY_SCALE_MIN = getConst("DASH_VY_SCALE_MIN", 0.68);
+const DASH_IMPULSE_FX_SEC = getConst("DASH_IMPULSE_FX_SEC", 0.20);
+const DASH_MAX_CAM_LAG = getConst("DASH_MAX_CAM_LAG", 160);
+const DASH_CATCHUP_SPEED = getConst("DASH_CATCHUP_SPEED", 520);
+const DASH_OFFSET_SNAP_SPEED = getConst("DASH_OFFSET_SNAP_SPEED", 1800);
+const DASH_OFFSET_SMOOTH = getConst("DASH_OFFSET_SMOOTH", 18);
 
 const GROUND_Y = getConst("GROUND_Y", 390);
+const PLAYER_X = getConst("PLAYER_X", 160);
 const COYOTE_TIME_SEC = getConst("COYOTE_TIME_SEC", 0.13);
 const LAND_GRACE_SEC = getConst("LAND_GRACE_SEC", 0.06);
 const JUMP_BUFFER_SEC = getConst("JUMP_BUFFER_SEC", 0.13);
@@ -31,7 +43,7 @@ const DIVE_ANTICIPATION_SEC = getConst("DIVE_ANTICIPATION_SEC", 0.11);
 
 // Float tunables (optional)
 const FLOAT_FUEL_MAX = getConst("FLOAT_FUEL_MAX", 1.0);
-const FLOAT_GRAVITY_MULT = getConst("FLOAT_GRAVITY_MULT", 0.35);
+const FLOAT_GRAVITY_MULT = getConst("FLOAT_GRAVITY_MULT", 0.30);
 const FLOAT_FUEL_REGEN_PER_SEC = getConst("FLOAT_FUEL_REGEN_PER_SEC", 0.7);
 
 function canJumpNow(state) {
@@ -121,6 +133,12 @@ export function integratePlayer(state, dt, endGame) {
   if (!Number.isFinite(p.coyote)) p.coyote = 0;
   if (!Number.isFinite(p.landGrace)) p.landGrace = 0;
   if (!Number.isFinite(state.jumpCut)) state.jumpCut = 0;
+  if (!Number.isFinite(p.dashCooldown)) p.dashCooldown = 0;
+  if (!Number.isFinite(p.dashOffset)) p.dashOffset = 0;
+  if (!Number.isFinite(p.dashTarget)) p.dashTarget = p.dashOffset;
+  if (!Number.isFinite(p.dashOffsetV)) p.dashOffsetV = 0;
+  if (!Number.isFinite(p.dashImpulseT)) p.dashImpulseT = 0;
+  if (!Number.isFinite(p.x)) p.x = PLAYER_X;
 
   const wasOnGround = p.onGround;
   const wasDiving = p.diving === true;
@@ -161,6 +179,10 @@ export function integratePlayer(state, dt, endGame) {
   if (airborne && state.floatHeld === true && !p.diving && p.floatFuel > 0) {
     g *= FLOAT_GRAVITY_MULT;
     p.floatFuel = Math.max(0, p.floatFuel - dt);
+    const dashK = clamp((p.dashOffset ?? 0) / Math.max(1, DASH_DISTANCE), 0, 1);
+    if (dashK > 0) {
+      g *= 1 + DASH_FLOAT_GRAVITY_BOOST * dashK;
+    }
   }
 
   // Dive (heavier gravity, higher terminal speed) — smoothly ramp in
@@ -252,4 +274,48 @@ export function integratePlayer(state, dt, endGame) {
 // Convenience: allow game loop to buffer jump presses here if it wants.
 export function bufferJump(state) {
   state.jumpBuffer = JUMP_BUFFER_SEC;
+}
+
+export function updateDash(state, dt) {
+  const p = state.player;
+  if (!p) return;
+
+  if (!Number.isFinite(p.dashCooldown)) p.dashCooldown = 0;
+  if (!Number.isFinite(p.dashOffset)) p.dashOffset = 0;
+
+  if (p.dashCooldown > 0) {
+    p.dashCooldown = Math.max(0, p.dashCooldown - dt);
+  }
+
+  if (state.dashPressed === true && p.dashCooldown <= 0 && p.onGround !== true) {
+    const vyAbs = Math.abs(p.vy ?? 0);
+    const vyT = clamp(
+      (vyAbs - DASH_VY_SCALE_START) / Math.max(1, DASH_VY_SCALE_END - DASH_VY_SCALE_START),
+      0,
+      1
+    );
+    const scale = 1 - (1 - DASH_VY_SCALE_MIN) * vyT;
+    const dist = DASH_DISTANCE * scale;
+    p.dashTarget = Math.min(DASH_MAX_CAM_LAG, p.dashTarget + dist);
+    p.dashImpulseT = 0;
+    p.dashCooldown = DASH_COOLDOWN;
+  }
+
+  if (p.onGround === true && p.dashTarget > 0) {
+    p.dashTarget = Math.max(0, p.dashTarget - DASH_CATCHUP_SPEED * dt);
+  }
+
+  // Smooth dash offset toward target to avoid teleport-y jumps.
+  const k = 1 - Math.exp(-DASH_OFFSET_SMOOTH * dt);
+  const desired = p.dashOffset + (p.dashTarget - p.dashOffset) * k;
+  const maxStep = DASH_OFFSET_SNAP_SPEED * dt;
+  p.dashOffset = p.dashOffset + clamp(desired - p.dashOffset, -maxStep, maxStep);
+
+  if (p.dashTarget < p.dashOffset) p.dashTarget = p.dashOffset;
+
+  p.x = PLAYER_X + p.dashOffset;
+
+  if (p.dashImpulseT < DASH_IMPULSE_FX_SEC) {
+    p.dashImpulseT = Math.min(DASH_IMPULSE_FX_SEC, p.dashImpulseT + dt);
+  }
 }

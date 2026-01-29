@@ -114,6 +114,7 @@ export function spawnNextPlatform(state) {
   // For fairness, platforms never go too close to lethal ground.
   const yMin = 160;
   const yMax = GROUND_Y - 40;
+  const lowSpawnBreakY = GROUND_Y - 50;
 
   // Motion path:
   // - "rise": start lower (closer to ground), move up to the resting baseY
@@ -146,6 +147,7 @@ export function spawnNextPlatform(state) {
     motionRate,
     motionFromY: fromY,
     motionToY: toY,
+    lowSpawnBreak: baseYRest >= lowSpawnBreakY,
 
     // Break state (for some crumble platforms)
     breakArmed,
@@ -253,11 +255,52 @@ export function updatePlatforms(state, dt) {
       continue;
     }
 
+    // Ensure defaults (older platforms won’t crash if they lack new fields)
+    if (typeof plat.breakArmed !== "boolean") plat.breakArmed = false;
+    if (!Number.isFinite(plat.breakDelay)) plat.breakDelay = 0;
+    if (!Number.isFinite(plat.breakT)) plat.breakT = 0;
+    if (typeof plat.breakTriggered !== "boolean") plat.breakTriggered = false;
+    if (typeof plat.breaking !== "boolean") plat.breaking = false;
+    if (!Number.isFinite(plat.break01)) plat.break01 = 0;
+    if (typeof plat.lowSpawnBreak !== "boolean") plat.lowSpawnBreak = false;
+
+    const px = p ? p.x : 0;
+    const ahead = plat.x - px;
+    const inWindow = ahead > 40 && ahead < 520;
+    const lowSpawnBreakY = GROUND_Y - 50;
+
+    // If a platform spawns too low (danger zone), break it once it comes into view.
+    if (
+      plat.lowSpawnBreak &&
+      inWindow &&
+      !plat.breaking &&
+      plat.motion !== "rise" &&
+      plat.y >= lowSpawnBreakY
+    ) {
+      plat.lowSpawnBreak = false;
+      plat.breakTriggered = true;
+      plat.breaking = true;
+      plat.break01 = 0;
+      plat.breakT = 0;
+      plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65);
+      plat.motion = "none";
+      plat.motionArmed = false;
+      plat.motionStarted = false;
+      plat.motionT = 0;
+
+      if (p && p.groundPlat === plat) {
+        p.onGround = false;
+        p.groundPlat = null;
+        p.coyote = Math.max(p.coyote ?? 0, 0.08);
+      }
+    }
+
     // Apply gentle rise/crumble motion (non-collapsing only).
     // Motion is ARMED on spawn but only STARTS once the player is airborne and the platform is approaching.
     if (plat.motion && plat.motion !== "none") {
       const yMin = 160;
       const yMax = GROUND_Y - 40;
+      const lowBreakY = GROUND_Y - 160;
 
       // Ensure defaults (older platforms won’t crash if they lack new fields)
       if (!Number.isFinite(plat.baseY)) plat.baseY = plat.y;
@@ -267,19 +310,9 @@ export function updatePlatforms(state, dt) {
       if (typeof plat.motionStarted !== "boolean") plat.motionStarted = plat.motionT > 0;
       if (!Number.isFinite(plat.motionT)) plat.motionT = plat.motionStarted ? plat.motionT : 0;
 
-      // Break defaults (older platforms won’t crash if they lack these)
-      if (typeof plat.breakArmed !== "boolean") plat.breakArmed = false;
-      if (!Number.isFinite(plat.breakDelay)) plat.breakDelay = 0;
-      if (!Number.isFinite(plat.breakT)) plat.breakT = 0;
-      if (typeof plat.breakTriggered !== "boolean") plat.breakTriggered = false;
-      if (typeof plat.breaking !== "boolean") plat.breaking = false;
-      if (!Number.isFinite(plat.break01)) plat.break01 = 0;
-
       // Start condition: player is in the air AND the platform is in the near-ahead window.
       // (Avoid surprising movement far away off-screen.)
       const airborne = !(p && p.onGround);
-      const px = p ? p.x : 0;
-      const ahead = plat.x - px;
       const inWindow = ahead > 40 && ahead < 520; // tune window as desired
 
       if (plat.motionArmed && !plat.motionStarted && airborne && inWindow) {
@@ -326,6 +359,21 @@ export function updatePlatforms(state, dt) {
           p.vy = 0;
         }
 
+        // If a crumble platform sinks near the lethal zone, force a break instead of going lower.
+        if (
+          plat.motion === "crumble" &&
+          plat.motionStarted &&
+          !plat.breaking &&
+          !plat.collapsing &&
+          plat.y >= lowBreakY
+        ) {
+          plat.breakTriggered = true;
+          plat.breaking = true;
+          plat.break01 = 0;
+          plat.breakT = 0;
+          plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65);
+        }
+
         // When motion completes, lock the resting baseY to the final position.
         if (plat.motionT >= 1) {
           plat.baseY = plat.y;
@@ -358,37 +406,38 @@ export function updatePlatforms(state, dt) {
           }
         }
 
-        // New: advance breaking animation and trigger collapse when done
-        if (plat.breaking === true && plat.collapsing !== true) {
-          plat.breakT += dt;
-          const BREAK_ANIM_SEC = 0.22;
-          plat.break01 = clamp(plat.breakT / BREAK_ANIM_SEC, 0, 1);
-          plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65 + 0.35 * plat.break01);
+      }
+    }
 
-          if (plat.break01 >= 1) {
-            plat.collapsing = true;
-            plat.vy = 0;
-            plat.crack01 = 1;
+    // Advance breaking animation and trigger collapse when done.
+    if (plat.breaking === true && plat.collapsing !== true) {
+      plat.breakT += dt;
+      const BREAK_ANIM_SEC = 0.22;
+      plat.break01 = clamp(plat.breakT / BREAK_ANIM_SEC, 0, 1);
+      plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65 + 0.35 * plat.break01);
 
-            // Freeze motion so it doesn't fight the fall.
-            plat.motion = "none";
-            plat.motionArmed = false;
-            plat.motionStarted = false;
-            plat.motionT = 0;
-            plat.baseY = plat.y;
-            plat.motionFromY = plat.y;
-            plat.motionToY = plat.y;
-            plat.motionRate = 0;
+      if (plat.break01 >= 1) {
+        plat.collapsing = true;
+        plat.vy = 0;
+        plat.crack01 = 1;
 
-            plat.breaking = false;
+        // Freeze motion so it doesn't fight the fall.
+        plat.motion = "none";
+        plat.motionArmed = false;
+        plat.motionStarted = false;
+        plat.motionT = 0;
+        plat.baseY = plat.y;
+        plat.motionFromY = plat.y;
+        plat.motionToY = plat.y;
+        plat.motionRate = 0;
 
-            // If somehow the player is on it, drop them with a small grace.
-            if (p && p.groundPlat === plat) {
-              p.onGround = false;
-              p.groundPlat = null;
-              p.coyote = Math.max(p.coyote ?? 0, 0.08);
-            }
-          }
+        plat.breaking = false;
+
+        // If somehow the player is on it, drop them with a small grace.
+        if (p && p.groundPlat === plat) {
+          p.onGround = false;
+          p.groundPlat = null;
+          p.coyote = Math.max(p.coyote ?? 0, 0.08);
         }
       }
     }

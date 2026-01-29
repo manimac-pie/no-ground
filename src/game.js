@@ -16,7 +16,7 @@ import {
 import { clamp } from "./game/utils.js";
 import { createInitialState, resetRunState } from "./game/state.js";
 import { resetPlatforms, scrollWorld, updatePlatforms } from "./game/platforms.js";
-import { tryConsumeBufferedJump, integratePlayer } from "./game/player.js";
+import { tryConsumeBufferedJump, integratePlayer, updateDash } from "./game/player.js";
 import { startSpin, updateTricks } from "./game/tricks.js";
 
 export function createGame() {
@@ -50,6 +50,7 @@ export function createGame() {
     const jumpPressed = input?.consumeJumpPressed?.() === true;
     const trickPressed = input?.consumeTrickPressed?.() === true;
     const trickIntent = input?.consumeTrickIntent?.() || "neutral";
+    const dashPressed = input?.consumeDashPressed?.() === true;
 
     state.jumpHeld = input?.jumpHeld === true;
 
@@ -58,6 +59,7 @@ export function createGame() {
 
     // One-press dive pulse (S): consumed by game/player.js to latch p.diving.
     state.divePressed = input?.consumeDivePressed?.() === true;
+    state.dashPressed = dashPressed;
 
     // Keep held flag for UI/debug if needed (no longer required for gameplay).
     state.diveHeld = input?.diveHeld === true;
@@ -83,6 +85,7 @@ export function createGame() {
 
     if (jumpPressed) state.jumpBuffer = JUMP_BUFFER_SEC;
     if (trickPressed) startSpin(state, trickIntent);
+    updateDash(state, dt);
 
     state.distance += state.speed * dt;
 

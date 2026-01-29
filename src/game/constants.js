@@ -21,7 +21,7 @@ export const JUMP_CUT_RAMP_PER_SEC = 18;
 // Air control (W = float, S = dive)
 export const FLOAT_FUEL_MAX = 0.38;            // seconds of float available
 export const FLOAT_FUEL_REGEN_PER_SEC = 0.70;  // fuel/sec regained while grounded
-export const FLOAT_GRAVITY_MULT = 0.35;        // gravity multiplier while floating
+export const FLOAT_GRAVITY_MULT = 0.30;        // gravity multiplier while floating
 export const DIVE_GRAVITY_MULT = 2.35;         // extra gravity while diving (faster descent)
 export const DIVE_MAX_FALL_SPEED = 2600;       // faster terminal speed when diving
 
@@ -67,6 +67,24 @@ export const STYLE_PERFECT_BONUS = 45;
 export const PLAYER_W = 34;
 export const PLAYER_H = 34;
 export const PLAYER_X = 160;
+
+// Dash (D)
+export const DASH_DISTANCE = 140;       // how far the player jumps ahead (px)
+export const DASH_CATCHUP_SPEED = 520;  // how fast the camera catches up after landing (px/sec)
+export const DASH_COOLDOWN = 0.45;      // seconds between dashes
+export const DASH_OFFSET_SNAP_SPEED = 1800; // max dash offset speed (px/sec)
+export const DASH_OFFSET_SMOOTH = 18;   // smoothing rate for dash offset
+export const DASH_CAM_SMOOTH = 12;      // smoothing rate for camera offset
+export const DASH_CAM_CATCHUP_BOOST = 3.0; // multiplier for camera smooth after landing
+export const DASH_CAM_CATCHUP_SEC = 0.10;  // duration of post-landing catchup boost
+export const DASH_PARALLAX_CAM_FACTOR = 0.2; // parallax camera influence (0 = fixed)
+export const DASH_FLOAT_GRAVITY_BOOST = 0.18; // slight float weakening during dash
+export const DASH_CATCHUP_DELAY = 0.08; // delay after landing before camera catches up
+export const DASH_MAX_CAM_LAG = 160;    // cap camera lag while airborne
+export const DASH_VY_SCALE_START = 200; // start reducing dash distance above this |vy|
+export const DASH_VY_SCALE_END = 1200;  // max reduction at this |vy|
+export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
+export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash streaks
 
 // Input grace
 export const COYOTE_TIME_SEC = 0.13;

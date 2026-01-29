@@ -25,6 +25,198 @@ function shadeRect(ctx, x, y, w, h, topColor, bottomColor) {
   ctx.fillRect(x, y, w, h);
 }
 
+function drawBrutalistFacade(ctx, x, y, w, h, seed, COLORS, crack01, animTime) {
+  if (w < 60 || h < 40) return;
+
+  const rib = getColor(COLORS, "buildingRib", "rgba(10,12,16,0.65)");
+  const panelLite = getColor(COLORS, "buildingPanel", "rgba(70,74,86,0.20)");
+  const panelDark = getColor(COLORS, "buildingPanelDark", "rgba(10,12,16,0.38)");
+  const seam = getColor(COLORS, "neonLine", "rgba(120,205,255,0.25)");
+  const winOn = getColor(COLORS, "windowOn", "rgba(120,205,255,0.22)");
+  const winOff = getColor(COLORS, "windowOff", "rgba(242,242,242,0.06)");
+  const signal = getColor(COLORS, "signal", "rgba(255,85,110,0.55)");
+  const stain = getColor(COLORS, "concreteStain", "rgba(0,0,0,0.18)");
+  const dust = getColor(COLORS, "concreteDust", "rgba(242,242,242,0.06)");
+  const patch = getColor(COLORS, "patchPanel", "rgba(32,36,44,0.85)");
+  const warning = getColor(COLORS, "warning", "rgba(255,180,70,0.65)");
+  const gantry = getColor(COLORS, "gantry", "rgba(20,22,28,0.85)");
+  const coreShadow = getColor(COLORS, "coreShadow", "rgba(0,0,0,0.22)");
+  const ledge = getColor(COLORS, "ledge", "rgba(0,0,0,0.25)");
+  const ledgeLite = getColor(COLORS, "ledgeLite", "rgba(242,242,242,0.06)");
+
+  const pad = 8;
+  const ribCount = clamp(Math.floor(w / 32), 2, 8);
+  const ribW = clamp(Math.floor(w / (ribCount * 6)), 4, 10);
+  const ribGap = w / (ribCount + 1);
+
+  ctx.save();
+
+  // Depth layers: setbacks + terraces (simple block offsets).
+  if (w > 120 && h > 90) {
+    const tiers = 1 + Math.floor(hash01(seed * 51.7) * 2);
+    for (let i = 0; i < tiers; i++) {
+      const inset = 8 + i * 10;
+      const ty = y + 10 + (h - 30) * (0.18 + 0.28 * hash01(seed * (53.1 + i * 7.3)));
+      const tw = w - inset * 2;
+      const th = 10 + 8 * hash01(seed * (55.9 + i * 9.1));
+      ctx.fillStyle = ledge;
+      ctx.fillRect(x + inset + 2, ty + 2, tw, th);
+      ctx.fillStyle = ledgeLite;
+      ctx.fillRect(x + inset, ty, tw, th);
+    }
+  }
+
+  // External service core (structural logic).
+  if (hash01(seed * 3.1) > 0.45 && w > 110) {
+    const side = hash01(seed * 6.7) > 0.5 ? 0 : 1;
+    const coreW = Math.max(18, Math.min(32, Math.floor(w * 0.16)));
+    const coreX = side === 0 ? x - coreW + 6 : x + w - 6;
+    ctx.fillStyle = coreShadow;
+    ctx.fillRect(coreX - 3, y + 6, coreW + 6, h - 12);
+    ctx.fillStyle = panelDark;
+    ctx.fillRect(coreX, y + 6, coreW, h - 12);
+    ctx.fillStyle = panelLite;
+    for (let i = 0; i < 4; i++) {
+      const sy = y + 14 + i * (h - 28) / 3;
+      ctx.fillRect(coreX + 4, sy, coreW - 8, 3);
+    }
+  }
+
+  // Vertical ribs (brutalist buttresses).
+  ctx.fillStyle = rib;
+  for (let i = 0; i < ribCount; i++) {
+    const rx = Math.round(x + ribGap * (i + 1) - ribW * 0.5);
+    ctx.fillRect(rx, y + 4, ribW, h - 8);
+  }
+
+  // Horizontal banding for poured concrete seams.
+  ctx.fillStyle = panelLite;
+  const bandH = 8;
+  const bandGap = 18;
+  for (let by = y + 10; by + bandH < y + h - 8; by += bandH + bandGap) {
+    ctx.fillRect(x + 6, by, w - 12, bandH);
+  }
+
+  // Gantry / service walkway (structural + life).
+  if (hash01(seed * 9.9) > 0.52 && w > 120) {
+    const gy = y + h * (0.28 + 0.22 * hash01(seed * 8.1));
+    ctx.fillStyle = gantry;
+    ctx.fillRect(x + 6, gy, w - 12, 4);
+    ctx.fillStyle = "rgba(242,242,242,0.08)";
+    for (let gx = x + 10; gx < x + w - 14; gx += 18) {
+      ctx.fillRect(gx, gy - 6, 2, 6);
+    }
+  }
+
+  // Recessed bays.
+  const bayCount = clamp(Math.floor(w / 140), 1, 3);
+  for (let i = 0; i < bayCount; i++) {
+    const bw = Math.max(34, Math.floor(w * (0.18 + 0.08 * hash01(seed * 7.9 + i * 2.1))));
+    const bx = x + pad + Math.floor((w - bw - pad * 2) * hash01(seed * 4.3 + i * 9.1));
+    const by = y + 14 + Math.floor((h - 36) * hash01(seed * 12.1 + i * 5.7));
+    const bh = Math.max(26, Math.floor(h * 0.45));
+
+    ctx.fillStyle = panelDark;
+    ctx.fillRect(bx, by, bw, bh);
+
+    ctx.fillStyle = "rgba(242,242,242,0.08)";
+    ctx.fillRect(bx, by, bw, 2);
+  }
+
+  // Narrow slit windows, sparse.
+  const rows = clamp(Math.floor(h / 70), 2, 4);
+  const cols = clamp(Math.floor(w / 120), 2, 4);
+  const winW = 14;
+  const winH = 5;
+  for (let r = 0; r < rows; r++) {
+    const wy = y + 18 + r * (h - 36) / (rows - 1);
+    for (let c = 0; c < cols; c++) {
+      const wx = x + 18 + c * (w - 36) / (cols - 1);
+      const t = hash01(seed * 23.7 + r * 19.1 + c * 11.3);
+      ctx.fillStyle = t > 0.72 ? winOn : winOff;
+      ctx.fillRect(wx, wy, winW, winH);
+    }
+  }
+
+  // Material variation: stains and dust flecks.
+  const stainCount = clamp(Math.floor(h / 80), 2, 6);
+  ctx.fillStyle = stain;
+  for (let i = 0; i < stainCount; i++) {
+    const sx = x + 8 + (w - 16) * hash01(seed * 14.7 + i * 2.3);
+    const sy = y + 6 + (h - 12) * hash01(seed * 15.9 + i * 3.1);
+    const sh = 16 + 28 * hash01(seed * 18.1 + i * 4.7);
+    ctx.globalAlpha = 0.12 + 0.20 * hash01(seed * 21.3 + i * 6.1);
+    ctx.fillRect(sx, sy, 3, sh);
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = dust;
+  const flecks = clamp(Math.floor((w * h) / 8000), 6, 24);
+  for (let i = 0; i < flecks; i++) {
+    const fx = x + 4 + (w - 8) * hash01(seed * 25.1 + i * 7.9);
+    const fy = y + 4 + (h - 8) * hash01(seed * 27.7 + i * 5.3);
+    ctx.fillRect(fx, fy, 1, 1);
+  }
+
+  // Story beat: patched panel with rivets.
+  if (hash01(seed * 33.3) > 0.6 && w > 90) {
+    const pw = Math.max(18, w * 0.18);
+    const ph = 10 + h * 0.08;
+    const px = x + 10 + (w - pw - 20) * hash01(seed * 35.9);
+    const py = y + 18 + (h - ph - 36) * hash01(seed * 37.1);
+    ctx.fillStyle = patch;
+    ctx.fillRect(px, py, pw, ph);
+    ctx.fillStyle = "rgba(242,242,242,0.10)";
+    for (let rx = px + 3; rx < px + pw - 2; rx += 6) {
+      ctx.fillRect(rx, py + 2, 1, 1);
+      ctx.fillRect(rx, py + ph - 3, 1, 1);
+    }
+  }
+
+  // Activity: blinking signal lights.
+  const blink = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(animTime * (2.2 + hash01(seed * 2.3)) + seed));
+  if (blink > 0.72) {
+    const sx = x + w * (0.12 + 0.75 * hash01(seed * 11.1));
+    const sy = y + h * (0.08 + 0.18 * hash01(seed * 13.9));
+    ctx.fillStyle = signal;
+    ctx.fillRect(sx, sy, 3, 3);
+  }
+
+  // Activity: occasional vent glow.
+  if (hash01(seed * 17.7) > 0.5) {
+    const vx = x + w * (0.18 + 0.6 * hash01(seed * 3.9));
+    const vy = y + h * (0.68 + 0.2 * hash01(seed * 6.1));
+    const vw = Math.max(12, w * 0.12);
+    const vh = 4;
+    const pulse = 0.35 + 0.35 * Math.sin(animTime * (1.3 + hash01(seed * 8.7)));
+    ctx.globalAlpha = 0.35 + 0.35 * pulse;
+    ctx.fillStyle = winOn;
+    ctx.fillRect(vx, vy, vw, vh);
+    ctx.globalAlpha = 1;
+  }
+
+  // Life signal: micro signage panel.
+  if (hash01(seed * 41.7) > 0.62 && w > 120) {
+    const signW = Math.max(18, Math.min(42, w * 0.2));
+    const signH = 8;
+    const sx = x + 10 + (w - signW - 20) * hash01(seed * 43.3);
+    const sy = y + h * (0.12 + 0.08 * hash01(seed * 45.1));
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(sx - 2, sy - 2, signW + 4, signH + 4);
+    ctx.fillStyle = warning;
+    ctx.fillRect(sx, sy, signW, signH);
+  }
+
+  // Occasional neon seam, dim when cracked.
+  if (hash01(seed * 31.3) > 0.45) {
+    const seamX = x + w * (0.18 + 0.64 * hash01(seed * 2.7));
+    ctx.globalAlpha = 0.85 - 0.5 * clamp(crack01, 0, 1);
+    ctx.fillStyle = seam;
+    ctx.fillRect(seamX, y + 6, 2, h - 12);
+  }
+
+  ctx.restore();
+}
+
 // ---------------- rubble (roof impacts) ----------------
 const rubble = [];
 let prevHeavyLandT = 0;
@@ -516,38 +708,7 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
     ctx.fillStyle = pickBuildingColor(seed, COLORS);
     ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
 
-    // windows (stable + cheap)
-    if (bodyH > 56 && bodyW > 80) {
-      const pad = 10;
-      const winW = 10;
-      const winH = 14;
-      const gapX = 12;
-      const gapY = 14;
-
-      const startX = bodyX + pad;
-      const endX = bodyX + bodyW - pad;
-      const startY = bodyY + pad;
-      const endY = bodyY + bodyH - pad;
-
-      const maxRows = 6;
-      const maxCols = 8;
-
-      let row = 0;
-      for (let y = startY; y + winH <= endY && row < maxRows; y += winH + gapY) {
-        let col = 0;
-        for (let x = startX; x + winW <= endX && col < maxCols; x += winW + gapX) {
-          const r = hash01(seed * 13.7 + row * 101 + col * 17);
-          const on = r > 0.74;
-          const dim = plat.collapsing ? 0.55 : 1;
-          ctx.fillStyle = on
-            ? `rgba(120,205,255,${(0.22 * dim).toFixed(3)})`
-            : `rgba(242,242,242,${(0.06 * dim).toFixed(3)})`;
-          ctx.fillRect(x, y, winW, winH);
-          col++;
-        }
-        row++;
-      }
-    }
+    drawBrutalistFacade(ctx, bodyX, bodyY, bodyW, bodyH, seed, COLORS, crack01, animTime);
 
     // whole-building cracks (not just roof)
     drawBuildingCracks(ctx, bodyX, bodyY, bodyW, bodyH, seed, crack01, impact01, impactX, impactY);

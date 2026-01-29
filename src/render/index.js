@@ -2,6 +2,16 @@
 // Single render orchestrator (prevents duplicate draws + state leaks).
 
 import { world } from "../game.js";
+import {
+  DASH_CATCHUP_SPEED,
+  DASH_CATCHUP_DELAY,
+  DASH_MAX_CAM_LAG,
+  DASH_CAM_SMOOTH,
+  DASH_CAM_CATCHUP_BOOST,
+  DASH_CAM_CATCHUP_SEC,
+  DASH_PARALLAX_CAM_FACTOR,
+  PLAYER_X,
+} from "../game/constants.js";
 
 import {
   drawBackground,
@@ -29,6 +39,19 @@ export const COLORS = {
   crackHi: "rgba(255,85,110,0.35)",
   buildingA: "rgba(26,28,34,0.95)",
   buildingB: "rgba(20,22,28,0.95)",
+  buildingRib: "rgba(12,14,18,0.65)",
+  buildingPanel: "rgba(70,74,86,0.20)",
+  buildingPanelDark: "rgba(8,10,14,0.40)",
+  neonLine: "rgba(120,205,255,0.25)",
+  signal: "rgba(255,85,110,0.55)",
+  concreteStain: "rgba(0,0,0,0.18)",
+  concreteDust: "rgba(242,242,242,0.06)",
+  patchPanel: "rgba(32,36,44,0.85)",
+  warning: "rgba(255,180,70,0.65)",
+  gantry: "rgba(20,22,28,0.85)",
+  coreShadow: "rgba(0,0,0,0.22)",
+  ledge: "rgba(0,0,0,0.25)",
+  ledgeLite: "rgba(242,242,242,0.06)",
   windowOn: "rgba(120,205,255,0.22)",
   windowOff: "rgba(242,242,242,0.06)",
   player: "#f2f2f2",
@@ -45,6 +68,9 @@ let prevOnGround = true;
 let prevGameOver = false;
 
 let _prevFrameT = 0;
+let _camX = 0;
+let _camDelayT = 0;
+let _camBoostT = 0;
 
 function ensureCanvasSize(ctx, W, H) {
   // Match the backing store to the element size (prevents coordinate mismatch after refactors).
@@ -132,6 +158,23 @@ export function render(ctx, state) {
   _prevFrameT = now;
   dt = Math.max(0, Math.min(1 / 20, dt));
 
+  if (!Number.isFinite(_camX)) _camX = 0;
+  let targetCamX = player.x - PLAYER_X;
+  targetCamX = Math.max(0, Math.min(DASH_MAX_CAM_LAG, targetCamX));
+
+  if (landed) {
+    _camDelayT = DASH_CATCHUP_DELAY;
+    _camBoostT = DASH_CAM_CATCHUP_SEC;
+  }
+  if (_camDelayT > 0) {
+    _camDelayT = Math.max(0, _camDelayT - dt);
+  } else {
+    const boost = _camBoostT > 0 ? DASH_CAM_CATCHUP_BOOST : 1;
+    const k = 1 - Math.exp(-(DASH_CAM_SMOOTH * boost) * dt);
+    _camX = _camX + (targetCamX - _camX) * k;
+  }
+  if (_camBoostT > 0) _camBoostT = Math.max(0, _camBoostT - dt);
+
   // Hard reset paint state
   resetCtx(ctx);
 
@@ -151,13 +194,20 @@ export function render(ctx, state) {
   resetCtx(ctx);
   drawBackground(ctx, W, H, COLORS);
 
+  // Parallax layer tracks a reduced camera offset to avoid forward drift.
+  ctx.save();
+  ctx.translate(-_camX * DASH_PARALLAX_CAM_FACTOR, 0);
   resetCtx(ctx);
   drawParallax(ctx, W, H, state.distance || 0);
+  ctx.restore();
 
+  // Ground stays anchored to screen space to avoid forward/back jitter.
   resetCtx(ctx);
   drawLethalGround(ctx, W, H, animTime, danger01, COLORS);
 
   // ---- WORLD ----
+  ctx.save();
+  ctx.translate(-_camX, 0);
   resetCtx(ctx);
   drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, undefined, dt);
 
@@ -165,6 +215,7 @@ export function render(ctx, state) {
   resetCtx(ctx);
   drawPlayerShadow(ctx, player);
   drawPlayer(ctx, state, animTime, landed || justDied, COLORS);
+  ctx.restore();
 
   // ---- UI ----
   resetCtx(ctx);

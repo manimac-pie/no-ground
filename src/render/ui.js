@@ -1,6 +1,8 @@
 // src/render/ui.js
 // HUD + menus + small popups. Pure rendering; no DOM.
 
+import { DASH_COOLDOWN } from "../game/constants.js";
+
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
 }
@@ -80,6 +82,27 @@ export function drawHUD(ctx, state, danger01, COLORS) {
     ctx.fillStyle = "rgba(242,242,242,0.55)";
     ctx.font = "700 10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
     ctx.fillText("W", bx + bw + 6, by + 6);
+  }
+
+  // Dash cooldown meter (D)
+  if (Number.isFinite(player.dashCooldown)) {
+    const cd = clamp(player.dashCooldown, 0, DASH_COOLDOWN);
+    const ready01 = clamp(1 - (cd / Math.max(0.001, DASH_COOLDOWN)), 0, 1);
+
+    const bx = 200;
+    const by = 26;
+    const bw = 40;
+    const bh = 6;
+
+    ctx.fillStyle = "rgba(242,242,242,0.18)";
+    ctx.fillRect(bx, by, bw, bh);
+
+    ctx.fillStyle = ready01 >= 1 ? "rgba(120,205,255,0.85)" : "rgba(120,205,255,0.45)";
+    ctx.fillRect(bx, by, Math.floor(bw * ready01), bh);
+
+    ctx.fillStyle = "rgba(242,242,242,0.55)";
+    ctx.font = "700 10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+    ctx.fillText("D", bx + bw + 6, by + 6);
   }
 
   // Style score if present

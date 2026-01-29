@@ -16,9 +16,8 @@ export function startSpin(state, intent = "neutral") {
   if (p.spinning) return false;
   if (p.spinCooldown > 0) return false;
 
-  // Flip-only mapping for A/D:
+  // Flip-only mapping (A = backflip):
   // - "backflip" => flip, dir -1
-  // - "frontflip" => flip, dir +1
   // Anything else: default to a simple spin (dir alternates).
   const i = intent || "neutral";
   p.spinning = true;

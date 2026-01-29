@@ -208,6 +208,28 @@ export function drawDiveStreaks(ctx, bodyW, bodyH, t, k) {
   ctx.restore();
 }
 
+export function drawDashStreaks(ctx, bodyW, bodyH, t, k) {
+  ctx.save();
+  ctx.globalAlpha = 0.12 + 0.30 * k;
+  ctx.fillStyle = "rgba(120,205,255,0.22)";
+
+  const n = 7;
+  for (let i = 0; i < n; i++) {
+    const s = i / (n - 1);
+    const wobble = 0.5 + 0.5 * Math.sin(t * 10 + i * 1.3);
+    const len = bodyW * (0.55 + 1.15 * k) * (0.55 + 0.45 * wobble);
+    const y = -bodyH * 0.12 + (s - 0.5) * bodyH * 0.65;
+    const x0 = -bodyW * (0.10 + 0.22 * k) - len;
+
+    ctx.save();
+    ctx.rotate(-0.05);
+    ctx.fillRect(x0, y, len, 2);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
 export function drawLandingRubble(ctx, bodyW, bodyH, t01) {
   ctx.save();
   ctx.globalAlpha = 0.25 + 0.45 * t01;

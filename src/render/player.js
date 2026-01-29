@@ -6,7 +6,7 @@
     import { drawPlayerShadow, drawPlayer } from "./render/player.js";
 */
 
-import { DIVE_ANTICIPATION_SEC } from "../game/constants.js";
+import { DIVE_ANTICIPATION_SEC, DASH_DISTANCE, DASH_IMPULSE_FX_SEC } from "../game/constants.js";
 import { world } from "../game.js";
 
 import { clamp, smoothstep01, roundedRectPath } from "./playerKit.js";
@@ -14,6 +14,7 @@ import { drawRunner } from "./playerBody.js";
 import {
   diveStrengthFromVY,
   drawAfterimage,
+  drawDashStreaks,
   drawDiveFX,
   drawDiveStreaks,
   drawFloatFX,
@@ -57,6 +58,11 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
   const airborne = !player.onGround;
   const floating = airborne && state.floatHeld === true;
   const diving = airborne && player.diving === true;
+  const dashOffset = Number.isFinite(player.dashOffset) ? player.dashOffset : 0;
+  const dashK = clamp(dashOffset / Math.max(1, DASH_DISTANCE), 0, 1);
+  const dashImpulseT = Number.isFinite(player.dashImpulseT) ? player.dashImpulseT : DASH_IMPULSE_FX_SEC;
+  const dashImpulseK = 1 - clamp(dashImpulseT / Math.max(0.001, DASH_IMPULSE_FX_SEC), 0, 1);
+  const dashFxK = Math.max(dashK, dashImpulseK * 0.9);
 
   const divePhase = typeof player.divePhase === "string" ? player.divePhase : "";
   const divePhaseT = Number.isFinite(player.divePhaseT) ? player.divePhaseT : 0;
@@ -195,6 +201,10 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
     }
   } else if (floating) {
     drawFloatFX(ctx, bodyW, bodyH, COLORS, animTime || 0);
+  }
+
+  if (airborne && dashFxK > 0.01) {
+    drawDashStreaks(ctx, bodyW, bodyH, animTime || 0, dashFxK);
   }
 
   // Glow (stronger tint during float/dive)
