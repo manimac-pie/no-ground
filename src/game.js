@@ -16,7 +16,11 @@ import {
 import { clamp } from "./game/utils.js";
 import { createInitialState, resetRunState } from "./game/state.js";
 import { resetPlatforms, scrollWorld, updatePlatforms } from "./game/platforms.js";
-import { tryConsumeBufferedJump, integratePlayer, updateDash } from "./game/player.js";
+import {
+  tryConsumeBufferedJump,
+  integratePlayer,
+  updateDash,
+} from "./game/player.js";
 import { startSpin, updateTricks } from "./game/tricks.js";
 
 export function createGame() {
@@ -53,15 +57,13 @@ export function createGame() {
     const dashPressed = input?.consumeDashPressed?.() === true;
 
     state.jumpHeld = input?.jumpHeld === true;
-
-    // Air controls
     state.floatHeld = input?.floatHeld === true;
 
-    // One-press dive pulse (S): consumed by game/player.js to latch p.diving.
+    // One-press pulses
     state.divePressed = input?.consumeDivePressed?.() === true;
     state.dashPressed = dashPressed;
 
-    // Keep held flag for UI/debug if needed (no longer required for gameplay).
+    // Kept for UI/debug only
     state.diveHeld = input?.diveHeld === true;
 
     if (!state.running) {
@@ -75,17 +77,29 @@ export function createGame() {
       return state;
     }
 
-    const targetSpeed = clamp(
+    // DASH LOGIC (world-speed impulse)
+    updateDash(state, dt);
+
+    // Base world speed (difficulty ramp)
+    const baseSpeed = clamp(
       SPEED_START + SPEED_RAMP_PER_SEC * state.animTime,
       SPEED_START,
       SPEED_MAX
     );
+
+    // Dash adds to world speed, not player position
+    const impulse = state.speedImpulse || 0;
+    const desiredSpeed = baseSpeed + impulse;
+
     const alpha = 1 - Math.exp(-SPEED_SMOOTH * dt);
-    state.speed = clamp(state.speed + (targetSpeed - state.speed) * alpha, SPEED_START, SPEED_MAX);
+    state.speed = clamp(
+      state.speed + (desiredSpeed - state.speed) * alpha,
+      SPEED_START,
+      SPEED_MAX + impulse
+    );
 
     if (jumpPressed) state.jumpBuffer = JUMP_BUFFER_SEC;
     if (trickPressed) startSpin(state, trickIntent);
-    updateDash(state, dt);
 
     state.distance += state.speed * dt;
 

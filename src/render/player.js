@@ -6,7 +6,12 @@
     import { drawPlayerShadow, drawPlayer } from "./render/player.js";
 */
 
-import { DIVE_ANTICIPATION_SEC, DASH_DISTANCE, DASH_IMPULSE_FX_SEC } from "../game/constants.js";
+import {
+  DIVE_ANTICIPATION_SEC,
+  DASH_DISTANCE,
+  DASH_IMPULSE_FX_SEC,
+  JUMP_IMPULSE_FX_SEC,
+} from "../game/constants.js";
 import { world } from "../game.js";
 
 import { clamp, smoothstep01, roundedRectPath } from "./playerKit.js";
@@ -14,6 +19,7 @@ import { drawRunner } from "./playerBody.js";
 import {
   diveStrengthFromVY,
   drawAfterimage,
+  drawJumpTakeoffRubble,
   drawDashStreaks,
   drawDiveFX,
   drawDiveStreaks,
@@ -61,8 +67,10 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
   const dashOffset = Number.isFinite(player.dashOffset) ? player.dashOffset : 0;
   const dashK = clamp(dashOffset / Math.max(1, DASH_DISTANCE), 0, 1);
   const dashImpulseT = Number.isFinite(player.dashImpulseT) ? player.dashImpulseT : DASH_IMPULSE_FX_SEC;
-  const dashImpulseK = 1 - clamp(dashImpulseT / Math.max(0.001, DASH_IMPULSE_FX_SEC), 0, 1);
+  const dashImpulseK = clamp(dashImpulseT / Math.max(0.001, DASH_IMPULSE_FX_SEC), 0, 1);
   const dashFxK = Math.max(dashK, dashImpulseK * 0.9);
+  const jumpImpulseT = Number.isFinite(player.jumpImpulseT) ? player.jumpImpulseT : 0;
+  const jumpFxK = clamp(jumpImpulseT / Math.max(0.001, JUMP_IMPULSE_FX_SEC), 0, 1);
 
   const divePhase = typeof player.divePhase === "string" ? player.divePhase : "";
   const divePhaseT = Number.isFinite(player.divePhaseT) ? player.divePhaseT : 0;
@@ -215,6 +223,10 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
 
   // Body
   drawRunner(ctx, player, animTime, landed, state.running, state.speed || 0, COLORS);
+
+  if (jumpFxK > 0.01) {
+    drawJumpTakeoffRubble(ctx, bodyW, bodyH, animTime || 0, jumpFxK);
+  }
 
   // Heavier landing burst (requires state.heavyLandT to be set by game logic)
   if (heavyT > 0) {

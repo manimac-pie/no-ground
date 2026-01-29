@@ -3,14 +3,9 @@
 
 import { world } from "../game.js";
 import {
-  DASH_CATCHUP_SPEED,
-  DASH_CATCHUP_DELAY,
   DASH_MAX_CAM_LAG,
   DASH_CAM_SMOOTH,
-  DASH_CAM_CATCHUP_BOOST,
-  DASH_CAM_CATCHUP_SEC,
   DASH_PARALLAX_CAM_FACTOR,
-  PLAYER_X,
 } from "../game/constants.js";
 
 import {
@@ -23,6 +18,7 @@ import {
 
 import { drawPlayerShadow, drawPlayer } from "./player.js";
 import { drawHUD, drawLandingPopup, drawMenus } from "./ui.js";
+import { clamp } from "./playerKit.js";
 
 export const COLORS = {
   bgTop: "#0f1116",
@@ -69,8 +65,6 @@ let prevGameOver = false;
 
 let _prevFrameT = 0;
 let _camX = 0;
-let _camDelayT = 0;
-let _camBoostT = 0;
 
 function ensureCanvasSize(ctx, W, H) {
   // Match the backing store to the element size (prevents coordinate mismatch after refactors).
@@ -159,21 +153,23 @@ export function render(ctx, state) {
   dt = Math.max(0, Math.min(1 / 20, dt));
 
   if (!Number.isFinite(_camX)) _camX = 0;
-  let targetCamX = player.x - PLAYER_X;
-  targetCamX = Math.max(0, Math.min(DASH_MAX_CAM_LAG, targetCamX));
 
-  if (landed) {
-    _camDelayT = DASH_CATCHUP_DELAY;
-    _camBoostT = DASH_CAM_CATCHUP_SEC;
-  }
-  if (_camDelayT > 0) {
-    _camDelayT = Math.max(0, _camDelayT - dt);
-  } else {
-    const boost = _camBoostT > 0 ? DASH_CAM_CATCHUP_BOOST : 1;
-    const k = 1 - Math.exp(-(DASH_CAM_SMOOTH * boost) * dt);
-    _camX = _camX + (targetCamX - _camX) * k;
-  }
-  if (_camBoostT > 0) _camBoostT = Math.max(0, _camBoostT - dt);
+  // Camera lag is driven continuously by world speed + dash impulse.
+  // This avoids step changes and feels weighty at high speed.
+  const speed = Number.isFinite(state.speed) ? state.speed : 0;
+  const impulse = Number.isFinite(state.speedImpulse) ? state.speedImpulse : 0;
+
+  // Map speed to a forward camera lag (clamped).
+  // Base speed contributes gently; dash impulse contributes strongly.
+  const targetCamX = clamp(
+    speed * 0.015 + impulse * 0.08,
+    0,
+    DASH_MAX_CAM_LAG
+  );
+
+  // Smoothly ease camera toward target using exponential smoothing.
+  const k = 1 - Math.exp(-DASH_CAM_SMOOTH * dt);
+  _camX += (targetCamX - _camX) * k;
 
   // Hard reset paint state
   resetCtx(ctx);

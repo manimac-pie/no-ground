@@ -59,6 +59,7 @@ export function createInitialState() {
       dashTarget: 0,
       dashOffsetV: 0,
       dashImpulseT: 0,
+      jumpImpulseT: 0,
     },
 
     platforms: [],
@@ -115,4 +116,5 @@ export function resetRunState(state) {
   p.dashTarget = 0;
   p.dashOffsetV = 0;
   p.dashImpulseT = 0;
+  p.jumpImpulseT = 0;
 }

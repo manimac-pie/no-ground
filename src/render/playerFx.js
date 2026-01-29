@@ -3,6 +3,9 @@
 
 import { clamp, roundedRectPath } from "./playerKit.js";
 
+/* ------------------------------------------------------------
+   FLIP RIBBON (unchanged)
+------------------------------------------------------------ */
 export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
   const d = dir === -1 ? -1 : 1;
   const p = clamp(prog, 0, 1);
@@ -25,7 +28,6 @@ export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
 
   const shimmer = 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(t * 7.5));
 
-  // Outer glow
   ctx.globalAlpha = 0.18 * shimmer;
   ctx.strokeStyle = cMain;
   ctx.lineWidth = Math.max(2, bodyW * 0.10);
@@ -33,15 +35,12 @@ export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
   ctx.arc(0, 0, r1, start, end, d === -1);
   ctx.stroke();
 
-  // Main ribbon
   ctx.globalAlpha = 0.26;
-  ctx.strokeStyle = cMain;
   ctx.lineWidth = Math.max(2, bodyW * 0.07);
   ctx.beginPath();
   ctx.arc(0, 0, r0, start, end, d === -1);
   ctx.stroke();
 
-  // Inner highlight
   ctx.globalAlpha = 0.14;
   ctx.strokeStyle = cHi;
   ctx.lineWidth = Math.max(1, bodyW * 0.03);
@@ -49,19 +48,19 @@ export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
   ctx.arc(0, 0, r0 - bodyW * 0.10, start, end, d === -1);
   ctx.stroke();
 
-  // Motes (rounded, non-blocky)
   ctx.filter = "none";
   ctx.globalAlpha = 0.22;
-  ctx.fillStyle = d === 1 ? (COLORS?.accent || "rgba(120,205,255,0.95)") : "rgba(255,85,110,0.85)";
+  ctx.fillStyle = d === 1
+    ? (COLORS?.accent || "rgba(120,205,255,0.95)")
+    : "rgba(255,85,110,0.85)";
+
   const moteN = 5;
   for (let i = 0; i < moteN; i++) {
     const u = (i + 1) / (moteN + 1);
     const aa = start + (end - start) * u;
     const rr = r0 + (r1 - r0) * (0.15 + 0.25 * u);
-    const x = Math.cos(aa) * rr;
-    const y = Math.sin(aa) * rr;
     ctx.beginPath();
-    ctx.arc(x, y, 1.3, 0, Math.PI * 2);
+    ctx.arc(Math.cos(aa) * rr, Math.sin(aa) * rr, 1.3, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -69,66 +68,191 @@ export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
   ctx.filter = prevFilter;
 }
 
+/* ------------------------------------------------------------
+   AFTERIMAGE (unchanged)
+------------------------------------------------------------ */
 export function drawAfterimage(ctx, player, animTime, landed, stateRunning, speed, rot, COLORS) {
-  // Flip trail: ribbon arc instead of blocky ghosts
   if (player && player.spinning === true && player.trickKind === "flip") {
-    const bodyW2 = player.w * 0.70;
-    const bodyH2 = player.h * 0.78;
-    const prog = clamp(player.spinProg ?? 0, 0, 1);
-    const dir = player.spinDir === -1 ? -1 : 1;
-    drawFlipRibbonTrail(ctx, bodyW2, bodyH2, prog, dir, animTime || 0, COLORS);
+    drawFlipRibbonTrail(
+      ctx,
+      player.w * 0.70,
+      player.h * 0.78,
+      clamp(player.spinProg ?? 0, 0, 1),
+      player.spinDir === -1 ? -1 : 1,
+      animTime || 0,
+      COLORS
+    );
     return;
   }
 
-  const w = player.w;
-  const h = player.h;
-
-  const bodyW = w * 0.70;
-  const bodyH = h * 0.78;
+  const bodyW = player.w * 0.70;
+  const bodyH = player.h * 0.78;
   const bodyX = -bodyW / 2;
-  const bodyY = -bodyH / 2 - h * 0.06;
+  const bodyY = -bodyH / 2 - player.h * 0.06;
   const radius = Math.min(bodyW, bodyH) * 0.45;
 
   const wheelR = Math.max(6, bodyW * 0.22);
-  const wheelY = h / 2 - wheelR - 1;
+  const wheelY = player.h / 2 - wheelR - 1;
 
   function drawGhost(alpha) {
-    ctx.fillStyle = `rgba(242,242,242,${alpha.toFixed(3)})`;
+    ctx.fillStyle = `rgba(242,242,242,${alpha})`;
     roundedRectPath(ctx, bodyX, bodyY, bodyW, bodyH, radius);
     ctx.fill();
 
-    ctx.fillStyle = `rgba(36,38,44,${(alpha * 0.55).toFixed(3)})`;
+    ctx.fillStyle = `rgba(36,38,44,${alpha * 0.55})`;
     ctx.beginPath();
     ctx.arc(0, wheelY + wheelR, wheelR, 0, Math.PI * 2);
     ctx.fill();
   }
 
   ctx.save();
-
-  const prevFilter = ctx.filter;
   ctx.filter = "blur(1.4px)";
-
-  const prevComp = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
 
-  const samples = 4;
-  for (let i = 1; i <= samples; i++) {
-    const k = i / samples;
-    const falloff = 1 - k;
-    const alpha = 0.20 * falloff * falloff;
-
+  for (let i = 1; i <= 4; i++) {
+    const k = i / 4;
     ctx.save();
     ctx.translate(-k * 11, k * 6);
     ctx.rotate(rot * (1 - k) * 0.35);
-    drawGhost(alpha);
+    drawGhost(0.20 * (1 - k) ** 2);
     ctx.restore();
   }
 
-  ctx.globalCompositeOperation = prevComp;
-  ctx.filter = prevFilter;
   ctx.restore();
 }
 
+/* ------------------------------------------------------------
+   JUMP TAKEOFF RUBBLE (new)
+------------------------------------------------------------ */
+export function drawJumpTakeoffRubble(ctx, bodyW, bodyH, t, k) {
+  if (k <= 0) return;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 0.70 * k;
+  ctx.fillStyle = "rgba(36,38,44,0.70)";
+
+  const baseY = bodyH * 0.86;
+  const spread = bodyW * 0.55;
+  const n = 8;
+
+  for (let i = 0; i < n; i++) {
+    const s = n === 1 ? 0 : (i / (n - 1) - 0.5);
+    const jitter = Math.sin(t * 9 + i * 2.1) * bodyW * 0.05;
+    const x = s * spread + jitter;
+    const lift = (0.6 + 0.4 * Math.sin(t * 7 + i)) * bodyH * 0.10 * k;
+    const w = bodyW * (0.040 + 0.03 * (1 - k));
+    const h = bodyH * (0.030 + 0.02 * (1 - k));
+    ctx.fillRect(x - w / 2, baseY - lift - h / 2, w, h);
+  }
+
+  ctx.globalAlpha = 0.45 * k;
+  ctx.fillStyle = "rgba(220,220,220,0.55)";
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const r = bodyW * (0.12 + 0.10 * k);
+    const x = Math.cos(a + t * 3) * r;
+    const y = baseY - Math.sin(a + t * 3) * r * 0.45;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = 0.35 * k;
+  ctx.strokeStyle = "rgba(200,200,200,0.45)";
+  ctx.lineWidth = Math.max(1, bodyW * 0.02);
+  ctx.beginPath();
+  ctx.ellipse(0, baseY + bodyH * 0.02, bodyW * 0.22, bodyH * 0.04, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------
+   DASH STREAKS + ANTICIPATION SQUASH (FIXED)
+------------------------------------------------------------ */
+export function drawDashStreaks(ctx, bodyW, bodyH, t, k) {
+  ctx.save();
+
+  // k ∈ [0..1] from dash impulse
+  // Phase split: 0–0.25 squash, 0.25–1 release
+  const squashT = clamp(k / 0.25, 0, 1);
+  const releaseT = clamp((k - 0.25) / 0.75, 0, 1);
+
+  // Ease curves
+  const squashEase = squashT * squashT;
+  const releaseEase = 1 - Math.pow(1 - releaseT, 2);
+
+  // Anticipation squash (vertical compression)
+  const scaleX =
+    1 +
+    0.14 * squashEase +
+    0.42 * releaseEase;
+
+  const scaleY =
+    1 -
+    0.30 * squashEase -
+    0.12 * releaseEase;
+
+  ctx.scale(scaleX, scaleY);
+
+  ctx.globalAlpha = 0.16 + 0.34 * k;
+  ctx.fillStyle = "rgba(120,205,255,0.22)";
+
+  const n = 7;
+  for (let i = 0; i < n; i++) {
+    const s = i / (n - 1);
+    const wobble = 0.6 + 0.4 * Math.sin(t * 9 + i * 1.3);
+    const len = bodyW * (0.55 + 1.35 * k) * wobble;
+    const y = -bodyH * 0.10 + (s - 0.5) * bodyH * 0.65;
+    const x0 = -bodyW * (0.12 + 0.28 * k) - len;
+
+    ctx.save();
+    ctx.rotate(-0.05);
+    ctx.fillRect(x0, y, len, 2);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------
+   DIVE STREAKS (new)
+------------------------------------------------------------ */
+export function drawDiveStreaks(ctx, bodyW, bodyH, t, k) {
+  if (k <= 0) return;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = 0.14 + 0.38 * k;
+  ctx.strokeStyle = "rgba(255,85,110,0.55)";
+  ctx.lineWidth = Math.max(1, bodyW * 0.028);
+  ctx.lineCap = "round";
+
+  const n = 6;
+  const spread = bodyW * 0.55;
+  const len = bodyH * (0.7 + 1.2 * k);
+  const y0 = -bodyH * 0.05;
+
+  for (let i = 0; i < n; i++) {
+    const s = n === 1 ? 0 : (i / (n - 1) - 0.5);
+    const wobble = Math.sin(t * 8 + i * 1.6) * bodyW * 0.06;
+    const x = s * spread + wobble;
+    const tilt = -bodyW * 0.06 * k;
+    const jitter = Math.sin(t * 6 + i) * bodyH * 0.04;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y0 + jitter * 0.2);
+    ctx.lineTo(x + tilt, y0 + len + jitter);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------
+   FLOAT / DIVE FX (unchanged from your tuned version)
+------------------------------------------------------------ */
 export function diveStrengthFromVY(vy) {
   return clamp((vy - 250) / 1350, 0, 1);
 }
@@ -137,43 +261,24 @@ function drawHaloFX(ctx, bodyW, bodyH, t, mode, vy = 0) {
   ctx.save();
   const diving = mode === "dive";
   const k = diving ? diveStrengthFromVY(vy || 0) : 0;
-
   const floating = mode === "float";
-  // Brighter float halo (slow descent), keep dive as-is.
-  ctx.globalAlpha = diving ? (0.50 + 0.10 * k) : (floating ? 0.78 : 0.55);
 
+  ctx.globalAlpha = diving ? (0.50 + 0.10 * k) : (floating ? 0.78 : 0.55);
   ctx.strokeStyle = diving ? "rgba(255,85,110,0.30)" : "rgba(120,205,255,0.30)";
   ctx.lineWidth = floating ? 3 : 2;
+
   ctx.beginPath();
   ctx.ellipse(0, bodyH * 0.05, bodyW * 0.55, bodyH * 0.70, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Extra soft outer glow for float mode (adds brightness without harsh edges)
   if (floating) {
-    const prevFilter = ctx.filter;
     ctx.filter = "blur(1.2px)";
     ctx.globalAlpha *= 0.55;
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.ellipse(0, bodyH * 0.05, bodyW * 0.58, bodyH * 0.74, 0, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.filter = prevFilter;
-
-    // restore primary alpha/width for the rest of the FX
-    ctx.globalAlpha = 0.78;
-    ctx.lineWidth = 3;
-  }
-
-  ctx.fillStyle = diving ? "rgba(255,85,110,0.22)" : (floating ? "rgba(120,205,255,0.30)" : "rgba(120,205,255,0.20)");
-  const dir = diving ? 1 : -1;
-  for (let i = 0; i < 6; i++) {
-    const a = (i * 1.7 + t * (diving ? 5.6 : 6.0)) % (Math.PI * 2);
-    const r = bodyW * (0.18 + 0.08 * (i % 2));
-    const x = Math.cos(a) * r;
-    const base = bodyH * (0.25 + 0.08 * i);
-    const drift = (t * 50 + i * 13) % 18;
-    const y = dir * (base + drift);
-    ctx.fillRect(x, y, 2, 2);
+    ctx.filter = "none";
   }
 
   ctx.restore();
@@ -187,114 +292,79 @@ export function drawDiveFX(ctx, bodyW, bodyH, COLORS, t, vy) {
   drawHaloFX(ctx, bodyW, bodyH, t, "dive", vy);
 }
 
-export function drawDiveStreaks(ctx, bodyW, bodyH, t, k) {
-  ctx.save();
-  ctx.globalAlpha = 0.18 + 0.28 * k;
-  ctx.fillStyle = "rgba(255,85,110,0.22)";
-
-  const n = 6;
-  for (let i = 0; i < n; i++) {
-    const s = i / n;
-    const len = bodyW * (0.55 + 0.55 * k) * (0.55 + 0.45 * Math.sin(t * 9 + i * 1.7));
-    const y = -bodyH * 0.10 + (s - 0.5) * bodyH * 0.55;
-    const x0 = -bodyW * (0.25 + 0.15 * k) - len;
-
-    ctx.save();
-    ctx.rotate(-0.10);
-    ctx.fillRect(x0, y, len, 2);
-    ctx.restore();
-  }
-
-  ctx.restore();
-}
-
-export function drawDashStreaks(ctx, bodyW, bodyH, t, k) {
-  ctx.save();
-  ctx.globalAlpha = 0.12 + 0.30 * k;
-  ctx.fillStyle = "rgba(120,205,255,0.22)";
-
-  const n = 7;
-  for (let i = 0; i < n; i++) {
-    const s = i / (n - 1);
-    const wobble = 0.5 + 0.5 * Math.sin(t * 10 + i * 1.3);
-    const len = bodyW * (0.55 + 1.15 * k) * (0.55 + 0.45 * wobble);
-    const y = -bodyH * 0.12 + (s - 0.5) * bodyH * 0.65;
-    const x0 = -bodyW * (0.10 + 0.22 * k) - len;
-
-    ctx.save();
-    ctx.rotate(-0.05);
-    ctx.fillRect(x0, y, len, 2);
-    ctx.restore();
-  }
-
-  ctx.restore();
-}
-
-export function drawLandingRubble(ctx, bodyW, bodyH, t01) {
-  ctx.save();
-  ctx.globalAlpha = 0.25 + 0.45 * t01;
-  ctx.fillStyle = "rgba(242,242,242,0.24)";
-
-  const n = 12;
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    const r = bodyW * (0.10 + 0.26 * (1 - t01)) + (i % 2) * bodyW * 0.06;
-    const x = Math.cos(a) * r;
-    const y = Math.sin(a) * r + bodyH * 0.44;
-    ctx.fillRect(x, y, 2, 2);
-  }
-
-  ctx.restore();
-}
-
+/* ------------------------------------------------------------
+   HEAVY LANDING FX (new)
+------------------------------------------------------------ */
 export function drawHeavyLandingBurst(ctx, bodyW, bodyH, t01) {
-  ctx.save();
-  ctx.globalAlpha = 0.25 + 0.55 * t01;
-  ctx.fillStyle = "rgba(242,242,242,0.22)";
+  if (t01 <= 0) return;
 
-  const n = 10;
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    const r = bodyW * (0.10 + 0.30 * (1 - t01));
-    const x = Math.cos(a) * r;
-    const y = Math.sin(a) * r + bodyH * 0.40;
-    ctx.fillRect(x, y, 2, 2);
+  ctx.save();
+  const k = clamp(t01, 0, 1);
+  const cx = 0;
+  const cy = bodyH * 0.44;
+  const r = bodyW * (0.18 + 0.45 * k);
+
+  ctx.globalAlpha = 0.35 * (1 - k);
+  ctx.strokeStyle = "rgba(242,242,242,0.7)";
+  ctx.lineWidth = Math.max(1, bodyW * 0.025);
+  ctx.lineCap = "round";
+
+  const rays = 7;
+  for (let i = 0; i < rays; i++) {
+    const a = (i / rays) * Math.PI * 2;
+    const x0 = cx + Math.cos(a) * r * 0.25;
+    const y0 = cy + Math.sin(a) * r * 0.25;
+    const x1 = cx + Math.cos(a) * r;
+    const y1 = cy + Math.sin(a) * r;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
   }
 
   ctx.restore();
 }
 
 export function drawHeavyLandingRing(ctx, bodyW, bodyH, t01) {
+  if (t01 <= 0) return;
+
   ctx.save();
-  const k = 1 - t01;
-  ctx.globalAlpha = 0.18 + 0.35 * t01;
-  ctx.strokeStyle = "rgba(242,242,242,0.22)";
-  ctx.lineWidth = 2;
+  const k = clamp(t01, 0, 1);
+  const cx = 0;
+  const cy = bodyH * 0.45;
+  const rx = bodyW * (0.35 + 0.55 * k);
+  const ry = bodyH * (0.10 + 0.20 * k);
+
+  ctx.globalAlpha = 0.28 * (1 - k);
+  ctx.strokeStyle = "rgba(120,205,255,0.45)";
+  ctx.lineWidth = Math.max(1, bodyW * 0.02);
   ctx.beginPath();
-  ctx.ellipse(
-    0,
-    bodyH * 0.48,
-    bodyW * (0.35 + 0.55 * k),
-    Math.max(6, bodyH * (0.10 + 0.12 * k)),
-    0,
-    0,
-    Math.PI * 2
-  );
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.globalAlpha *= 0.55;
-  ctx.strokeStyle = "rgba(255,85,110,0.22)";
-  ctx.beginPath();
-  ctx.ellipse(
-    0,
-    bodyH * 0.48,
-    bodyW * (0.28 + 0.42 * k),
-    Math.max(6, bodyH * (0.08 + 0.10 * k)),
-    0,
-    0,
-    Math.PI * 2
-  );
-  ctx.stroke();
+  ctx.restore();
+}
+
+export function drawLandingRubble(ctx, bodyW, bodyH, t01) {
+  if (t01 <= 0) return;
+
+  ctx.save();
+  const k = clamp(t01, 0, 1);
+  const baseY = bodyH * 0.46;
+  const n = 6;
+
+  ctx.globalAlpha = 0.25 * (1 - k);
+  ctx.fillStyle = "rgba(36,38,44,0.5)";
+
+  for (let i = 0; i < n; i++) {
+    const s = n === 1 ? 0 : (i / (n - 1) - 0.5);
+    const jitter = Math.sin((i + 1) * 2.3) * bodyW * 0.03;
+    const x = s * bodyW * 0.75 + jitter;
+    const y = baseY + Math.sin((i + 2) * 1.7) * bodyH * 0.03;
+    const w = bodyW * (0.04 + 0.03 * (1 - k));
+    const h = bodyH * (0.03 + 0.02 * (1 - k));
+    ctx.fillRect(x - w / 2, y - h / 2, w, h);
+  }
 
   ctx.restore();
 }

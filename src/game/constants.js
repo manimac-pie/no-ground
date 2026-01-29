@@ -17,6 +17,7 @@ export const FALL_GRAVITY_MULT = 1.20;
 export const JUMP_CUT_MULT = 2.0;
 
 export const JUMP_CUT_RAMP_PER_SEC = 18;
+export const JUMP_IMPULSE_FX_SEC = 0.18; // jump trail burst duration
 
 // Air control (W = float, S = dive)
 export const FLOAT_FUEL_MAX = 0.38;            // seconds of float available
