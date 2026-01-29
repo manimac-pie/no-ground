@@ -61,18 +61,45 @@ export function spawnNextPlatform(state) {
 
   y = clamp(y, 180, GROUND_Y - 40);
 
-  // Dynamic rooftops: some platforms slowly rise or crumble (sink) after spawning.
-  // Keep subtle and fair; clamp so they never approach the lethal ground too closely.
+  // Dynamic rooftops: some platforms rise up (from below) or crumble (sink) while you're mid-air.
+  // We *arm* motion on spawn, but we only *start* it once the player is airborne and the platform is approaching.
   const motionChance = 0.10 + 0.18 * d; // ramps with difficulty
   const hasMotion = Math.random() < motionChance;
   const motionKind = hasMotion ? (Math.random() < 0.5 ? "rise" : "crumble") : "none";
 
-  // Amplitude in px (rise = negative direction, crumble = positive direction)
-  const amp = hasMotion ? (14 + 30 * (0.35 + 0.65 * d) * Math.random()) : 0;
-  const motionTargetY = motionKind === "rise" ? -amp : (motionKind === "crumble" ? amp : 0);
+  // Some CRUMBLE platforms will fully "break" (fall away) while you're mid-air.
+  // This is distinct from roof stress collapse (standing too long).
+  const breakChance = (motionKind === "crumble") ? (0.16 + 0.22 * d) : 0;
+  const breakArmed = Math.random() < breakChance;
 
-  // How quickly it reaches the target
-  const motionRate = hasMotion ? (0.55 + 0.85 * Math.random()) : 0;
+  // How quickly the break triggers once the platform starts crumbling (seconds-ish)
+  const breakDelay = breakArmed ? (0.10 + 0.30 * Math.random()) : 0;
+
+  // Amplitude in px
+  const amp = hasMotion ? (18 + 44 * (0.35 + 0.65 * d) * Math.random()) : 0;
+
+  // How quickly it reaches the target (seconds-ish)
+  const motionRate = hasMotion ? (0.65 + 0.95 * Math.random()) : 0;
+
+  // For fairness, platforms never go too close to lethal ground.
+  const yMin = 160;
+  const yMax = GROUND_Y - 40;
+
+  // Motion path:
+  // - "rise": start lower (closer to ground), move up to the resting baseY
+  // - "crumble": start at baseY, sink downward by amp
+  const baseYRest = y;
+  const fromY = motionKind === "rise"
+    ? clamp(baseYRest + amp, yMin, yMax)
+    : baseYRest;
+  const toY = motionKind === "crumble"
+    ? clamp(baseYRest + amp, yMin, yMax)
+    : baseYRest;
+
+  // Apply initial y for the rise case so it visually “comes up from below”.
+  if (motionKind === "rise") {
+    y = fromY;
+  }
 
   state.platforms.push({
     x: lastRight + gap,
@@ -80,12 +107,23 @@ export function spawnNextPlatform(state) {
     w,
     h: PLATFORM_H,
 
-    // Motion state
-    baseY: y,
+    // Motion state (armed on spawn; starts when player is airborne and the platform is approaching)
+    baseY: baseYRest, // resting Y (where collision should be once motion completes)
     motion: motionKind, // "rise" | "crumble" | "none"
-    motionT: hasMotion ? 0 : 1,
+    motionArmed: hasMotion,
+    motionStarted: false,
+    motionT: 0,
     motionRate,
-    motionTargetY,
+    motionFromY: fromY,
+    motionToY: toY,
+
+    // Break state (for some crumble platforms)
+    breakArmed,
+    breakDelay,
+    breakT: 0,
+    breakTriggered: false,
+    breaking: false,
+    break01: 0,
 
     // Collapse state
     heavyBumped: false,
@@ -110,9 +148,20 @@ export function resetPlatforms(state, maybeSpawnGateAhead) {
     // Motion (none for start)
     baseY: startY,
     motion: "none",
-    motionT: 1,
+    motionArmed: false,
+    motionStarted: false,
+    motionT: 0,
     motionRate: 0,
-    motionTargetY: 0,
+    motionFromY: startY,
+    motionToY: startY,
+
+    // Break state
+    breakArmed: false,
+    breakDelay: 0,
+    breakT: 0,
+    breakTriggered: false,
+    breaking: false,
+    break01: 0,
 
     // Collapse state
     heavyBumped: false,
@@ -178,29 +227,156 @@ export function updatePlatforms(state, dt) {
     if (plat.collapsing) {
       plat.vy += ROOF_FALL_GRAVITY * dt;
       plat.y += plat.vy * dt;
+
+      // While falling, lock motion/break so nothing jitters.
+      plat.motion = "none";
+      plat.motionArmed = false;
+      plat.motionStarted = false;
+      plat.motionT = 0;
+      plat.breakT = 0;
+      plat.breaking = false;
+      plat.break01 = 0;
+
       continue;
     }
 
     // Apply gentle rise/crumble motion (non-collapsing only).
-    if (plat.motion && plat.motion !== "none" && plat.motionT < 1) {
-      plat.motionT = clamp(plat.motionT + plat.motionRate * dt, 0, 1);
-      const e = easeInOut01(plat.motionT);
-      let newY = plat.baseY + plat.motionTargetY * e;
+    // Motion is ARMED on spawn but only STARTS once the player is airborne and the platform is approaching.
+    if (plat.motion && plat.motion !== "none") {
+      const yMin = 160;
+      const yMax = GROUND_Y - 40;
 
-      // Fairness clamps: never too close to lethal ground and never too high.
-      newY = clamp(newY, 160, GROUND_Y - 40);
+      // Ensure defaults (older platforms won’t crash if they lack new fields)
+      if (!Number.isFinite(plat.baseY)) plat.baseY = plat.y;
+      if (!Number.isFinite(plat.motionFromY)) plat.motionFromY = plat.y;
+      if (!Number.isFinite(plat.motionToY)) plat.motionToY = plat.baseY;
+      if (typeof plat.motionArmed !== "boolean") plat.motionArmed = false;
+      if (typeof plat.motionStarted !== "boolean") plat.motionStarted = plat.motionT > 0;
+      if (!Number.isFinite(plat.motionT)) plat.motionT = plat.motionStarted ? plat.motionT : 0;
 
-      // If we hit the clamp, finish motion to avoid jitter.
-      if (newY === 160 || newY === GROUND_Y - 40) {
-        plat.motionT = 1;
+      // Break defaults (older platforms won’t crash if they lack these)
+      if (typeof plat.breakArmed !== "boolean") plat.breakArmed = false;
+      if (!Number.isFinite(plat.breakDelay)) plat.breakDelay = 0;
+      if (!Number.isFinite(plat.breakT)) plat.breakT = 0;
+      if (typeof plat.breakTriggered !== "boolean") plat.breakTriggered = false;
+      if (typeof plat.breaking !== "boolean") plat.breaking = false;
+      if (!Number.isFinite(plat.break01)) plat.break01 = 0;
+
+      // Start condition: player is in the air AND the platform is in the near-ahead window.
+      // (Avoid surprising movement far away off-screen.)
+      const airborne = !(p && p.onGround);
+      const px = p ? p.x : 0;
+      const ahead = plat.x - px;
+      const inWindow = ahead > 40 && ahead < 520; // tune window as desired
+
+      if (plat.motionArmed && !plat.motionStarted && airborne && inWindow) {
+        plat.motionStarted = true;
+        plat.motionT = 0;
+
+        // For crumble, start at the resting height (baseY) until it begins.
+        if (plat.motion === "crumble") {
+          plat.motionFromY = plat.baseY;
+          plat.y = plat.baseY;
+
+          // Arm the break timer only after motion starts (so far-off platforms don’t break off-screen)
+          plat.breakT = 0;
+          plat.breakTriggered = false;
+        }
+
+        // For rise, platform should already be at motionFromY from spawn.
       }
 
-      plat.y = newY;
+      // If not started, keep its initial position stable (rise sits low; crumble sits at base).
+      if (!plat.motionStarted) {
+        if (plat.motion === "rise") {
+          plat.y = clamp(plat.motionFromY, yMin, yMax);
+        } else {
+          plat.y = clamp(plat.baseY, yMin, yMax);
+        }
+      } else if (plat.motionT < 1) {
+        // Advance motion
+        plat.motionT = clamp(plat.motionT + plat.motionRate * dt, 0, 1);
+        const e = easeInOut01(plat.motionT);
+        let newY = plat.motionFromY + (plat.motionToY - plat.motionFromY) * e;
+        newY = clamp(newY, yMin, yMax);
 
-      // If the player is standing on this platform, keep them glued to the top.
-      if (state.running && p.onGround && p.groundPlat === plat) {
-        p.y = plat.y - p.h;
-        p.vy = 0;
+        // If we hit the clamp, finish motion to avoid jitter.
+        if (newY === yMin || newY === yMax) {
+          plat.motionT = 1;
+        }
+
+        plat.y = newY;
+
+        // If the player is standing on this platform, keep them glued to the top.
+        if (state.running && p.onGround && p.groundPlat === plat) {
+          p.y = plat.y - p.h;
+          p.vy = 0;
+        }
+
+        // When motion completes, lock the resting baseY to the final position.
+        if (plat.motionT >= 1) {
+          plat.baseY = plat.y;
+        }
+
+        // If this is a CRUMBLE platform with break armed, let it fully break while you're mid-air.
+        // We only trigger once the crumble is mostly visible and only while the player is airborne,
+        // to avoid unfair breaks under a standing player.
+        if (
+          plat.motion === "crumble" &&
+          plat.motionStarted &&
+          !plat.breakTriggered &&
+          plat.breakArmed
+        ) {
+          const airborneNow = !(p && p.onGround);
+          if (airborneNow) {
+            // Start counting once the crumble is underway.
+            const visibleCrumble = plat.motionT >= 0.55;
+            if (visibleCrumble) {
+              plat.breakT += dt;
+              if (plat.breakT >= plat.breakDelay) {
+                // Instead of collapsing immediately, start breaking animation
+                plat.breakTriggered = true;
+                plat.breaking = true;
+                plat.break01 = 0;
+                plat.breakT = 0; // reuse as breaking timer
+                plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65);
+              }
+            }
+          }
+        }
+
+        // New: advance breaking animation and trigger collapse when done
+        if (plat.breaking === true && plat.collapsing !== true) {
+          plat.breakT += dt;
+          const BREAK_ANIM_SEC = 0.22;
+          plat.break01 = clamp(plat.breakT / BREAK_ANIM_SEC, 0, 1);
+          plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65 + 0.35 * plat.break01);
+
+          if (plat.break01 >= 1) {
+            plat.collapsing = true;
+            plat.vy = 0;
+            plat.crack01 = 1;
+
+            // Freeze motion so it doesn't fight the fall.
+            plat.motion = "none";
+            plat.motionArmed = false;
+            plat.motionStarted = false;
+            plat.motionT = 0;
+            plat.baseY = plat.y;
+            plat.motionFromY = plat.y;
+            plat.motionToY = plat.y;
+            plat.motionRate = 0;
+
+            plat.breaking = false;
+
+            // If somehow the player is on it, drop them with a small grace.
+            if (p && p.groundPlat === plat) {
+              p.onGround = false;
+              p.groundPlat = null;
+              p.coyote = Math.max(p.coyote ?? 0, 0.08);
+            }
+          }
+        }
       }
     }
 
@@ -237,9 +413,12 @@ export function updatePlatforms(state, dt) {
 
       // Freeze motion so it doesn't fight the fall.
       plat.motion = "none";
-      plat.motionT = 1;
+      plat.motionArmed = false;
+      plat.motionStarted = false;
+      plat.motionT = 0;
       plat.baseY = plat.y;
-      plat.motionTargetY = 0;
+      plat.motionFromY = plat.y;
+      plat.motionToY = plat.y;
       plat.motionRate = 0;
 
       if (p.groundPlat === plat) {
