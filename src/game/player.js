@@ -160,9 +160,7 @@ export function integratePlayer(state, dt, endGame) {
         : 1;
     const blend = smoothstep01(t);
     g *= 1 + (DIVE_GRAVITY_MULT - 1) * blend;
-    maxFall =
-      MAX_FALL_SPEED +
-      (DIVE_MAX_FALL_SPEED - MAX_FALL_SPEED) * blend;
+    maxFall = MAX_FALL_SPEED + (DIVE_MAX_FALL_SPEED - MAX_FALL_SPEED) * blend;
   }
 
   if (p.onGround && p.floatFuel < FLOAT_FUEL_MAX) {
@@ -258,11 +256,7 @@ export function updateDash(state, dt) {
   // - airborne only
   // - one press of D
   // - no direction requirement
-  if (
-    state.dashPressed === true &&
-    p.onGround !== true &&
-    p.dashCooldown <= 0
-  ) {
+  if (state.dashPressed === true && p.onGround !== true && p.dashCooldown <= 0) {
     state.speedImpulse += DASH_SPEED_BOOST;
     p.dashCooldown = DASH_COOLDOWN;
     p.dashImpulseT = DASH_IMPULSE_FX_SEC;

@@ -67,22 +67,26 @@ let _prevFrameT = 0;
 let _camX = 0;
 
 function ensureCanvasSize(ctx, W, H) {
-  // Match the backing store to the element size (prevents coordinate mismatch after refactors).
+  // Renderer owns backing store sizing; main.js only sets CSS size.
   const canvas = ctx.canvas;
-  if (!canvas) return { dpr: 1, cw: W, ch: H };
+  if (!canvas) {
+    return { dpr: 1, cw: W, ch: H, cssW: W, cssH: H };
+  }
 
-  const dpr = Math.max(1, Math.floor((window.devicePixelRatio || 1) * 100) / 100);
   const rect = canvas.getBoundingClientRect();
   const cssW = Math.max(1, Math.floor(rect.width));
   const cssH = Math.max(1, Math.floor(rect.height));
 
+  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
   const targetW = Math.max(1, Math.floor(cssW * dpr));
   const targetH = Math.max(1, Math.floor(cssH * dpr));
-
   if (canvas.width !== targetW) canvas.width = targetW;
   if (canvas.height !== targetH) canvas.height = targetH;
 
-  return { dpr, cw: targetW, ch: targetH, cssW, cssH };
+  const cw = Math.max(1, canvas.width);
+  const ch = Math.max(1, canvas.height);
+
+  return { dpr, cw, ch, cssW, cssH };
 }
 
 function applyViewportTransform(ctx, W, H, cssW, cssH, dpr) {
@@ -95,12 +99,13 @@ function applyViewportTransform(ctx, W, H, cssW, cssH, dpr) {
   const oyCss = (cssH - H * s) * 0.5;
 
   // Transform maps internal units -> device pixels.
+  if (!Number.isFinite(dpr) || dpr <= 0) dpr = 1;
   ctx.setTransform(s * dpr, 0, 0, s * dpr, oxCss * dpr, oyCss * dpr);
 }
 
 function resetCtx(ctx) {
   // Reset paint state, but DO NOT touch the transform.
-  // The transform is owned by the caller (main.js) to scale internal coords to the canvas.
+  // The transform is owned by the renderer to scale internal coords to the canvas.
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
   ctx.filter = "none";

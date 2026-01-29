@@ -16,6 +16,7 @@ export function createInput(canvas) {
     trickPressed: false,
     divePressed: false,
     dashPressed: false,
+    lastJumpSource: null,
 
     // Holds
     jumpHeld: false,
@@ -23,7 +24,7 @@ export function createInput(canvas) {
     diveHeld: false,  // S (kept for UI/debug; gameplay uses divePressed -> latched)
 
     // One-frame flip intent
-    trickIntent: null, // "backflip"|null
+    trickIntent: null, // "backflip"|"frontflip"|"neutral"|null
 
     // Pointer tracking
     pointerDown: false,
@@ -31,8 +32,9 @@ export function createInput(canvas) {
     _pointerDownAt: 0,
   };
 
-  function pressJump() {
+  function pressJump(source = null) {
     state.jumpPressed = true;
+    state.lastJumpSource = source;
   }
 
   function pressTrick(intent = "neutral") {
@@ -73,7 +75,7 @@ export function createInput(canvas) {
 
     if (isJumpKey) {
       state.jumpHeld = true;
-      pressJump();
+      pressJump(key);
       return;
     }
 
@@ -134,7 +136,7 @@ export function createInput(canvas) {
     if (state._activePointer) {
       state._pointerDownAt = performance.now();
       state.jumpHeld = true;
-      pressJump();
+      pressJump("pointer");
     }
   }
 
@@ -166,6 +168,7 @@ export function createInput(canvas) {
     state.trickPressed = false;
     state.divePressed = false;
     state.dashPressed = false;
+    state.lastJumpSource = null;
     state.jumpHeld = false;
     state.floatHeld = false;
     state.diveHeld = false;
@@ -190,10 +193,17 @@ export function createInput(canvas) {
   window.addEventListener("pointercancel", onPointerCancel, { passive: true });
 
   return {
-    consumeJumpPressed() {
-      const v = state.jumpPressed;
+    consumeJumpPress() {
+      const pressed = state.jumpPressed;
+      const source = state.lastJumpSource;
       state.jumpPressed = false;
-      return v;
+      state.lastJumpSource = null;
+      return { pressed, source };
+    },
+
+    // Back-compat convenience for callers that only care about the press bit.
+    consumeJumpPressed() {
+      return this.consumeJumpPress().pressed;
     },
 
     consumeDivePressed() {

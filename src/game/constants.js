@@ -20,7 +20,7 @@ export const JUMP_CUT_RAMP_PER_SEC = 18;
 export const JUMP_IMPULSE_FX_SEC = 0.18; // jump trail burst duration
 
 // Air control (W = float, S = dive)
-export const FLOAT_FUEL_MAX = 0.38;            // seconds of float available
+export const FLOAT_FUEL_MAX = 0.55;            // seconds of float available
 export const FLOAT_FUEL_REGEN_PER_SEC = 0.70;  // fuel/sec regained while grounded
 export const FLOAT_GRAVITY_MULT = 0.30;        // gravity multiplier while floating
 export const DIVE_GRAVITY_MULT = 2.35;         // extra gravity while diving (faster descent)
@@ -73,6 +73,8 @@ export const PLAYER_X = 160;
 export const DASH_DISTANCE = 140;       // how far the player jumps ahead (px)
 export const DASH_CATCHUP_SPEED = 520;  // how fast the camera catches up after landing (px/sec)
 export const DASH_COOLDOWN = 0.45;      // seconds between dashes
+export const DASH_SPEED_BOOST = 520;    // added to world speed on dash (keep peak speed)
+export const DASH_IMPULSE_DECAY = 2.8;  // decay rate for dash impulse (lower = longer)
 export const DASH_OFFSET_SNAP_SPEED = 1800; // max dash offset speed (px/sec)
 export const DASH_OFFSET_SMOOTH = 18;   // smoothing rate for dash offset
 export const DASH_CAM_SMOOTH = 12;      // smoothing rate for camera offset

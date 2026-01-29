@@ -39,43 +39,37 @@ const focusCanvas = () => {
 canvas.addEventListener("pointerdown", focusCanvas, { passive: true });
 canvas.addEventListener("mousedown", focusCanvas, { passive: true });
 
-// Also focus on any key press so desktop users don't have to click the canvas first.
-document.addEventListener("keydown", focusCanvas, { passive: true });
+// Also focus on key press, but avoid stealing focus from form controls.
+document.addEventListener("keydown", (e) => {
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  focusCanvas();
+});
 
 // Prevent context menu on right click / long press.
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 function setCanvasSize() {
-  // The renderer owns the internal coordinate system.
-  // Here we only ensure the canvas backing store matches its CSS size * DPR.
-  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
-
-  // Use the viewport size (layout pixels).
+  // CSS sizing only; renderer owns backing store sizing + transforms.
   const displayW = Math.max(1, Math.floor(window.innerWidth));
   const displayH = Math.max(1, Math.floor(window.innerHeight));
-
-  // CSS size (layout pixels)
   canvas.style.width = `${displayW}px`;
   canvas.style.height = `${displayH}px`;
-
-  // Backing store size (device pixels)
-  canvas.width = Math.max(1, Math.floor(displayW * dpr));
-  canvas.height = Math.max(1, Math.floor(displayH * dpr));
-
-  // Keep this predictable; render() will set its own transforms.
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.imageSmoothingEnabled = false;
 }
 
 function updateOverlay() {
   if (!overlay) return;
 
   // Landscape-first guidance for phones.
-  // Heuristic: if in portrait and screen is phone-ish, show overlay.
-  const portrait = window.innerHeight > window.innerWidth;
+  // Heuristic: portrait + small-ish + touch device to avoid desktop resize toggles.
+  const portrait = window.matchMedia
+    ? window.matchMedia("(orientation: portrait)").matches
+    : window.innerHeight > window.innerWidth;
   const phoneish = Math.min(window.innerWidth, window.innerHeight) < 700;
+  const touchLike = (navigator.maxTouchPoints || 0) > 0
+    || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
 
-  overlay.style.display = portrait && phoneish ? "flex" : "none";
+  overlay.style.display = portrait && phoneish && touchLike ? "flex" : "none";
 }
 
 function onResize() {

@@ -105,7 +105,8 @@ export function drawParallax(ctx, W, H, distance) {
   // Sparse signal lights.
   ctx.fillStyle = "rgba(120,205,255,0.20)";
   for (let i = 0; i < 18; i++) {
-    const sx = (i * 137 + distance * 0.6) % W;
+    // Move opposite the travel direction to match background drift.
+    const sx = ((i * 137 - distance * 0.6) % W + W) % W;
     const sy = 30 + ((i * 67) % 120);
     ctx.fillRect(sx, sy, 2, 2);
   }

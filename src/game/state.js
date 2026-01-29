@@ -15,11 +15,14 @@ export function createInitialState() {
   return {
     running: false,
     gameOver: false,
+    startReady: false,
 
     uiTime: 0,
     animTime: 0,
 
     distance: 0,
+    _nextAirReq: "none",
+    _nextAirReqDist: 0,
 
     styleScore: 0,
     styleCombo: 0,
@@ -50,6 +53,7 @@ export function createInitialState() {
       spinCooldown: 0,
       trickLandWindow: 0,
       floatFuel: FLOAT_FUEL_MAX,
+      floatFuelMax: FLOAT_FUEL_MAX,
 
       trickKind: "spin",
       trickIntent: "neutral",
@@ -73,10 +77,13 @@ export function createInitialState() {
 export function resetRunState(state) {
   state.running = false;
   state.gameOver = false;
+  state.startReady = false;
 
   state.uiTime = 0;
   state.animTime = 0;
   state.distance = 0;
+  state._nextAirReq = "none";
+  state._nextAirReqDist = 0;
 
   state.styleScore = 0;
   state.styleCombo = 0;
@@ -111,6 +118,7 @@ export function resetRunState(state) {
   p.trickKind = "spin";
   p.trickIntent = "neutral";
   p.floatFuel = FLOAT_FUEL_MAX;
+  p.floatFuelMax = FLOAT_FUEL_MAX;
   p.dashCooldown = 0;
   p.dashOffset = 0;
   p.dashTarget = 0;

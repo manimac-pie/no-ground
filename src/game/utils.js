@@ -22,20 +22,3 @@ export function pick(arr) {
 export function aabbOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
-
-// Map input intent to a trick type.
-export function trickFromIntent(intent) {
-  // intent: "up"|"down"|"left"|"right"|"neutral"|null|undefined
-  switch (intent) {
-    case "up":
-      return { kind: "flip", dir: 1 };
-    case "down":
-      return { kind: "stall", dir: 1 };
-    case "left":
-      return { kind: "corkscrew", dir: -1 };
-    case "right":
-      return { kind: "corkscrew", dir: 1 };
-    default:
-      return { kind: "spin", dir: 1 };
-  }
-}

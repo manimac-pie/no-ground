@@ -8,7 +8,6 @@
 
 import {
   DIVE_ANTICIPATION_SEC,
-  DASH_DISTANCE,
   DASH_IMPULSE_FX_SEC,
   JUMP_IMPULSE_FX_SEC,
 } from "../game/constants.js";
@@ -64,11 +63,21 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
   const airborne = !player.onGround;
   const floating = airborne && state.floatHeld === true;
   const diving = airborne && player.diving === true;
-  const dashOffset = Number.isFinite(player.dashOffset) ? player.dashOffset : 0;
-  const dashK = clamp(dashOffset / Math.max(1, DASH_DISTANCE), 0, 1);
-  const dashImpulseT = Number.isFinite(player.dashImpulseT) ? player.dashImpulseT : DASH_IMPULSE_FX_SEC;
+
+  // Dash VFX should be driven by the dash impulse timer / world-speed impulse,
+  // not by a positional dashOffset (gameplay dash does not move the player in world space).
+  const dashImpulseT = Number.isFinite(player.dashImpulseT)
+    ? player.dashImpulseT
+    : DASH_IMPULSE_FX_SEC;
   const dashImpulseK = clamp(dashImpulseT / Math.max(0.001, DASH_IMPULSE_FX_SEC), 0, 1);
-  const dashFxK = Math.max(dashK, dashImpulseK * 0.9);
+
+  // Optional extra boost from the current world-speed impulse so streaks still read on long impulses.
+  // (520 is the default DASH_SPEED_BOOST in game constants; keep this visual-only fallback local.)
+  const speedImpulse = Number.isFinite(state.speedImpulse) ? state.speedImpulse : 0;
+  const speedImpulseK = clamp(speedImpulse / 520, 0, 1);
+
+  const dashFxK = Math.max(dashImpulseK, speedImpulseK * 0.75);
+
   const jumpImpulseT = Number.isFinite(player.jumpImpulseT) ? player.jumpImpulseT : 0;
   const jumpFxK = clamp(jumpImpulseT / Math.max(0.001, JUMP_IMPULSE_FX_SEC), 0, 1);
 

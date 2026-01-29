@@ -31,14 +31,15 @@ export function createGame() {
     resetPlatforms(state);
   }
 
-  function start() {
+  function armStart() {
     if (state.gameOver) reset();
-    state.running = true;
+    state.startReady = true;
   }
 
   function endGame() {
     state.running = false;
     state.gameOver = true;
+    state.startReady = false;
   }
 
   function update(dt, input) {
@@ -51,7 +52,9 @@ export function createGame() {
     state.lastLandQualityT = Math.max(0, state.lastLandQualityT - dt);
     if (state.lastLandQualityT === 0) state.lastLandQuality = null;
 
-    const jumpPressed = input?.consumeJumpPressed?.() === true;
+    const jumpPress = input?.consumeJumpPress?.() || { pressed: false, source: null };
+    const jumpPressed = jumpPress.pressed === true;
+    const jumpSource = jumpPress.source;
     const trickPressed = input?.consumeTrickPressed?.() === true;
     const trickIntent = input?.consumeTrickIntent?.() || "neutral";
     const dashPressed = input?.consumeDashPressed?.() === true;
@@ -67,13 +70,18 @@ export function createGame() {
     state.diveHeld = input?.diveHeld === true;
 
     if (!state.running) {
-      if (jumpPressed) {
-        if (state.gameOver) reset();
-        start();
+      // Menu flow: click/tap play to arm, then press Space to launch the run.
+      if (jumpPressed && jumpSource === "pointer") {
+        armStart();
+      }
 
+      if (state.startReady && jumpPressed && jumpSource === "Space") {
+        state.running = true;
+        state.startReady = false;
         state.jumpBuffer = JUMP_BUFFER_SEC;
         tryConsumeBufferedJump(state);
       }
+
       return state;
     }
 
