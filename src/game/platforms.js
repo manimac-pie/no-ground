@@ -137,6 +137,7 @@ export function spawnNextPlatform(state) {
     y,
     w,
     h: PLATFORM_H,
+    invulnerable: false,
 
     // Motion state (armed on spawn; starts when player is airborne and the platform is approaching)
     baseY: baseYRest, // resting Y (where collision should be once motion completes)
@@ -174,8 +175,10 @@ export function resetPlatforms(state) {
   state.platforms.push({
     x: 0,
     y: startY,
-    w: INTERNAL_WIDTH * 0.65,
+    // Extra-long initial stretch so Bob and the start text stay on solid building while zooming.
+    w: INTERNAL_WIDTH * 1.35,
     h: PLATFORM_H,
+    invulnerable: true,
 
     // Motion (none for start)
     baseY: startY,
@@ -212,6 +215,7 @@ export function resetPlatforms(state) {
 export function scrollWorld(state, dt) {
   const dx = state.speed * dt;
   for (const p of state.platforms) p.x -= dx;
+  if (Number.isFinite(state.startPromptX)) state.startPromptX -= dx;
 
   while (state.platforms.length > 0) {
     const first = state.platforms[0];
@@ -263,6 +267,31 @@ export function updatePlatforms(state, dt) {
     if (typeof plat.breaking !== "boolean") plat.breaking = false;
     if (!Number.isFinite(plat.break01)) plat.break01 = 0;
     if (typeof plat.lowSpawnBreak !== "boolean") plat.lowSpawnBreak = false;
+    if (typeof plat.invulnerable !== "boolean") plat.invulnerable = false;
+
+    // Keep the starter platform rock solid: no cracks, motion, or collapse.
+    if (plat.invulnerable) {
+      plat.breaking = false;
+      plat.breakTriggered = false;
+      plat.breakArmed = false;
+      plat.collapsing = false;
+      plat.stress = 0;
+      plat.crack01 = 0;
+      plat.motion = "none";
+      plat.motionArmed = false;
+      plat.motionStarted = false;
+      plat.motionT = 0;
+      plat.motionRate = 0;
+      plat.baseY = Number.isFinite(plat.baseY) ? plat.baseY : plat.y;
+      plat.motionFromY = plat.baseY;
+      plat.motionToY = plat.baseY;
+      plat.y = plat.baseY;
+      if (state.running && p.onGround && p.groundPlat === plat) {
+        p.y = plat.y - p.h;
+        p.vy = 0;
+      }
+      continue;
+    }
 
     const px = p ? p.x : 0;
     const ahead = plat.x - px;

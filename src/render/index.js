@@ -7,17 +7,18 @@ import {
   DASH_CAM_SMOOTH,
   DASH_PARALLAX_CAM_FACTOR,
 } from "../game/constants.js";
+import { PLAYER_W, PLAYER_H } from "../game/constants.js";
 
 import {
   drawBackground,
   drawParallax,
   drawLethalGround,
   drawBuildingsAndRoofs,
-  drawVignette,
 } from "./world.js";
 
 import { drawPlayerShadow, drawPlayer } from "./player.js";
-import { drawHUD, drawLandingPopup, drawMenus } from "./ui.js";
+import { drawHUD, drawLandingPopup } from "./ui.js";
+import { drawMenus, drawStartPrompt } from "./menu.js";
 import { clamp } from "./playerKit.js";
 
 export const COLORS = {
@@ -65,6 +66,7 @@ let prevGameOver = false;
 
 let _prevFrameT = 0;
 let _camX = 0;
+const MENU_START_ZOOM = 2.8;
 
 function ensureCanvasSize(ctx, W, H) {
   // Renderer owns backing store sizing; main.js only sets CSS size.
@@ -191,6 +193,17 @@ export function render(ctx, state) {
   ctx.save();
   applyViewportTransform(ctx, W, H, cssW, cssH, dpr);
 
+  // Menu zoom (start/restart): zoomed-in on player, easing to 1x when play begins.
+  const zoomK = clamp(state.menuZoomK ?? 1, 0, 1);
+  const zoom = MENU_START_ZOOM - (MENU_START_ZOOM - 1) * zoomK;
+  const focusX = ((player?.x ?? W * 0.35) + (player?.w ?? PLAYER_W) / 2) - _camX;
+  const focusY = (player?.y ?? world.GROUND_Y - PLAYER_H) + (player?.h ?? PLAYER_H) / 2;
+
+  ctx.save();
+  ctx.translate(focusX, focusY);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-focusX, -focusY);
+
   // ---- BACKGROUND ----
   resetCtx(ctx);
   drawBackground(ctx, W, H, COLORS);
@@ -216,20 +229,38 @@ export function render(ctx, state) {
   resetCtx(ctx);
   drawPlayerShadow(ctx, player);
   drawPlayer(ctx, state, animTime, landed || justDied, COLORS);
+
+  // Start prompt stays in-world (moves with camera/zoom, fixed world size).
+  resetCtx(ctx);
+  drawStartPrompt(ctx, state, uiTime, COLORS, W, H, {
+    onSmashTrigger: () => {
+      if (!state.menuSmashActive) {
+        state.menuSmashActive = true;
+        state.menuSmashBroken = true;
+        state.menuSmashT = 0;
+      }
+    },
+  });
+
   ctx.restore();
 
   // ---- UI ----
-  resetCtx(ctx);
-  drawHUD(ctx, state, danger01, COLORS);
+  // Remove zoom for overlay/UI layers.
+  ctx.restore();
+
+  // Suppress HUD during start zoom; keep it for game + game over.
+  const showHUD = (state.running && !state.menuZooming) || state.gameOver;
+
+  if (showHUD) {
+    resetCtx(ctx);
+    drawHUD(ctx, state, danger01, COLORS);
+  }
 
   resetCtx(ctx);
   drawLandingPopup(ctx, state, COLORS);
 
   resetCtx(ctx);
-  drawVignette(ctx, W, H);
-
-  resetCtx(ctx);
-  drawMenus(ctx, state, uiTime, COLORS, W, H);
+  drawMenus(ctx, state, uiTime, COLORS, W, H, { skipStart: true });
 
   // Restore viewport transform
   ctx.restore();

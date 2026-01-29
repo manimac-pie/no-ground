@@ -15,7 +15,14 @@ export function createInitialState() {
   return {
     running: false,
     gameOver: false,
-    startReady: false,
+    startReady: true,
+    menuZoomK: 0,         // 0 = fully zoomed in on menu, 1 = gameplay zoom
+    menuZooming: false,
+    startDelay: 0,        // reused as a brief movement hold after zoom-out
+    menuSmashT: 0,        // timer for approach + smash
+    menuSmashActive: false,
+    menuSmashArmed: false,
+    menuSmashBroken: false,
 
     uiTime: 0,
     animTime: 0,
@@ -25,12 +32,16 @@ export function createInitialState() {
     _nextAirReqDist: 0,
 
     styleScore: 0,
-    styleCombo: 0,
+  styleCombo: 0,
 
-    speed: SPEED_START,
+  speed: SPEED_START,
+  // Start prompt world position (moves with scroll)
+  startPromptX: PLAYER_X + PLAYER_W + 24,
+  // Y will be derived each frame to sit on the starter roof.
+  startPromptY: null,
 
-    jumpBuffer: 0,
-    jumpHeld: false,
+  jumpBuffer: 0,
+  jumpHeld: false,
     jumpCut: 0,
     dashPressed: false,
 
@@ -77,7 +88,13 @@ export function createInitialState() {
 export function resetRunState(state) {
   state.running = false;
   state.gameOver = false;
-  state.startReady = false;
+  state.startReady = true;
+  state.menuZoomK = 0;
+  state.menuZooming = false;
+  state.menuSmashT = 0;
+  state.menuSmashActive = false;
+  state.menuSmashArmed = false;
+  state.menuSmashBroken = false;
 
   state.uiTime = 0;
   state.animTime = 0;
@@ -89,6 +106,8 @@ export function resetRunState(state) {
   state.styleCombo = 0;
 
   state.speed = SPEED_START;
+  state.startPromptX = PLAYER_X + PLAYER_W + 24;
+  state.startPromptY = null;
 
   state.jumpBuffer = 0;
   state.jumpHeld = false;
