@@ -90,7 +90,7 @@ function updateDivePhase(state, dt, airborne) {
     if (Number.isFinite(p.trickLandWindow)) p.trickLandWindow = 0;
 
     // Avoid diving while still rising
-    if ((p.vy ?? 0) < 120) p.vy = 120;
+    if ((p.vy ?? 0) < 220) p.vy = 220;
   }
 
   // Advance phases
@@ -215,7 +215,7 @@ export function integratePlayer(state, dt, endGame) {
 
         // Landing ends dive mode + resets float fuel if present
         if (wasDiving && !state.heavyLandT) {
-          state.heavyLandT = 0.22;
+          state.heavyLandT = 0.30;
         }
         p.diving = false;
         p.divePhase = "";

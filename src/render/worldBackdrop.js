@@ -2,6 +2,13 @@
 import { world } from "../game.js";
 
 export function drawBackground(ctx, W, H, COLORS) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = "none";
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, COLORS.bgTop);
   g.addColorStop(1, COLORS.bgBottom);
@@ -10,9 +17,18 @@ export function drawBackground(ctx, W, H, COLORS) {
 
   ctx.fillStyle = COLORS.fog;
   ctx.fillRect(0, world.GROUND_Y - 120, W, 120);
+
+  ctx.restore();
 }
 
 export function drawParallax(ctx, W, H, distance) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = "none";
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
   const horizon = world.GROUND_Y - 24;
 
   const off1 = -((distance * 0.10) % (W + 320));
@@ -35,9 +51,18 @@ export function drawParallax(ctx, W, H, distance) {
     const sy = 24 + ((i * 53) % 110);
     ctx.fillRect(sx, sy, 1, 1);
   }
+
+  ctx.restore();
 }
 
 export function drawVignette(ctx, W, H) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = "none";
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
   const g = ctx.createRadialGradient(
     W / 2,
     H / 2,
@@ -50,4 +75,6 @@ export function drawVignette(ctx, W, H) {
   g.addColorStop(1, "rgba(0,0,0,0.22)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
+
+  ctx.restore();
 }

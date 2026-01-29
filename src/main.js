@@ -8,9 +8,6 @@ import { createInput } from "./input.js";
 import { createGame } from "./game.js";
 import { render } from "./render/index.js";
 
-const INTERNAL_WIDTH = 800;
-const INTERNAL_HEIGHT = 450;
-
 const canvas = document.getElementById("game");
 if (!canvas) {
   throw new Error("Canvas element '#game' not found.");
@@ -48,24 +45,14 @@ document.addEventListener("keydown", focusCanvas, { passive: true });
 // Prevent context menu on right click / long press.
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-let scale = 1;
-let dpr = 1;
-
-function computeScale() {
-  // Fit to viewport while preserving aspect ratio.
-  // Keep scale >= 1 on desktop? No — allow shrinking for small screens.
-  const vw = Math.max(1, window.innerWidth);
-  const vh = Math.max(1, window.innerHeight);
-  return Math.min(vw / INTERNAL_WIDTH, vh / INTERNAL_HEIGHT);
-}
-
 function setCanvasSize() {
-  scale = computeScale();
-  // Cap DPR for performance on high-DPI screens.
-  dpr = Math.min(1.5, window.devicePixelRatio || 1);
+  // The renderer owns the internal coordinate system.
+  // Here we only ensure the canvas backing store matches its CSS size * DPR.
+  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
 
-  const displayW = Math.floor(INTERNAL_WIDTH * scale);
-  const displayH = Math.floor(INTERNAL_HEIGHT * scale);
+  // Use the viewport size (layout pixels).
+  const displayW = Math.max(1, Math.floor(window.innerWidth));
+  const displayH = Math.max(1, Math.floor(window.innerHeight));
 
   // CSS size (layout pixels)
   canvas.style.width = `${displayW}px`;
@@ -75,10 +62,8 @@ function setCanvasSize() {
   canvas.width = Math.max(1, Math.floor(displayW * dpr));
   canvas.height = Math.max(1, Math.floor(displayH * dpr));
 
-  // Map internal coordinates -> device pixels
-  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
-
-  // Crisp lines for flat/minimal visuals
+  // Keep this predictable; render() will set its own transforms.
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
 }
 

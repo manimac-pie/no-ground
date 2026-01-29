@@ -17,14 +17,14 @@ import { clamp } from "./game/utils.js";
 import { createInitialState, resetRunState } from "./game/state.js";
 import { resetPlatforms, scrollWorld, updatePlatforms } from "./game/platforms.js";
 import { tryConsumeBufferedJump, integratePlayer } from "./game/player.js";
-import { startSpin, updateTricks, checkGates, maybeSpawnGateAhead } from "./game/tricks.js";
+import { startSpin, updateTricks } from "./game/tricks.js";
 
 export function createGame() {
   const state = createInitialState();
 
   function reset() {
     resetRunState(state);
-    resetPlatforms(state, maybeSpawnGateAhead);
+    resetPlatforms(state);
   }
 
   function start() {
@@ -86,11 +86,10 @@ export function createGame() {
 
     state.distance += state.speed * dt;
 
-    scrollWorld(state, dt, maybeSpawnGateAhead);
+    scrollWorld(state, dt);
     updatePlatforms(state, dt);
     updateTricks(state, dt);
     integratePlayer(state, dt, endGame);
-    checkGates(state);
 
     tryConsumeBufferedJump(state);
     return state;

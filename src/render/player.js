@@ -168,9 +168,9 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
   // Heavy landing squash if the game provides a timer.
   const heavyT = Number.isFinite(state.heavyLandT) ? state.heavyLandT : 0;
   if (heavyT > 0) {
-    const t01 = clamp(heavyT / 0.18, 0, 1);
-    poseSx *= 1.00 + 0.10 * t01;
-    poseSy *= 1.00 - 0.14 * t01;
+    const t01 = clamp(heavyT / 0.22, 0, 1);
+    poseSx *= 1.00 + 0.14 * t01;
+    poseSy *= 1.00 - 0.18 * t01;
   }
 
   ctx.save();
@@ -208,11 +208,11 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
 
   // Heavier landing burst (requires state.heavyLandT to be set by game logic)
   if (heavyT > 0) {
-    const t01a = clamp(heavyT / 0.18, 0, 1);
+    const t01a = clamp(heavyT / 0.22, 0, 1);
     drawHeavyLandingBurst(ctx, bodyW, bodyH, t01a);
     drawHeavyLandingRing(ctx, bodyW, bodyH, t01a);
 
-    const t01b = clamp(heavyT / 0.22, 0, 1);
+    const t01b = clamp(heavyT / 0.28, 0, 1);
     drawLandingRubble(ctx, bodyW, bodyH, t01b);
   }
 

@@ -39,7 +39,20 @@ export function spawnNextPlatform(state) {
   const lastRight = rightmostPlatformX(state);
 
   const gapMax = GAP_MAX_EASY + (GAP_MAX_HARD - GAP_MAX_EASY) * d;
-  const gap = randRange(GAP_MIN, gapMax);
+
+  // Occasionally enforce a float/dive requirement by shaping gap + height.
+  state._nextAirReq = state._nextAirReq ?? "none"; // "none" | "float" | "dive"
+  state._nextAirReqDist = state._nextAirReqDist ?? 0;
+
+  const wantReq = state.distance > state._nextAirReqDist;
+  if (wantReq && state._nextAirReq === "none") {
+    const chance = 0.10 + 0.18 * d;
+    if (Math.random() < chance) {
+      state._nextAirReq = Math.random() < 0.5 ? "float" : "dive";
+    }
+  }
+
+  let gap = randRange(GAP_MIN, gapMax);
 
   const wMin = PLATFORM_MIN_W + 10 * d;
   const wMax = PLATFORM_MAX_W + 20 * d;
@@ -60,6 +73,23 @@ export function spawnNextPlatform(state) {
   }
 
   y = clamp(y, 180, GROUND_Y - 40);
+
+  if (prev && state._nextAirReq !== "none") {
+    const prevY = Number.isFinite(prev.baseY) ? prev.baseY : prev.y;
+    if (state._nextAirReq === "float") {
+      // Longer gap + mild drop: float extends airtime to reach the far platform.
+      gap = randRange(gapMax * 0.78, gapMax * 0.98);
+      y = clamp(prevY + 8 + 10 * Math.random(), 190, GROUND_Y - 60);
+    } else if (state._nextAirReq === "dive") {
+      // Shorter gap + steep drop: dive accelerates descent to catch the low platform.
+      gap = randRange(GAP_MIN + 10, GAP_MIN + 50);
+      y = clamp(prevY + 90 + 80 * Math.random(), 220, GROUND_Y - 34);
+    }
+
+    // Set next requirement distance so this doesn't chain too often.
+    state._nextAirReq = "none";
+    state._nextAirReqDist = state.distance + 650 + 520 * Math.random();
+  }
 
   // Dynamic rooftops: some platforms rise up (from below) or crumble (sink) while you're mid-air.
   // We *arm* motion on spawn, but we only *start* it once the player is airborne and the platform is approaching.
@@ -134,7 +164,7 @@ export function spawnNextPlatform(state) {
   });
 }
 
-export function resetPlatforms(state, maybeSpawnGateAhead) {
+export function resetPlatforms(state) {
   state.platforms.length = 0;
 
   const startY = GROUND_Y - SAFE_CLEARANCE;
@@ -175,19 +205,11 @@ export function resetPlatforms(state, maybeSpawnGateAhead) {
     spawnNextPlatform(state);
   }
 
-  if (typeof maybeSpawnGateAhead === "function") {
-    // Cap attempts so a low random chance can't lock the main thread.
-    for (let i = 0; i < 20 && state.gates.length < 3; i++) {
-      maybeSpawnGateAhead(state);
-      if (rightmostPlatformX(state) < INTERNAL_WIDTH + 620) break;
-    }
-  }
 }
 
-export function scrollWorld(state, dt, maybeSpawnGateAhead) {
+export function scrollWorld(state, dt) {
   const dx = state.speed * dt;
   for (const p of state.platforms) p.x -= dx;
-  for (const g of state.gates) g.x -= dx;
 
   while (state.platforms.length > 0) {
     const first = state.platforms[0];
@@ -197,15 +219,6 @@ export function scrollWorld(state, dt, maybeSpawnGateAhead) {
 
   while (rightmostPlatformX(state) < INTERNAL_WIDTH + 600) {
     spawnNextPlatform(state);
-    if (typeof maybeSpawnGateAhead === "function") {
-      maybeSpawnGateAhead(state);
-    }
-  }
-
-  while (state.gates.length > 0) {
-    const firstG = state.gates[0];
-    if (firstG.x + firstG.w < -220) state.gates.shift();
-    else break;
   }
 }
 

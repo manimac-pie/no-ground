@@ -31,7 +31,7 @@ function centerText(ctx, text, x, y) {
 }
 
 function drawMenuPanel(ctx, x, y, w, h, COLORS) {
-  // Dark underlay prevents world elements (gates/buildings) from reading through.
+  // Dark underlay prevents world elements from reading through.
   ctx.save();
   ctx.fillStyle = "rgba(0,0,0,0.78)";
   roundRect(ctx, x, y, w, h, 16);
@@ -177,14 +177,6 @@ export function drawMenus(ctx, state, uiTime, COLORS, W, H) {
     centerText(ctx, ctaText, cx0, chipY + 28);
     ctx.restore();
 
-    ctx.font = "500 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.fillStyle = "rgba(242,242,242,0.55)";
-    centerText(ctx, "Space jump • A/D corkscrew • X/Shift spin", cx0, cardY + 194);
-
-    ctx.font = "500 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.fillStyle = "rgba(242,242,242,0.46)";
-    centerText(ctx, "W float • S dive • Air gates: match the label", cx0, cardY + 212);
-
     ctx.restore();
     return;
   }
@@ -207,7 +199,7 @@ export function drawMenus(ctx, state, uiTime, COLORS, W, H) {
 
     ctx.fillStyle = COLORS.hudText;
     ctx.font = "900 32px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    centerText(ctx, "Bob touched the ground :[", cx0, cardY + 70);
+    centerText(ctx, "Bob touched the ground", cx0, cardY + 70);
 
     ctx.font = "600 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
     ctx.fillStyle = "rgba(242,242,242,0.80)";

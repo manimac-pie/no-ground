@@ -22,8 +22,8 @@ export const JUMP_CUT_RAMP_PER_SEC = 18;
 export const FLOAT_FUEL_MAX = 0.38;            // seconds of float available
 export const FLOAT_FUEL_REGEN_PER_SEC = 0.70;  // fuel/sec regained while grounded
 export const FLOAT_GRAVITY_MULT = 0.35;        // gravity multiplier while floating
-export const DIVE_GRAVITY_MULT = 1.85;         // extra gravity while diving (slightly slower descent)
-export const DIVE_MAX_FALL_SPEED = 2200;       // faster terminal speed when diving
+export const DIVE_GRAVITY_MULT = 2.35;         // extra gravity while diving (faster descent)
+export const DIVE_MAX_FALL_SPEED = 2600;       // faster terminal speed when diving
 
 export const LAND_GRACE_SEC = 0.06;
 
@@ -57,12 +57,6 @@ export const SPIN_COOLDOWN = 0.08;
 export const STYLE_BASE = 25;
 export const STYLE_COMBO_BONUS = 10;
 
-// Air gates
-export const GATE_SPAWN_CHANCE_EASY = 0.10;
-export const GATE_SPAWN_CHANCE_HARD = 0.22;
-export const GATE_W = 58;
-export const GATE_H = 58;
-
 // Landing quality
 export const CLEAN_MIN_PROG = 0.82;
 export const PERFECT_MIN_PROG = 0.93;
@@ -80,7 +74,7 @@ export const JUMP_BUFFER_SEC = 0.13;
 
 // Dive feel / animation timing
 // Used by game/player.js for phase timing, and by render/player.js for stable pose targets.
-export const DIVE_ANTICIPATION_SEC = 0.11; // seconds of anticipation before full dive commit
+export const DIVE_ANTICIPATION_SEC = 0.08; // seconds of anticipation before full dive commit
 export const DIVE_SPIKE_ANGLE_RAD = 0.82;  // visual target angle for dive commit (~47 degrees)
 
 // Render-only pose tuning (keep here so it’s easy to tweak without hunting values)

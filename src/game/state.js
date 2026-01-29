@@ -55,7 +55,6 @@ export function createInitialState() {
     },
 
     platforms: [],
-    gates: [],
 
     lastLandQuality: null,
     lastLandQualityT: 0,
@@ -80,8 +79,6 @@ export function resetRunState(state) {
   state.jumpHeld = false;
   state.jumpCut = 0;
 
-  state.gates.length = 0;
-  state._nextGateDist = 0;
   state.lastLandQuality = null;
   state.lastLandQualityT = 0;
   state.heavyLandT = 0;

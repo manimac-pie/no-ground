@@ -2,6 +2,13 @@
 import { world } from "../game.js";
 
 export function drawLethalGround(ctx, W, H, animTime, danger01, COLORS) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = "none";
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
   const y = world.GROUND_Y;
 
   // Base dark below the ground line
@@ -42,4 +49,6 @@ export function drawLethalGround(ctx, W, H, animTime, danger01, COLORS) {
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
+
+  ctx.restore();
 }
