@@ -222,7 +222,7 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     drawFloatFX(ctx, bodyW, bodyH, COLORS, animTime || 0);
   }
 
-  if (!suppressFx && airborne && dashFxK > 0.01) {
+  if (!suppressFx && dashFxK > 0.01) {
     drawDashStreaks(ctx, bodyW, bodyH, animTime || 0, dashFxK);
   }
 

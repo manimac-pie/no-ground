@@ -16,12 +16,35 @@ import {
   ROOF_COLLAPSE_TIME_EASY,
   ROOF_COLLAPSE_TIME_HARD,
   ROOF_FALL_GRAVITY,
+  GRAVITY,
+  FALL_GRAVITY_MULT,
+  JUMP_VELOCITY,
+  SPEED_START,
 } from "./constants.js";
 import { clamp, randRange, pick } from "./utils.js";
 
 function easeInOut01(t) {
   // smoothstep
   return t * t * (3 - 2 * t);
+}
+
+function fairGapMax(state, fromY, toY) {
+  const v0 = JUMP_VELOCITY;
+  const gUp = GRAVITY;
+  const gDown = GRAVITY * FALL_GRAVITY_MULT;
+  if (!Number.isFinite(v0) || !Number.isFinite(gUp) || gUp <= 0) return Infinity;
+
+  const h = (v0 * v0) / (2 * gUp);
+  const dy = toY - fromY;
+  if (dy < -h) return 0;
+
+  const tUp = -v0 / gUp;
+  const distDown = h + dy;
+  const tDown = Math.sqrt((2 * Math.max(0, distDown)) / Math.max(1, gDown));
+  const tLand = tUp + tDown;
+  const speed = Number.isFinite(state?.speed) ? state.speed : SPEED_START;
+
+  return Math.max(0, speed * tLand * 0.9);
 }
 
 export function rightmostPlatformX(state) {
@@ -66,9 +89,9 @@ export function spawnNextPlatform(state) {
   let y = baseY - level;
 
   const prev = state.platforms.length ? state.platforms[state.platforms.length - 1] : null;
+  const prevY = prev && Number.isFinite(prev.baseY) ? prev.baseY : prev?.y;
   if (prev) {
     const step = MAX_PLATFORM_STEP + d * 50;
-    const prevY = Number.isFinite(prev.baseY) ? prev.baseY : prev.y;
     y = clamp(y, prevY - step, prevY + step);
   }
 
@@ -89,6 +112,12 @@ export function spawnNextPlatform(state) {
     // Set next requirement distance so this doesn't chain too often.
     state._nextAirReq = "none";
     state._nextAirReqDist = state.distance + 650 + 520 * Math.random();
+  }
+
+  if (prev && Number.isFinite(prevY)) {
+    const maxFair = fairGapMax(state, prevY, y);
+    const cap = Math.min(gapMax, Number.isFinite(maxFair) ? maxFair : gapMax);
+    gap = clamp(gap, GAP_MIN, cap);
   }
 
   // Dynamic rooftops: some platforms rise up (from below) or crumble (sink) while you're mid-air.

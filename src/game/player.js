@@ -257,10 +257,9 @@ export function updateDash(state, dt) {
   }
 
   // DASH RULES:
-  // - airborne only
   // - one press of D
   // - no direction requirement
-  if (state.dashPressed === true && p.onGround !== true && p.dashCooldown <= 0) {
+  if (state.dashPressed === true && p.dashCooldown <= 0) {
     state.speedImpulse += DASH_SPEED_BOOST;
     p.dashCooldown = DASH_COOLDOWN;
     p.dashImpulseT = DASH_IMPULSE_FX_SEC;

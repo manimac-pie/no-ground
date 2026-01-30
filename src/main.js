@@ -3,7 +3,6 @@
 // - Create a consistent internal coordinate system (800x450)
 // - Scale the canvas to fit the viewport (PC + mobile)
 // - Drive the main loop (requestAnimationFrame)
-
 import { createInput } from "./input.js";
 import { createGame } from "./game.js";
 import { render } from "./render/index.js";
