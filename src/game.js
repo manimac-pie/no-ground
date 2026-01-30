@@ -12,6 +12,10 @@ import {
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
   DEATH_CINEMATIC_TOTAL,
+  BREAK_SHARDS,
+  RESTART_FLYBY_SEC,
+  RESTART_FLYBY_HOLD_SEC,
+  RESTART_FLYBY_FADE_SEC,
 } from "./game/constants.js";
 
 import { clamp } from "./game/utils.js";
@@ -52,9 +56,34 @@ export function createGame() {
       state.deathSnapshot = p
         ? { x: p.x, y: p.y, w: p.w, h: p.h, vy: p.vy }
         : null;
+      // Spawn breakup shards on lethal impact
+      state.breakShards = [];
+      if (p) {
+        const base = {
+          x: p.x + p.w / 2,
+          y: p.y + p.h * 0.7,
+        };
+        for (let i = 0; i < BREAK_SHARDS.COUNT; i++) {
+          const ang = (Math.PI * 2 * i) / BREAK_SHARDS.COUNT + Math.random() * 0.9;
+          const speed = 220 + Math.random() * 320 + Math.abs(p.vy || 0) * 0.18;
+          state.breakShards.push({
+            x: base.x,
+            y: base.y,
+            vx: Math.cos(ang) * speed,
+            vy: Math.sin(ang) * speed - Math.abs(p.vy || 0) * 0.5,
+            rot: (Math.random() - 0.5) * 0.9,
+            vr: (Math.random() - 0.5) * 8,
+            w: 4 + Math.random() * 10,
+            h: 3 + Math.random() * 8,
+            life: BREAK_SHARDS.LIFE,
+            kind: i % 5 === 0 ? "spark" : i % 2 === 0 ? "plate" : "chip",
+          });
+        }
+      }
       state.deathCinematicActive = true;
       state.deathCinematicDone = false;
       state.deathCinematicT = 0;
+      state.deathRestartT = 0;
       state.startReady = false;
     }
 
@@ -67,6 +96,30 @@ export function createGame() {
     state.uiTime += dt;
     if (state.running || state.menuZooming || state.startDelay > 0) state.animTime += dt;
 
+    if (state.restartFlybyActive) {
+      state.restartFlybyT = (state.restartFlybyT || 0) + dt;
+      const total =
+        RESTART_FLYBY_SEC +
+        RESTART_FLYBY_HOLD_SEC +
+        RESTART_FLYBY_FADE_SEC;
+
+      if (!state.restartFlybyResetDone && state.restartFlybyT >= RESTART_FLYBY_SEC) {
+        const flybyT = state.restartFlybyT;
+        reset();
+        state.restartFlybyActive = true;
+        state.restartFlybyT = flybyT;
+        state.restartFlybyResetDone = true;
+        return state;
+      }
+
+      if (state.restartFlybyT >= total) {
+        state.restartFlybyActive = false;
+        state.restartFlybyT = 0;
+        state.restartFlybyResetDone = false;
+      }
+      return state;
+    }
+
     if (state.deathCinematicActive) {
       state.deathCinematicT = Math.min(
         DEATH_CINEMATIC_TOTAL,
@@ -76,7 +129,16 @@ export function createGame() {
         state.deathCinematicActive = false;
         state.deathCinematicDone = true;
         state.startReady = true;
+        state.deathRestartT = 0;
       }
+    }
+
+    if (state.roofJumpT > 0) {
+      state.roofJumpT = Math.max(0, state.roofJumpT - dt);
+    }
+
+    if (state.deathCinematicDone && !state.deathCinematicActive) {
+      state.deathRestartT = (state.deathRestartT || 0) + dt;
     }
 
     // Advance the zoom animation if the menu is zooming out.
@@ -143,7 +205,12 @@ export function createGame() {
 
       // Start/restart flow: Spacebar or click/tap triggers zoom-out.
       if (jumpPressed && !state.menuZooming && state.startDelay <= 0) {
-        if (state.gameOver) reset(); // ensure clean restart state
+        if (state.gameOver) {
+          state.restartFlybyActive = true;
+          state.restartFlybyT = 0;
+          state.restartFlybyResetDone = false;
+          return state;
+        }
         state.menuZooming = true;
         state.menuZoomK = 0;
         state.menuSmashT = 0;

@@ -220,6 +220,7 @@ function drawBrutalistFacade(ctx, x, y, w, h, seed, COLORS, crack01, animTime) {
 // ---------------- rubble (roof impacts) ----------------
 const rubble = [];
 let prevHeavyLandT = 0;
+let prevRoofJumpT = 0;
 
 // ---------------- debris (whole-building breaks) ----------------
 const debris = [];
@@ -574,6 +575,33 @@ function spawnRubbleBurst(state, COLORS) {
   }
 }
 
+function spawnJumpRubbleBurst(state, COLORS) {
+  const p = state.player;
+  if (!p) return;
+
+  const gp = p.groundPlat;
+  const baseX = p.x + p.w * 0.5;
+  const baseY = gp ? gp.y : (p.y + p.h);
+
+  const n = 12;
+  for (let i = 0; i < n; i++) {
+    const a = Math.PI * (0.2 + 0.6 * Math.random());
+    const sp = 110 + 180 * Math.random();
+    const dir = Math.random() < 0.5 ? -1 : 1;
+
+    rubble.push({
+      x: baseX + (Math.random() * 10 - 5),
+      y: baseY + 1,
+      vx: Math.cos(a) * sp * dir,
+      vy: -Math.sin(a) * sp,
+      life: 0.35 + Math.random() * 0.25,
+      age: 0,
+      s: 2 + Math.random() * 1.5,
+      c: getColor(COLORS, "roofDetail", "rgba(242,242,242,0.12)"),
+    });
+  }
+}
+
 function stepRubble(dt) {
   const G = 1400;
   for (let i = rubble.length - 1; i >= 0; i--) {
@@ -654,6 +682,12 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
     spawnRubbleBurst(state, COLORS);
   }
   prevHeavyLandT = heavyNow;
+
+  const roofJumpNow = Number.isFinite(state.roofJumpT) ? state.roofJumpT : 0;
+  if (roofJumpNow > 0 && prevRoofJumpT <= 0) {
+    spawnJumpRubbleBurst(state, COLORS);
+  }
+  prevRoofJumpT = roofJumpNow;
 
   stepRubble(dt);
   stepDebris(dt);

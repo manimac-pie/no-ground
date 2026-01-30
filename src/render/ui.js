@@ -1,7 +1,12 @@
 // src/render/ui.js
 // HUD + menus + small popups. Pure rendering; no DOM.
 
-import { DASH_COOLDOWN } from "../game/constants.js";
+import {
+  DASH_COOLDOWN,
+  RESTART_FLYBY_SEC,
+  RESTART_FLYBY_HOLD_SEC,
+  RESTART_FLYBY_FADE_SEC,
+} from "../game/constants.js";
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
@@ -202,83 +207,169 @@ function drawMenuPanel(ctx, x, y, w, h, COLORS) {
   ctx.restore();
 }
 
-export function drawHUD(ctx, state, danger01, COLORS) {
-  const player = state.player;
+export function drawRestartFlyby(ctx, state, COLORS, W, H) {
+  if (!state.restartFlybyActive) return false;
+
+  const w = Number.isFinite(W) ? W : 800;
+  const h = Number.isFinite(H) ? H : 450;
+  const flybyT = state.restartFlybyT || 0;
+  const flybyK = clamp(flybyT / RESTART_FLYBY_SEC, 0, 1);
+  const fadeOutStart = RESTART_FLYBY_SEC + RESTART_FLYBY_HOLD_SEC;
+  const fadeOutK = clamp((flybyT - fadeOutStart) / RESTART_FLYBY_FADE_SEC, 0, 1);
+  const fade = 1 - fadeOutK;
 
   ctx.save();
-  // Subtle glass HUD
-  ctx.globalAlpha = 0.86;
-  ctx.fillStyle = "rgba(8,10,14,0.58)";
-  roundRect(ctx, 12, 12, 250, 64, 12);
-  ctx.strokeStyle = "rgba(120,205,255,0.18)";
-  ctx.lineWidth = 1;
-  roundedRectPath(ctx, 12.5, 12.5, 249, 63, 12);
+  ctx.globalAlpha = 0.9 * fade;
+
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, "rgba(10,12,18,0.95)");
+  sky.addColorStop(0.55, "rgba(18,20,28,0.90)");
+  sky.addColorStop(1, "rgba(8,9,14,0.95)");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h);
+
+  const speed = (flybyK * 1.8 + 0.2);
+  const layers = [
+    { y: h * 0.10, h: h * 0.28, parallax: 0.35, alpha: 0.25 },
+    { y: h * 0.30, h: h * 0.34, parallax: 0.6, alpha: 0.35 },
+    { y: h * 0.54, h: h * 0.46, parallax: 1.0, alpha: 0.48 },
+  ];
+
+  layers.forEach((layer, li) => {
+    const base = (speed * 900 * layer.parallax) % 320;
+    ctx.fillStyle = `rgba(22,24,34,${layer.alpha})`;
+    for (let i = -2; i < 10; i++) {
+      const bw = 120 + ((i + li * 3) % 5) * 40;
+      const bx = i * 220 + base;
+      const bh = layer.h * (0.55 + 0.35 * ((i + 2) % 3));
+      const by = layer.y + layer.h - bh;
+      ctx.fillRect(bx, by, bw, bh);
+    }
+
+    ctx.globalAlpha = 0.35 * fade;
+    ctx.fillStyle = "rgba(120,205,255,0.18)";
+    for (let i = -2; i < 8; i++) {
+      const lineW = 80 + (i % 4) * 30;
+      const lx = i * 240 + base * 1.1 + 40;
+      const ly = layer.y + (i % 3) * 18 + 8;
+      ctx.fillRect(lx, ly, lineW, 2);
+    }
+    ctx.globalAlpha = 0.9 * fade;
+  });
+
+  ctx.globalAlpha = 0.55 * fade;
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(0, h * 0.72, w, h * 0.28);
+
+  ctx.restore();
+  return true;
+}
+
+export function drawHUD(ctx, state, danger01, COLORS) {
+  const player = state.player;
+  const uiT = state.uiTime || 0;
+
+  ctx.save();
+  // Retro neon HUD: score module top-left
+  const x = 14;
+  const y = 12;
+  const w = 272;
+  const h = 74;
+  const pulse = 0.55 + 0.45 * Math.sin(uiT * 2.4);
+  const neon = `rgba(0,255,208,${0.55 + 0.25 * pulse})`;
+  const neonSoft = "rgba(0,255,208,0.18)";
+
+  drawGlow(ctx, x - 6, y - 6, w + 12, h + 12, neonSoft, 26);
+
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = "rgba(6,8,14,0.86)";
+  roundRect(ctx, x, y, w, h, 12);
+
+  ctx.strokeStyle = "rgba(0,255,208,0.35)";
+  ctx.lineWidth = 1.5;
+  roundedRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, 12);
   ctx.stroke();
-  ctx.globalAlpha = 1;
 
-  ctx.fillStyle = COLORS.hudText;
-  ctx.font = "700 16px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  const hudDist = Math.floor(state.distance || 0);
-  ctx.fillText(`Distance ${hudDist}`, 22, 36);
+  ctx.strokeStyle = neon;
+  ctx.lineWidth = 0.8;
+  roundedRectPath(ctx, x + 2.5, y + 2.5, w - 5, h - 5, 10);
+  ctx.stroke();
 
-  ctx.font = "500 13px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  ctx.fillText(`Jumps ${player.jumpsRemaining}`, 22, 58);
-
-  // Float fuel meter (W)
-  if (Number.isFinite(player.floatFuel)) {
-    const max = Number.isFinite(player.floatFuelMax) ? player.floatFuelMax : 0.38;
-    const fuel01 = clamp(max > 0 ? player.floatFuel / max : 0, 0, 1);
-
-    const bx = 200;
-    const by = 46;
-    const bw = 40;
-    const bh = 6;
-
-    ctx.fillStyle = "rgba(242,242,242,0.18)";
-    ctx.fillRect(bx, by, bw, bh);
-
-    ctx.fillStyle = "rgba(120,205,255,0.65)";
-    ctx.fillRect(bx, by, Math.floor(bw * fuel01), bh);
-
-    ctx.fillStyle = "rgba(242,242,242,0.55)";
-    ctx.font = "700 10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.fillText("W", bx + bw + 6, by + 6);
+  // Scanlines + diagonal shimmer
+  ctx.save();
+  roundedRectPath(ctx, x + 1, y + 1, w - 2, h - 2, 11);
+  ctx.clip();
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  for (let sy = y + 6; sy < y + h; sy += 4) {
+    ctx.fillRect(x, sy, w, 1);
   }
-
-  // Dash cooldown meter (D)
-  if (Number.isFinite(player.dashCooldown)) {
-    const cd = clamp(player.dashCooldown, 0, DASH_COOLDOWN);
-    const ready01 = clamp(1 - (cd / Math.max(0.001, DASH_COOLDOWN)), 0, 1);
-
-    const bx = 200;
-    const by = 30;
-    const bw = 40;
-    const bh = 6;
-
-    ctx.fillStyle = "rgba(242,242,242,0.18)";
-    ctx.fillRect(bx, by, bw, bh);
-
-    ctx.fillStyle = ready01 >= 1 ? "rgba(120,205,255,0.85)" : "rgba(120,205,255,0.45)";
-    ctx.fillRect(bx, by, Math.floor(bw * ready01), bh);
-
-    ctx.fillStyle = "rgba(242,242,242,0.55)";
-    ctx.font = "700 10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.fillText("D", bx + bw + 6, by + 6);
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = "rgba(0,255,208,0.18)";
+  ctx.lineWidth = 1;
+  for (let i = -1; i < 6; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x - 20 + i * 48, y + h);
+    ctx.lineTo(x + 30 + i * 48, y);
+    ctx.stroke();
   }
+  ctx.restore();
 
-  // Style score if present
+  // Score
+  const hudScore = Math.floor(state.distance || 0);
+  const scoreText = String(hudScore).padStart(6, "0");
+  ctx.fillStyle = "rgba(150,245,255,0.75)";
+  ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("SCORE", x + 14, y + 22);
+
+  ctx.fillStyle = "rgba(220,255,255,0.98)";
+  ctx.font = "800 28px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillText(scoreText, x + 14, y + 52);
+
+  // Style line
   if (Number.isFinite(state.styleScore)) {
     const s = Math.floor(state.styleScore || 0);
     const c = Math.floor(state.styleCombo || 0);
-    ctx.fillStyle = "rgba(242,242,242,0.65)";
-    ctx.fillText(`Style ${s}  Combo x${c}`, 118, 52);
+    ctx.fillStyle = "rgba(120,220,255,0.75)";
+    ctx.font = "600 10px Orbitron, Share Tech Mono, Menlo, monospace";
+    ctx.fillText(`STYLE ${s}  X${c}`, x + 14, y + 66);
   }
 
-  if (danger01 > 0.55 && state.running && !state.gameOver) {
-    ctx.fillStyle = "rgba(255,85,110,0.90)";
-    ctx.font = "800 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.fillText("GROUND = DEATH", 150, 32);
-  }
+  // Right-side status strip
+  const statX = x + w - 88;
+  const statW = 74;
+  ctx.fillStyle = "rgba(8,12,20,0.65)";
+  roundRect(ctx, statX - 6, y + 10, statW + 10, 52, 8);
+
+  ctx.fillStyle = "rgba(180,250,255,0.8)";
+  ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("JMP", statX, y + 24);
+  ctx.fillStyle = "rgba(240,255,255,0.95)";
+  ctx.font = "800 12px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillText(`${player.jumpsRemaining}`, statX + 32, y + 24);
+
+  const fuelMax = Number.isFinite(player.floatFuelMax) ? player.floatFuelMax : 0.38;
+  const fuel01 = Number.isFinite(player.floatFuel)
+    ? clamp(fuelMax > 0 ? player.floatFuel / fuelMax : 0, 0, 1)
+    : 0;
+  const dashCd = Number.isFinite(player.dashCooldown) ? player.dashCooldown : 0;
+  const dash01 = clamp(1 - (dashCd / Math.max(0.001, DASH_COOLDOWN)), 0, 1);
+
+  const barY1 = y + 34;
+  const barY2 = y + 50;
+  ctx.fillStyle = "rgba(16,22,34,0.9)";
+  ctx.fillRect(statX, barY1, statW, 6);
+  ctx.fillRect(statX, barY2, statW, 6);
+
+  ctx.fillStyle = "rgba(0,255,208,0.85)";
+  ctx.fillRect(statX, barY1, Math.floor(statW * fuel01), 6);
+  ctx.fillStyle = dash01 >= 1 ? "rgba(255,110,180,0.9)" : "rgba(120,120,255,0.75)";
+  ctx.fillRect(statX, barY2, Math.floor(statW * dash01), 6);
+
+  ctx.fillStyle = "rgba(160,230,255,0.65)";
+  ctx.font = "700 8px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("FUEL", statX, barY1 - 2);
+  ctx.fillText("DASH", statX, barY2 - 2);
 
   ctx.restore();
 }

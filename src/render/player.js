@@ -57,8 +57,10 @@ export function drawPlayerShadow(ctx, player) {
 }
 
 // ---------------- full player draw (world space) ----------------
-export function drawPlayer(ctx, state, animTime, landed, COLORS) {
+export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   const player = state.player;
+  const suppressFx = opts.noFx === true;
+  const suppressGlow = opts.noGlow === true;
 
   const airborne = !player.onGround;
   const floating = airborne && state.floatHeld === true;
@@ -208,7 +210,7 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
   }
 
   // Float/Dive FX (readability for W/S)
-  if (diving) {
+  if (diving && !suppressFx) {
     // Always draw the red dive halo so feedback is immediate, even during anticipation.
     drawDiveFX(ctx, bodyW, bodyH, COLORS, animTime || 0, vy);
 
@@ -216,19 +218,24 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS) {
     if (divePhase !== "anticipate") {
       drawDiveStreaks(ctx, bodyW, bodyH, animTime || 0, _diveK);
     }
-  } else if (floating) {
+  } else if (floating && !suppressFx) {
     drawFloatFX(ctx, bodyW, bodyH, COLORS, animTime || 0);
   }
 
-  if (airborne && dashFxK > 0.01) {
+  if (!suppressFx && airborne && dashFxK > 0.01) {
     drawDashStreaks(ctx, bodyW, bodyH, animTime || 0, dashFxK);
   }
 
   // Glow (stronger tint during float/dive)
-  if (diving) ctx.shadowColor = "rgba(255,85,110,0.18)";
-  else if (floating) ctx.shadowColor = "rgba(120,205,255,0.22)";
-  else ctx.shadowColor = "rgba(242,242,242,0.18)";
-  ctx.shadowBlur = 12;
+  if (suppressGlow) {
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+  } else {
+    if (diving) ctx.shadowColor = "rgba(255,85,110,0.18)";
+    else if (floating) ctx.shadowColor = "rgba(120,205,255,0.22)";
+    else ctx.shadowColor = "rgba(242,242,242,0.18)";
+    ctx.shadowBlur = 12;
+  }
 
   // Body
   drawRunner(ctx, player, animTime, landed, state.running, state.speed || 0, COLORS);

@@ -10,6 +10,7 @@ import {
   PLAYER_H,
   DEATH_CINEMATIC,
   DEATH_CINEMATIC_TOTAL,
+  BREAK_SHARDS,
 } from "../game/constants.js";
 
 import {
@@ -20,8 +21,8 @@ import {
 } from "./world.js";
 
 import { drawPlayerShadow, drawPlayer } from "./player.js";
-import { drawHUD, drawLandingPopup } from "./ui.js";
-import { drawMenus, drawStartPrompt } from "./menu.js";
+import { drawHUD, drawLandingPopup, drawRestartFlyby } from "./ui.js";
+import { drawStartPrompt, drawRestartPrompt } from "./menu.js";
 import { clamp } from "./playerKit.js";
 
 export const COLORS = {
@@ -74,7 +75,7 @@ function easeInOutCubic(t) {
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 }
 
-function computeDeathCinematic(state) {
+function computeDeathCinematic(state, focusX) {
   if (!state || (!state.deathCinematicActive && !state.deathCinematicDone)) return null;
 
   const snap = state.deathSnapshot || state.player;
@@ -97,16 +98,16 @@ function computeDeathCinematic(state) {
 
   const reachK = easeOutCubic(reachKRaw);
   const dragK = easeInOutCubic(dragKRaw);
-  const retractK = clamp(retractKRaw, 0, 1);
+  const retractK = easeInOutCubic(retractKRaw);
 
-  const zoomBoost = 0.65 * easeOutCubic(
+  const zoomBoost = 1.25 * easeOutCubic(
     DEATH_CINEMATIC.ZOOM_IN > 0
       ? t / DEATH_CINEMATIC.ZOOM_IN
       : 1
   );
 
-  // Arm targets Bob's torso; base hides off-screen to the left.
-  const baseX = -160;
+  // Arm targets Bob's torso; base hides off-screen to the left relative to current focus.
+  const baseX = (Number.isFinite(focusX) ? focusX : snap.x) - world.INTERNAL_WIDTH * 0.7;
   const baseY = snap.y + snap.h * 0.22;
 
   const targetX = snap.x + snap.w * 0.35;
@@ -124,6 +125,10 @@ function computeDeathCinematic(state) {
   const bobOffsetX = dragOffsetX;
   const bobAlpha = clamp(1 - 0.65 * retractK, 0, 1);
 
+  const bobTilt = Math.PI / 2;
+  const bobLift = 0;
+  const bobScale = 1;
+
   const gripK = clamp(reachK * 0.9 + dragK * 0.6, 0, 1);
 
   const armAlpha = clamp(1 - 0.7 * retractK, 0, 1);
@@ -135,6 +140,9 @@ function computeDeathCinematic(state) {
     zoomBoost,
     bobOffsetX,
     bobAlpha,
+    bobTilt,
+    bobLift,
+    bobScale,
     arm: {
       baseX,
       baseY,
@@ -195,23 +203,6 @@ function drawRobotArm(ctx, info, _COLORS, animTime) {
   ctx.lineTo(arm.tipX, arm.tipY);
   ctx.stroke();
 
-  // Grapple cable to Bob
-  if (info.snap) {
-    const gx = info.snap.x + info.snap.w * 0.40 + (info.bobOffsetX || 0);
-    const gy = info.snap.y + info.snap.h * 0.55;
-    ctx.strokeStyle = "rgba(120,205,255,0.45)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(arm.tipX, arm.tipY);
-    ctx.lineTo(gx, gy);
-    ctx.stroke();
-
-    ctx.fillStyle = "rgba(120,205,255,0.30)";
-    ctx.beginPath();
-    ctx.arc(gx, gy, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
   // Claw
   const clawLen = 12;
   const spread = 16 - 8 * arm.gripK;
@@ -227,8 +218,90 @@ function drawRobotArm(ctx, info, _COLORS, animTime) {
   ctx.restore();
 }
 
+function updateAndDrawBreakShards(ctx, state, dt, offsetX = 0) {
+  if (!Array.isArray(state.breakShards) || state.breakShards.length === 0) return;
+  const shards = state.breakShards;
+
+  for (const s of shards) {
+    if (!s || s.life <= 0) continue;
+    s.vy += BREAK_SHARDS.GRAVITY * dt;
+    s.vx *= BREAK_SHARDS.DRAG;
+    s.vy *= BREAK_SHARDS.DRAG;
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    s.rot += (s.vr || 0) * dt;
+    s.life -= dt;
+  }
+
+  for (const s of shards) {
+    if (!s || s.life <= 0) continue;
+    const a = clamp(s.life / BREAK_SHARDS.LIFE, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a * 0.9;
+    ctx.translate(offsetX + s.x, s.y);
+    ctx.rotate(s.rot || 0);
+
+    const w = s.w || 8;
+    const h = s.h || 6;
+    if (s.kind === "spark") {
+      ctx.fillStyle = "rgba(255,120,80,0.9)";
+      ctx.fillRect(-w * 0.4, -1, w * 0.8, 2);
+    } else if (s.kind === "plate") {
+      ctx.fillStyle = "rgba(230,234,240,0.92)";
+      ctx.fillRect(-w * 0.6, -h * 0.6, w * 1.2, h * 0.9);
+      ctx.fillStyle = "rgba(20,22,28,0.45)";
+      ctx.fillRect(-w * 0.6, h * 0.2, w * 1.2, 1);
+    } else {
+      ctx.fillStyle = "rgba(120,205,255,0.75)";
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.5, -h * 0.5);
+      ctx.lineTo(w * 0.6, 0);
+      ctx.lineTo(-w * 0.2, h * 0.6);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function drawDeathScrapeDust(ctx, info, animTime) {
+  if (!info || !info.snap) return;
+  const k = clamp(info.arm?.dragK || 0, 0, 1);
+  if (k <= 0.01) return;
+
+  const px = info.snap.x + info.snap.w * 0.55 + (info.bobOffsetX || 0);
+  const py = world.GROUND_Y - 6;
+  const spread = 28 + 46 * k;
+  const count = 10 + Math.floor(10 * k);
+  const jitter = (Math.sin((animTime || 0) * 20) + 1) * 0.5;
+
+  ctx.save();
+  ctx.globalAlpha = 0.6 + 0.35 * k;
+  ctx.fillStyle = "rgba(255,190,200,0.9)";
+  for (let i = 0; i < count; i++) {
+    const t = (i / count) * Math.PI * 2 + jitter;
+    const ox = Math.cos(t) * spread * (0.4 + 0.8 * k) - 28 * k;
+    const oy = Math.sin(t) * 8 * k - 1;
+    const r = 2.5 + 4.5 * k;
+    ctx.beginPath();
+    ctx.arc(px + ox, py + oy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 0.35 + 0.35 * k;
+  ctx.fillStyle = "rgba(255,220,230,0.85)";
+  for (let i = 0; i < 6; i++) {
+    const sx = px - 12 * k + i * 8;
+    const sy = py + 2 + Math.sin((animTime || 0) * 8 + i) * 1.5;
+    ctx.fillRect(sx, sy, 6, 1.5);
+  }
+  ctx.restore();
+}
+
 let prevOnGround = true;
 let prevGameOver = false;
+let prevDeathActive = false;
+let deathFocusX = null;
+let deathFocusY = null;
 
 let _prevFrameT = 0;
 let _camX = 0;
@@ -303,8 +376,20 @@ export function render(ctx, state) {
   const { dpr, cw, ch, cssW, cssH } = ensureCanvasSize(ctx, W, H);
 
   const player = state.player;
-  const deathInfo = computeDeathCinematic(state);
-  const deathActive = !!(deathInfo && state.deathCinematicActive);
+  const deathActive = state.deathCinematicActive === true;
+  const freezeOnDeath = state.gameOver === true && state.deathCinematicDone === true && !deathActive;
+
+  if (deathActive && !prevDeathActive) {
+    deathFocusX = (player?.x || 0) + (player?.w || PLAYER_W) / 2;
+    deathFocusY = (player?.y || 0) + (player?.h || PLAYER_H) / 2;
+  } else if (!deathActive && !state.deathCinematicDone) {
+    deathFocusX = null;
+    deathFocusY = null;
+  }
+
+  const deathInfo = (deathActive || state.deathCinematicDone)
+    ? computeDeathCinematic(state, deathFocusX)
+    : null;
 
   const bottom = player.y + player.h;
   const distToGround = Math.max(0, world.GROUND_Y - bottom);
@@ -331,23 +416,28 @@ export function render(ctx, state) {
 
   // Camera lag is driven continuously by world speed + dash impulse.
   // This avoids step changes and feels weighty at high speed.
-  const speed = Number.isFinite(state.speed) ? state.speed : 0;
-  const impulse = Number.isFinite(state.speedImpulse) ? state.speedImpulse : 0;
+  let camLag = _camX;
+  if (!freezeOnDeath) {
+    const speed = Number.isFinite(state.speed) ? state.speed : 0;
+    const impulse = Number.isFinite(state.speedImpulse) ? state.speedImpulse : 0;
 
-  // Map speed to a forward camera lag (clamped).
-  // Base speed contributes gently; dash impulse contributes strongly.
-  const targetCamX = deathActive
-    ? 0
-    : clamp(
-        speed * 0.015 + impulse * 0.08,
-        0,
-        DASH_MAX_CAM_LAG
-      );
+    // Map speed to a forward camera lag (clamped).
+    // Base speed contributes gently; dash impulse contributes strongly.
+    const targetCamX = deathActive
+      ? 0
+      : clamp(
+          speed * 0.015 + impulse * 0.08,
+          0,
+          DASH_MAX_CAM_LAG
+        );
 
-  // Smoothly ease camera toward target using exponential smoothing.
-  const k = 1 - Math.exp(-DASH_CAM_SMOOTH * dt);
-  _camX += (targetCamX - _camX) * k;
-  const camLag = deathActive ? 0 : _camX;
+    // Smoothly ease camera toward target using exponential smoothing.
+    const k = 1 - Math.exp(-DASH_CAM_SMOOTH * dt);
+    _camX += (targetCamX - _camX) * k;
+    camLag = deathActive ? 0 : _camX;
+  } else {
+    camLag = 0;
+  }
 
   // Hard reset paint state
   resetCtx(ctx);
@@ -367,15 +457,22 @@ export function render(ctx, state) {
   // Menu zoom (start/restart): zoomed-in on player, easing to 1x when play begins.
   const zoomK = clamp(state.menuZoomK ?? 1, 0, 1);
   let zoom = MENU_START_ZOOM - (MENU_START_ZOOM - 1) * zoomK;
-  if (deathActive) {
+  if (deathActive || freezeOnDeath) {
     zoom *= 1 + (deathInfo?.zoomBoost || 0);
   }
 
-  const focusBobOffset = deathActive ? (deathInfo?.bobOffsetX || 0) : 0;
-  const focusX =
-    ((player?.x ?? W * 0.35) + (player?.w ?? PLAYER_W) / 2 + focusBobOffset) -
-    camLag;
-  const focusY = (player?.y ?? world.GROUND_Y - PLAYER_H) + (player?.h ?? PLAYER_H) / 2;
+  const focusBobOffset = (deathActive || freezeOnDeath) ? (deathInfo?.bobOffsetX || 0) : 0;
+  const freezeSnap = freezeOnDeath ? (state.deathSnapshot || player) : null;
+  const focusX = deathActive && Number.isFinite(deathFocusX)
+    ? deathFocusX
+    : freezeSnap
+      ? (freezeSnap.x + freezeSnap.w / 2) - camLag
+      : ((player?.x ?? W * 0.35) + (player?.w ?? PLAYER_W) / 2 + focusBobOffset) - camLag;
+  const focusY = deathActive && Number.isFinite(deathFocusY)
+    ? deathFocusY
+    : freezeSnap
+      ? (freezeSnap.y + freezeSnap.h / 2)
+      : (player?.y ?? world.GROUND_Y - PLAYER_H) + (player?.h ?? PLAYER_H) / 2;
 
   ctx.save();
   ctx.translate(focusX, focusY);
@@ -406,22 +503,59 @@ export function render(ctx, state) {
   // ---- PLAYER ----
   const playerOffsetX = deathInfo ? deathInfo.bobOffsetX : 0;
   const playerAlpha = deathInfo ? deathInfo.bobAlpha : 1;
+  const playerTilt = deathInfo ? deathInfo.bobTilt : 0;
+  const playerLift = deathInfo ? deathInfo.bobLift : 0;
+  const playerScale = deathInfo ? deathInfo.bobScale : 1;
+
+  const renderState = deathActive
+    ? {
+        ...state,
+        floatHeld: false,
+        heavyLandT: 0,
+        player: {
+          ...player,
+          vy: 0,
+          diving: false,
+          divePhase: "",
+          divePhaseT: 0,
+          spinning: false,
+        },
+      }
+    : state;
+  const renderPlayer = renderState.player;
 
   resetCtx(ctx);
   ctx.save();
-  if (playerOffsetX) ctx.translate(playerOffsetX, 0);
+  if (playerOffsetX || playerLift) ctx.translate(playerOffsetX, playerLift * 0.25);
   ctx.globalAlpha *= playerAlpha;
-  drawPlayerShadow(ctx, player);
+  drawPlayerShadow(ctx, renderPlayer);
   ctx.restore();
 
   resetCtx(ctx);
   ctx.save();
-  if (playerOffsetX || playerAlpha !== 1) {
-    ctx.translate(playerOffsetX, 0);
+  if (playerOffsetX || playerLift || playerAlpha !== 1 || playerScale !== 1 || playerTilt !== 0) {
+    ctx.translate(playerOffsetX, playerLift);
+  const pcx = renderPlayer.x + renderPlayer.w / 2;
+  const pcy = renderPlayer.y + renderPlayer.h / 2;
+    ctx.translate(pcx, pcy);
+    if (playerTilt) ctx.rotate(playerTilt);
+    if (playerScale !== 1) ctx.scale(playerScale, playerScale);
+    ctx.translate(-pcx, -pcy);
     ctx.globalAlpha *= playerAlpha;
   }
-  drawPlayer(ctx, state, animTime, landed || justDied, COLORS);
+  drawPlayer(ctx, renderState, animTime, false, COLORS, {
+    noGlow: deathActive,
+    noFx: deathActive,
+  });
   ctx.restore();
+
+  resetCtx(ctx);
+  updateAndDrawBreakShards(ctx, state, dt, playerOffsetX);
+
+  if (deathActive) {
+    resetCtx(ctx);
+    drawDeathScrapeDust(ctx, deathInfo, animTime || 0);
+  }
 
   // Start prompt stays in-world (moves with camera/zoom, fixed world size).
   resetCtx(ctx);
@@ -435,10 +569,15 @@ export function render(ctx, state) {
     },
   });
 
+  const restartCenterX = focusX + (W / 2 - focusX) / Math.max(0.001, zoom);
+  drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, { centerX: restartCenterX });
+
   if (deathActive) {
     resetCtx(ctx);
     drawRobotArm(ctx, deathInfo, COLORS, animTime || 0);
   }
+
+  prevDeathActive = deathActive;
 
   ctx.restore();
 
@@ -447,21 +586,24 @@ export function render(ctx, state) {
   ctx.restore();
 
   // Suppress HUD during start zoom; keep it for game + game over.
-  const showHUD = !deathActive && ((state.running && !state.menuZooming) || state.gameOver);
+  const showHUD =
+    !deathActive &&
+    !state.restartFlybyActive &&
+    ((state.running && !state.menuZooming) || state.gameOver);
 
   if (showHUD) {
     resetCtx(ctx);
     drawHUD(ctx, state, danger01, COLORS);
   }
 
-  if (!deathActive) {
+  if (!deathActive && !state.restartFlybyActive) {
     resetCtx(ctx);
     drawLandingPopup(ctx, state, COLORS);
   }
 
-  if (!deathActive) {
+  if (state.restartFlybyActive) {
     resetCtx(ctx);
-    drawMenus(ctx, state, uiTime, COLORS, W, H, { skipStart: true });
+    drawRestartFlyby(ctx, state, COLORS, W, H);
   }
 
   // Restore viewport transform

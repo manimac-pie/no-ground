@@ -59,6 +59,10 @@ export function performJump(state) {
   const p = state.player;
   if (!p) return;
 
+  if (p.onGround) {
+    state.roofJumpT = 0.22;
+  }
+
   p.vy = JUMP_VELOCITY;
   p.onGround = false;
   p.coyote = 0;

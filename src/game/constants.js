@@ -100,15 +100,25 @@ export const DEATH_CINEMATIC = {
   ARM_REACH: 0.70,    // extend across to Bob
   DRAG: 0.90,         // pull Bob off-screen
   ARM_RETRACT: 0.45,  // arm slides back out
-  MENU_PAUSE: 0.35,   // small beat before showing restart UI
 };
 
 export const DEATH_CINEMATIC_TOTAL =
   DEATH_CINEMATIC.ARM_DELAY +
   DEATH_CINEMATIC.ARM_REACH +
   DEATH_CINEMATIC.DRAG +
-  DEATH_CINEMATIC.ARM_RETRACT +
-  DEATH_CINEMATIC.MENU_PAUSE;
+  DEATH_CINEMATIC.ARM_RETRACT;
+
+export const BREAK_SHARDS = {
+  COUNT: 18,
+  LIFE: 1.1,
+  GRAVITY: 2600,
+  DRAG: 0.93,
+};
+
+export const RESTART_FLYBY_SEC = 0.9;
+export const RESTART_FLYBY_HOLD_SEC = 0.18;
+export const RESTART_FLYBY_FADE_SEC = 0.22;
+
 
 // Dive feel / animation timing
 // Used by game/player.js for phase timing, and by render/player.js for stable pose targets.

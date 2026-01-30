@@ -3,8 +3,6 @@
 import { world } from "../game.js";
 import { SAFE_CLEARANCE, PLAYER_H } from "../game/constants.js";
 
-const SMASH_APPROACH = 0.90; // delay before smash to sync with Bob movement
-
 function roundedRectPath(ctx, x, y, w, h, r) {
   const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
@@ -28,6 +26,23 @@ function roundRect(ctx, x, y, w, h, r) {
 function centerText(ctx, text, x, y) {
   const m = ctx.measureText(text);
   ctx.fillText(text, x - m.width / 2, y);
+}
+
+function easeOutBounce(t) {
+  const x = Math.max(0, Math.min(1, t));
+  const n1 = 7.5625;
+  const d1 = 2.75;
+  if (x < 1 / d1) return n1 * x * x;
+  if (x < 2 / d1) {
+    const y = x - 1.5 / d1;
+    return n1 * y * y + 0.75;
+  }
+  if (x < 2.5 / d1) {
+    const y = x - 2.25 / d1;
+    return n1 * y * y + 0.9375;
+  }
+  const y = x - 2.625 / d1;
+  return n1 * y * y + 0.984375;
 }
 
 function hash01(n) {
@@ -88,68 +103,6 @@ function getTextTiles(text, font, tileSize, letterSpacing = 0) {
 
   _tileCache = { key, tiles, width, height };
   return _tileCache;
-}
-
-function drawGlassPanel(ctx, x, y, w, h, radius = 18, alpha = 0.82) {
-  ctx.save();
-  ctx.globalAlpha = alpha;
-
-  const grd = ctx.createLinearGradient(x, y, x, y + h);
-  grd.addColorStop(0, "rgba(15,17,24,0.92)");
-  grd.addColorStop(1, "rgba(6,8,12,0.88)");
-
-  ctx.fillStyle = grd;
-  roundRect(ctx, x, y, w, h, radius);
-
-  ctx.strokeStyle = "rgba(120,205,255,0.28)";
-  ctx.lineWidth = 1.5;
-  roundedRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, radius);
-  ctx.stroke();
-
-  // Inner highlight
-  ctx.strokeStyle = "rgba(255,255,255,0.06)";
-  roundedRectPath(ctx, x + 2.5, y + 2.5, w - 5, h - 5, radius - 2);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-function drawPortal(ctx, cx, cy, r, COLORS, pulseT = 0) {
-  const ring = ctx.createRadialGradient(cx, cy, r * 0.45, cx, cy, r);
-  ring.addColorStop(0, "rgba(120,205,255,0.0)");
-  ring.addColorStop(0.55, "rgba(120,205,255,0.28)");
-  ring.addColorStop(0.78, "rgba(120,205,255,0.10)");
-  ring.addColorStop(1, "rgba(0,0,0,0.0)");
-
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  ctx.fillStyle = ring;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Outer glow
-  ctx.strokeStyle = "rgba(120,205,255,0.55)";
-  ctx.lineWidth = 6 + 2 * Math.sin(pulseT * 2.5);
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Inner particles
-  const dots = 24;
-  ctx.fillStyle = "rgba(120,205,255,0.65)";
-  for (let i = 0; i < dots; i++) {
-    const t = (i / dots) * Math.PI * 2 + pulseT * 1.2;
-    const rr = r * (0.18 + 0.14 * Math.sin(t * 3.3 + pulseT));
-    const x = cx + Math.cos(t) * rr * 0.6;
-    const y = cy + Math.sin(t) * rr * 0.8;
-    const s = 1.5 + 1.2 * Math.sin(t * 2.7 + pulseT * 1.7);
-    ctx.beginPath();
-    ctx.arc(x, y, s, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
 }
 
 function drawKeyChip(ctx, label, caption, x, y, COLORS, opts = {}) {
@@ -213,26 +166,6 @@ function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
     drawKeyChip(ctx, c.label, c.caption, x, y, COLORS, { active: activeKey === c.label });
     x += w + 10;
   });
-}
-
-function drawPillButton(ctx, label, x, y, w, h, active = false) {
-  ctx.save();
-  const radius = h / 2;
-  const body = ctx.createLinearGradient(x, y, x, y + h);
-  body.addColorStop(0, active ? "rgba(120,205,255,0.22)" : "rgba(255,255,255,0.10)");
-  body.addColorStop(1, active ? "rgba(120,205,255,0.12)" : "rgba(255,255,255,0.08)");
-  ctx.fillStyle = body;
-  roundRect(ctx, x, y, w, h, radius);
-
-  ctx.lineWidth = active ? 2 : 1.25;
-  ctx.strokeStyle = active ? "rgba(120,205,255,0.85)" : "rgba(255,255,255,0.35)";
-  roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, radius);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(242,242,242,0.95)";
-  ctx.font = "800 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  centerText(ctx, label, x + w / 2, y + h / 2 + 6);
-  ctx.restore();
 }
 
 export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
@@ -330,65 +263,41 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   return true;
 }
 
-export function drawMenus(ctx, state, uiTime, COLORS, W, H, opts = {}) {
-  const skipStart = opts.skipStart === true;
-
-  // Draw start prompt if not skipped.
-  if (!skipStart) {
-    const handled = drawStartPrompt(ctx, state, uiTime, COLORS, W, H);
-    if (handled) return;
-  }
+export function drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
+  if (!state.gameOver || !state.deathCinematicDone || state.restartFlybyActive) return false;
 
   // Use logical internal size.
   const w = Number.isFinite(W) ? W : 800;
-  const h = Number.isFinite(H) ? H : 450;
 
-  // Game over menu
-  if (state.gameOver) {
-    if (state.deathCinematicActive) return;
+  ctx.save();
 
-    const cx0 = w / 2;
-    const dist = Math.floor(state.distance || 0);
+  const tileSize = 2;
+  const headingSize = 34;
+  const font = `800 ${headingSize}px "Inter Tight", "Inter", "Segoe UI", "Helvetica Neue", system-ui, sans-serif`;
+  const letterSpacing = 2;
+  const cache = getTextTiles("RESTART", font, tileSize, letterSpacing);
 
-    ctx.save();
-    const lg = ctx.createLinearGradient(0, 0, w, 0);
-    lg.addColorStop(0, "rgba(6,8,14,0.78)");
-    lg.addColorStop(1, "rgba(0,0,0,0.55)");
-    ctx.fillStyle = lg;
-    ctx.fillRect(0, 0, w, h);
+  const centerX = Number.isFinite(opts.centerX) ? opts.centerX : w * 0.5;
+  const baseX = centerX - cache.width / 2;
+  const totalHeight = cache.height;
+  const groundY = world.GROUND_Y - 2;
+  const endY = groundY - totalHeight;
+  const startY = -totalHeight - 140;
 
-    const pulse = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin((uiTime || 0) * 3.2));
-    ctx.save();
-    ctx.globalAlpha = 0.82;
-    const grd = ctx.createRadialGradient(cx0, h * 0.45, 60, cx0, h * 0.45, 280);
-    grd.addColorStop(0, "rgba(120,205,255,0.18)");
-    grd.addColorStop(1, "rgba(0,0,0,0.60)");
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
+  const dropT = Math.max(0, state.deathRestartT || 0);
+  const dropK = Math.min(1, dropT / 1.0);
+  const bounce = easeOutBounce(dropK);
+  const baseY = startY + (endY - startY) * bounce;
 
-    drawPortal(ctx, w * 0.72, h * 0.55, Math.min(w, h) * 0.22, COLORS, uiTime || 0);
+  cache.tiles.forEach((t) => {
+    const px = baseX + t.x;
+    const py = baseY + t.y;
+    ctx.fillStyle = "rgba(230,234,240,0.94)";
+    ctx.fillRect(px, py, t.w, t.h);
+    ctx.fillStyle = "rgba(20,22,28,0.45)";
+    ctx.fillRect(px, py + t.h - 1, t.w, 1);
+  });
 
-    ctx.fillStyle = COLORS.hudText;
-    ctx.font = "900 32px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    centerText(ctx, `Distance ${dist}`, cx0, h / 2 - 72);
-
-    ctx.font = "900 30px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.globalAlpha = pulse;
-    centerText(ctx, "Press Spacebar to Start", cx0, h / 2 - 32);
-
-    ctx.font = "600 14px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.globalAlpha = 0.75;
-    centerText(ctx, "or click / tap Restart", cx0, h / 2 - 8);
-
-    // Restart button
-    const btnW = 200;
-    const btnH = 56;
-    const btnX = cx0 - btnW / 2;
-    const btnY = h / 2 + 22;
-    drawPillButton(ctx, "Restart", btnX, btnY, btnW, btnH, true);
-
-    ctx.globalAlpha = 1;
-    ctx.restore();
-  }
+  ctx.restore();
+  return true;
 }

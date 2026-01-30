@@ -28,6 +28,12 @@ export function createInitialState() {
     deathCinematicDone: false,
     deathCinematicT: 0,
     deathSnapshot: null,
+    breakShards: [],
+    deathRestartT: 0,
+    restartFlybyActive: false,
+    restartFlybyT: 0,
+    restartFlybyResetDone: false,
+    roofJumpT: 0,
 
     uiTime: 0,
     animTime: 0,
@@ -105,6 +111,12 @@ export function resetRunState(state) {
   state.deathCinematicDone = false;
   state.deathCinematicT = 0;
   state.deathSnapshot = null;
+  state.breakShards = [];
+  state.deathRestartT = 0;
+  state.restartFlybyActive = false;
+  state.restartFlybyT = 0;
+  state.restartFlybyResetDone = false;
+  state.roofJumpT = 0;
 
   state.uiTime = 0;
   state.animTime = 0;
