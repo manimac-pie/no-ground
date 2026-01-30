@@ -21,7 +21,7 @@ import {
 } from "./world.js";
 
 import { drawPlayerShadow, drawPlayer } from "./player.js";
-import { drawHUD, drawLandingPopup, drawRestartFlyby } from "./ui.js";
+import { drawHUD, drawLandingPopup, drawRestartFlyby, drawCenterScore } from "./ui.js";
 import { drawStartPrompt, drawRestartPrompt } from "./menu.js";
 import { clamp } from "./playerKit.js";
 
@@ -585,15 +585,24 @@ export function render(ctx, state) {
   // Remove zoom for overlay/UI layers.
   ctx.restore();
 
-  // Suppress HUD during start zoom; keep it for game + game over.
+  const onRestartScreen =
+    state.gameOver && state.deathCinematicDone && !deathActive && !state.restartFlybyActive;
+
+  // Suppress HUD during start zoom; allow slide-out on death.
   const showHUD =
-    !deathActive &&
     !state.restartFlybyActive &&
-    ((state.running && !state.menuZooming) || state.gameOver);
+    !onRestartScreen &&
+    !state.menuZooming &&
+    (state.running || (state.hudIntroT || 0) > 0);
 
   if (showHUD) {
     resetCtx(ctx);
     drawHUD(ctx, state, danger01, COLORS);
+  }
+
+  if (onRestartScreen) {
+    resetCtx(ctx);
+    drawCenterScore(ctx, state, W, H);
   }
 
   if (!deathActive && !state.restartFlybyActive) {

@@ -32,6 +32,7 @@ const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
 const SMASH_APPROACH = 0.90;    // delay before smash to let Bob reach the text
 const SMASH_VISIBLE = 1.4;      // how long shards stay visible after impact
+const HUD_SLIDE_SEC = 0.55;
 
 export function createGame() {
   const state = createInitialState();
@@ -148,6 +149,7 @@ export function createGame() {
         state.menuZooming = false;
         // Keep Bob idle for a beat after the zoom finishes, but let the game keep ticking.
         state.startDelay = START_DELAY;
+        state.hudIntroT = 0;
         state.running = true;
         state.gameOver = false;
         state.startReady = false;
@@ -167,11 +169,18 @@ export function createGame() {
     if (!state.running && state.startDelay > 0) {
       state.startDelay = Math.max(0, state.startDelay - dt);
       if (state.startDelay === 0) {
+        state.hudIntroT = 0;
         state.running = true;
         state.gameOver = false;
         state.startReady = false;
         state.jumpBuffer = 0; // no auto jump
       }
+    }
+
+    if (state.running) {
+      state.hudIntroT = Math.min(HUD_SLIDE_SEC, (state.hudIntroT || 0) + dt);
+    } else if (state.hudIntroT > 0) {
+      state.hudIntroT = Math.max(0, (state.hudIntroT || 0) - dt);
     }
 
     state.jumpBuffer = Math.max(0, state.jumpBuffer - dt);

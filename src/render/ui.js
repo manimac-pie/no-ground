@@ -268,6 +268,9 @@ export function drawRestartFlyby(ctx, state, COLORS, W, H) {
 export function drawHUD(ctx, state, danger01, COLORS) {
   const player = state.player;
   const uiT = state.uiTime || 0;
+  const introT = state.hudIntroT || 0;
+  const introK = clamp(introT / 0.55, 0, 1);
+  const introEase = 1 - Math.pow(1 - introK, 3);
 
   ctx.save();
   // Retro neon HUD: score module top-left
@@ -275,24 +278,46 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   const y = 12;
   const w = 272;
   const h = 74;
+  const slideX = -(w + x + 24) * (1 - introEase);
+  if (slideX) ctx.translate(slideX, 0);
   const pulse = 0.55 + 0.45 * Math.sin(uiT * 2.4);
   const neon = `rgba(0,255,208,${0.55 + 0.25 * pulse})`;
   const neonSoft = "rgba(0,255,208,0.18)";
 
-  drawGlow(ctx, x - 6, y - 6, w + 12, h + 12, neonSoft, 26);
+  drawGlow(ctx, x - 10, y - 10, w + 20, h + 20, neonSoft, 32);
 
-  ctx.globalAlpha = 0.92;
-  ctx.fillStyle = "rgba(6,8,14,0.86)";
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = "rgba(6,8,14,0.48)";
   roundRect(ctx, x, y, w, h, 12);
 
-  ctx.strokeStyle = "rgba(0,255,208,0.35)";
-  ctx.lineWidth = 1.5;
+  // Wireframe outline
+  ctx.strokeStyle = "rgba(0,255,208,0.32)";
+  ctx.lineWidth = 1.25;
   roundedRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, 12);
   ctx.stroke();
 
   ctx.strokeStyle = neon;
-  ctx.lineWidth = 0.8;
+  ctx.lineWidth = 1;
   roundedRectPath(ctx, x + 2.5, y + 2.5, w - 5, h - 5, 10);
+  ctx.stroke();
+
+  // Corner brackets
+  ctx.strokeStyle = "rgba(0,255,208,0.85)";
+  ctx.lineWidth = 2;
+  const b = 12;
+  ctx.beginPath();
+  ctx.moveTo(x + 6, y + 6 + b);
+  ctx.lineTo(x + 6, y + 6);
+  ctx.lineTo(x + 6 + b, y + 6);
+  ctx.moveTo(x + w - 6 - b, y + 6);
+  ctx.lineTo(x + w - 6, y + 6);
+  ctx.lineTo(x + w - 6, y + 6 + b);
+  ctx.moveTo(x + 6, y + h - 6 - b);
+  ctx.lineTo(x + 6, y + h - 6);
+  ctx.lineTo(x + 6 + b, y + h - 6);
+  ctx.moveTo(x + w - 6 - b, y + h - 6);
+  ctx.lineTo(x + w - 6, y + h - 6);
+  ctx.lineTo(x + w - 6, y + h - 6 - b);
   ctx.stroke();
 
   // Scanlines + diagonal shimmer
@@ -370,6 +395,32 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   ctx.font = "700 8px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText("FUEL", statX, barY1 - 2);
   ctx.fillText("DASH", statX, barY2 - 2);
+
+  ctx.restore();
+}
+
+export function drawCenterScore(ctx, state, W, H) {
+  const w = Number.isFinite(W) ? W : 800;
+  const h = Number.isFinite(H) ? H : 450;
+  const hudScore = Math.floor(state.distance || 0);
+  const scoreText = String(hudScore).padStart(6, "0");
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+
+  const cx = w * 0.5;
+  const cy = h * 0.5;
+
+  ctx.fillStyle = "rgba(140,245,255,0.6)";
+  ctx.font = "700 14px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("SCORE", cx, cy - 26);
+
+  ctx.shadowColor = "rgba(0,255,208,0.6)";
+  ctx.shadowBlur = 22;
+  ctx.fillStyle = "rgba(240,255,255,0.98)";
+  ctx.font = "800 56px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillText(scoreText, cx, cy + 18);
 
   ctx.restore();
 }

@@ -37,6 +37,7 @@ export function createInitialState() {
 
     uiTime: 0,
     animTime: 0,
+    hudIntroT: 0,
 
     distance: 0,
     _nextAirReq: "none",
@@ -120,6 +121,7 @@ export function resetRunState(state) {
 
   state.uiTime = 0;
   state.animTime = 0;
+  state.hudIntroT = 0;
   state.distance = 0;
   state._nextAirReq = "none";
   state._nextAirReqDist = 0;
