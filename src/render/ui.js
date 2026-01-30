@@ -284,41 +284,45 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   const neon = `rgba(0,255,208,${0.55 + 0.25 * pulse})`;
   const neonSoft = "rgba(0,255,208,0.18)";
 
-  drawGlow(ctx, x - 10, y - 10, w + 20, h + 20, neonSoft, 32);
+  // Chunky arcade bezel
+  ctx.globalAlpha = 0.95;
+  ctx.fillStyle = "rgba(10,12,18,0.92)";
+  roundRect(ctx, x, y, w, h, 14);
 
-  ctx.globalAlpha = 0.9;
-  ctx.fillStyle = "rgba(6,8,14,0.48)";
-  roundRect(ctx, x, y, w, h, 12);
-
-  // Wireframe outline
-  ctx.strokeStyle = "rgba(0,255,208,0.32)";
-  ctx.lineWidth = 1.25;
-  roundedRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, 12);
+  // Outer thick border
+  ctx.strokeStyle = "rgba(20,24,34,0.9)";
+  ctx.lineWidth = 6;
+  roundedRectPath(ctx, x + 3, y + 3, w - 6, h - 6, 12);
   ctx.stroke();
 
-  ctx.strokeStyle = neon;
-  ctx.lineWidth = 1;
-  roundedRectPath(ctx, x + 2.5, y + 2.5, w - 5, h - 5, 10);
-  ctx.stroke();
-
-  // Corner brackets
-  ctx.strokeStyle = "rgba(0,255,208,0.85)";
+  // Inner lip
+  ctx.strokeStyle = "rgba(80,90,110,0.55)";
   ctx.lineWidth = 2;
-  const b = 12;
-  ctx.beginPath();
-  ctx.moveTo(x + 6, y + 6 + b);
-  ctx.lineTo(x + 6, y + 6);
-  ctx.lineTo(x + 6 + b, y + 6);
-  ctx.moveTo(x + w - 6 - b, y + 6);
-  ctx.lineTo(x + w - 6, y + 6);
-  ctx.lineTo(x + w - 6, y + 6 + b);
-  ctx.moveTo(x + 6, y + h - 6 - b);
-  ctx.lineTo(x + 6, y + h - 6);
-  ctx.lineTo(x + 6 + b, y + h - 6);
-  ctx.moveTo(x + w - 6 - b, y + h - 6);
-  ctx.lineTo(x + w - 6, y + h - 6);
-  ctx.lineTo(x + w - 6, y + h - 6 - b);
+  roundedRectPath(ctx, x + 7, y + 7, w - 14, h - 14, 10);
   ctx.stroke();
+
+  // Bezel gradient band
+  const bezel = ctx.createLinearGradient(x, y, x, y + h);
+  bezel.addColorStop(0, "rgba(40,48,62,0.85)");
+  bezel.addColorStop(0.5, "rgba(18,22,32,0.9)");
+  bezel.addColorStop(1, "rgba(10,12,18,0.95)");
+  ctx.fillStyle = bezel;
+  roundRect(ctx, x + 2, y + 2, w - 4, h - 4, 12);
+
+  // Bolt details
+  ctx.fillStyle = "rgba(160,175,200,0.5)";
+  const boltR = 2.2;
+  const boltPts = [
+    [x + 14, y + 14],
+    [x + w - 14, y + 14],
+    [x + 14, y + h - 14],
+    [x + w - 14, y + h - 14],
+  ];
+  boltPts.forEach(([bx, by]) => {
+    ctx.beginPath();
+    ctx.arc(bx, by, boltR, 0, Math.PI * 2);
+    ctx.fill();
+  });
 
   // Scanlines + diagonal shimmer
   ctx.save();
