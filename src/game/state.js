@@ -24,6 +24,11 @@ export function createInitialState() {
     menuSmashArmed: false,
     menuSmashBroken: false,
 
+    deathCinematicActive: false,
+    deathCinematicDone: false,
+    deathCinematicT: 0,
+    deathSnapshot: null,
+
     uiTime: 0,
     animTime: 0,
 
@@ -95,6 +100,11 @@ export function resetRunState(state) {
   state.menuSmashActive = false;
   state.menuSmashArmed = false;
   state.menuSmashBroken = false;
+
+  state.deathCinematicActive = false;
+  state.deathCinematicDone = false;
+  state.deathCinematicT = 0;
+  state.deathSnapshot = null;
 
   state.uiTime = 0;
   state.animTime = 0;

@@ -93,6 +93,23 @@ export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash strea
 export const COYOTE_TIME_SEC = 0.13;
 export const JUMP_BUFFER_SEC = 0.13;
 
+// Death cinematic (game over) timing
+export const DEATH_CINEMATIC = {
+  ZOOM_IN: 0.70,      // seconds to zoom toward Bob
+  ARM_DELAY: 0.28,    // wait before the arm starts moving
+  ARM_REACH: 0.70,    // extend across to Bob
+  DRAG: 0.90,         // pull Bob off-screen
+  ARM_RETRACT: 0.45,  // arm slides back out
+  MENU_PAUSE: 0.35,   // small beat before showing restart UI
+};
+
+export const DEATH_CINEMATIC_TOTAL =
+  DEATH_CINEMATIC.ARM_DELAY +
+  DEATH_CINEMATIC.ARM_REACH +
+  DEATH_CINEMATIC.DRAG +
+  DEATH_CINEMATIC.ARM_RETRACT +
+  DEATH_CINEMATIC.MENU_PAUSE;
+
 // Dive feel / animation timing
 // Used by game/player.js for phase timing, and by render/player.js for stable pose targets.
 export const DIVE_ANTICIPATION_SEC = 0.08; // seconds of anticipation before full dive commit

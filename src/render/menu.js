@@ -345,6 +345,8 @@ export function drawMenus(ctx, state, uiTime, COLORS, W, H, opts = {}) {
 
   // Game over menu
   if (state.gameOver) {
+    if (state.deathCinematicActive) return;
+
     const cx0 = w / 2;
     const dist = Math.floor(state.distance || 0);
 

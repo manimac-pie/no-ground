@@ -11,6 +11,7 @@ import {
   SPEED_RAMP_PER_SEC,
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
+  DEATH_CINEMATIC_TOTAL,
 } from "./game/constants.js";
 
 import { clamp } from "./game/utils.js";
@@ -42,15 +43,41 @@ export function createGame() {
   }
 
   function endGame() {
+    if (!state.gameOver) {
+      const p = state.player;
+      if (p) {
+        // Keep Bob in view for the death cinematic.
+        p.y = Math.min(p.y, GROUND_Y - p.h + 2);
+      }
+      state.deathSnapshot = p
+        ? { x: p.x, y: p.y, w: p.w, h: p.h, vy: p.vy }
+        : null;
+      state.deathCinematicActive = true;
+      state.deathCinematicDone = false;
+      state.deathCinematicT = 0;
+      state.startReady = false;
+    }
+
     state.running = false;
     state.gameOver = true;
-    state.startReady = true; // allow immediate Spacebar restart
     state.menuSmashActive = false;
   }
 
   function update(dt, input) {
     state.uiTime += dt;
     if (state.running || state.menuZooming || state.startDelay > 0) state.animTime += dt;
+
+    if (state.deathCinematicActive) {
+      state.deathCinematicT = Math.min(
+        DEATH_CINEMATIC_TOTAL,
+        state.deathCinematicT + dt
+      );
+      if (state.deathCinematicT >= DEATH_CINEMATIC_TOTAL) {
+        state.deathCinematicActive = false;
+        state.deathCinematicDone = true;
+        state.startReady = true;
+      }
+    }
 
     // Advance the zoom animation if the menu is zooming out.
     if (state.menuZoomK < 1 && state.menuZooming) {
@@ -109,6 +136,11 @@ export function createGame() {
     state.diveHeld = input?.diveHeld === true;
 
     if (!state.running) {
+      // Freeze input while the death cinematic plays.
+      if (state.deathCinematicActive) {
+        return state;
+      }
+
       // Start/restart flow: Spacebar or click/tap triggers zoom-out.
       if (jumpPressed && !state.menuZooming && state.startDelay <= 0) {
         if (state.gameOver) reset(); // ensure clean restart state
