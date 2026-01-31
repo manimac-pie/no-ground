@@ -165,6 +165,11 @@ function drawPortal(ctx, cx, cy, r, COLORS, pulseT = 0) {
   ctx.restore();
 }
 
+function formatNumber(n) {
+  if (!Number.isFinite(n)) return "0";
+  return Math.floor(n).toLocaleString("en-US");
+}
+
 function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
   const controls = [
     { label: "SPACE", caption: "Jump / Start" },
@@ -426,7 +431,7 @@ export function drawCenterScore(ctx, state, W, H) {
   const cy = h * 0.5;
 
   const panelW = Math.min(460, w * 0.74);
-  const panelH = 210;
+  const panelH = 230;
   const panelX = cx - panelW / 2;
   const finalPanelY = cy - panelH / 2 - 6;
   const startPanelY = -panelH - 40;
@@ -502,73 +507,185 @@ export function drawCenterScore(ctx, state, W, H) {
   ctx.fillRect(stringLeftX - 7, panelY + 4, 14, 2);
   ctx.fillRect(stringRightX - 7, panelY + 4, 14, 2);
 
-  // Panel body: heavier chassis with angled inner frame + neon edge
-  ctx.fillStyle = "rgba(12,14,18,0.98)";
-  roundRect(ctx, panelX, panelY, panelW, panelH, 10);
-  ctx.fillStyle = "rgba(22,26,34,0.98)";
-  roundRect(ctx, panelX + 4, panelY + 4, panelW - 8, panelH - 8, 8);
+  // Panel body: HUD-matched chunky bezel + scanlines
+  ctx.globalAlpha = 0.95;
+  ctx.fillStyle = "rgba(10,12,18,0.94)";
+  roundRect(ctx, panelX, panelY, panelW, panelH, 14);
 
-  // Inner chamfer and scan panel
-  ctx.fillStyle = "rgba(8,12,18,0.95)";
-  roundRect(ctx, panelX + 10, panelY + 14, panelW - 20, panelH - 28, 6);
-  const plate = ctx.createLinearGradient(panelX, panelY + 14, panelX, panelY + panelH - 14);
-  plate.addColorStop(0, "rgba(18,24,34,0.9)");
-  plate.addColorStop(1, "rgba(6,10,16,0.9)");
-  ctx.fillStyle = plate;
-  roundRect(ctx, panelX + 12, panelY + 16, panelW - 24, panelH - 32, 6);
-
-  // Neon perimeter rail
-  ctx.strokeStyle = "rgba(120,205,255,0.45)";
-  ctx.lineWidth = 2;
-  roundedRectPath(ctx, panelX + 6, panelY + 6, panelW - 12, panelH - 12, 8);
+  // Outer thick border
+  ctx.strokeStyle = "rgba(20,24,34,0.92)";
+  ctx.lineWidth = 6;
+  roundedRectPath(ctx, panelX + 3, panelY + 3, panelW - 6, panelH - 6, 12);
   ctx.stroke();
 
-  // Accent bars
-  ctx.fillStyle = "rgba(120,205,255,0.18)";
-  ctx.fillRect(panelX + 18, panelY + 28, panelW - 36, 2);
-  ctx.fillRect(panelX + 18, panelY + panelH - 30, panelW - 36, 2);
+  // Inner lip
+  ctx.strokeStyle = "rgba(80,90,110,0.55)";
+  ctx.lineWidth = 2;
+  roundedRectPath(ctx, panelX + 7, panelY + 7, panelW - 14, panelH - 14, 10);
+  ctx.stroke();
+
+  // Bezel gradient band
+  const bezel = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelH);
+  bezel.addColorStop(0, "rgba(40,48,62,0.85)");
+  bezel.addColorStop(0.5, "rgba(18,22,32,0.9)");
+  bezel.addColorStop(1, "rgba(10,12,18,0.95)");
+  ctx.fillStyle = bezel;
+  roundRect(ctx, panelX + 2, panelY + 2, panelW - 4, panelH - 4, 12);
+
+  // Bolt details
+  ctx.fillStyle = "rgba(160,175,200,0.5)";
+  const boltR = 2.3;
+  const boltPts = [
+    [panelX + 16, panelY + 16],
+    [panelX + panelW - 16, panelY + 16],
+    [panelX + 16, panelY + panelH - 16],
+    [panelX + panelW - 16, panelY + panelH - 16],
+  ];
+  boltPts.forEach(([bx, by]) => {
+    ctx.beginPath();
+    ctx.arc(bx, by, boltR, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Scanlines + diagonal shimmer
+  ctx.save();
+  roundedRectPath(ctx, panelX + 1, panelY + 1, panelW - 2, panelH - 2, 11);
+  ctx.clip();
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  for (let sy = panelY + 8; sy < panelY + panelH - 6; sy += 4) {
+    ctx.fillRect(panelX + 2, sy, panelW - 4, 1);
+  }
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = "rgba(0,255,208,0.16)";
+  ctx.lineWidth = 1;
+  for (let i = -1; i < 10; i++) {
+    ctx.beginPath();
+    ctx.moveTo(panelX - 20 + i * 48, panelY + panelH);
+    ctx.lineTo(panelX + 30 + i * 48, panelY);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Header bar
+  ctx.fillStyle = "rgba(8,12,20,0.7)";
+  roundRect(ctx, panelX + 18, panelY + 18, panelW - 36, 24, 8);
+  ctx.strokeStyle = "rgba(120,205,255,0.35)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, panelX + 18, panelY + 18, panelW - 36, 24, 8);
+  ctx.stroke();
   ctx.restore();
 
   ctx.globalAlpha = boardK;
-  ctx.fillStyle = "rgba(140,245,255,0.7)";
+  ctx.fillStyle = "rgba(160,245,255,0.9)";
   ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("RUN SUMMARY", cx, panelY + 26);
+  ctx.fillText("RUN SUMMARY", cx, panelY + 35);
 
   ctx.textAlign = "left";
-  const left = panelX + 22;
-  const right = panelX + panelW - 22;
-  const rowY = panelY + 52;
-  const rowH = 22;
-  ctx.fillStyle = "rgba(120,220,255,0.8)";
-  ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("HOVER DISTANCE", left, rowY);
-  ctx.fillText("DIVE COUNT", left, rowY + rowH);
-  ctx.fillText("DISTANCE RAN", left, rowY + rowH * 2);
+  const left = panelX + 26;
+  const right = panelX + panelW - 26;
+  const rowY = panelY + 66;
+  const rowH = 26;
+  const pillH = 20;
+  const pillW = 160;
 
+  // Row backgrounds
+  ctx.fillStyle = "rgba(8,12,18,0.78)";
+  roundRect(ctx, left - 8, rowY - 16, panelW - 36, 24, 8);
+  roundRect(ctx, left - 8, rowY + rowH - 16, panelW - 36, 24, 8);
+  roundRect(ctx, left - 8, rowY + rowH * 2 - 16, panelW - 36, 24, 8);
+
+  // Left label chips
+  const labelGrad = ctx.createLinearGradient(left, 0, left + pillW, 0);
+  labelGrad.addColorStop(0, "rgba(120,200,255,0.26)");
+  labelGrad.addColorStop(1, "rgba(90,120,160,0.18)");
+  ctx.fillStyle = labelGrad;
+  roundRect(ctx, left - 2, rowY - 22, pillW, pillH, 8);
+  roundRect(ctx, left - 2, rowY + rowH - 22, pillW, pillH, 8);
+  roundRect(ctx, left - 2, rowY + rowH * 2 - 22, pillW, pillH, 8);
+
+  ctx.fillStyle = "rgba(160,235,255,0.95)";
+  ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("HOVER DISTANCE", left + 8, rowY - 6);
+  ctx.fillText("DIVE COUNT", left + 8, rowY + rowH - 6);
+  ctx.fillText("DISTANCE RAN", left + 8, rowY + rowH * 2 - 6);
+
+  // Right values
   ctx.textAlign = "right";
-  ctx.fillStyle = "rgba(220,255,255,0.95)";
-  ctx.font = "800 12px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText(`${glide}  x${FLOAT_SCORE_MULT}`, right, rowY);
-  ctx.fillText(`${dives}  x${DIVE_SCORE_BONUS}`, right, rowY + rowH);
-  ctx.fillText(`${dist}`, right, rowY + rowH * 2);
+  const valuePillW = 156;
+  const valuePillH = 20;
+  const valueX = right - valuePillW + 4;
+  const valueGrad = ctx.createLinearGradient(valueX, 0, valueX + valuePillW, 0);
+  valueGrad.addColorStop(0, "rgba(12,18,28,0.92)");
+  valueGrad.addColorStop(1, "rgba(20,28,42,0.92)");
+  ctx.fillStyle = valueGrad;
+  roundRect(ctx, valueX, rowY - 22, valuePillW, valuePillH, 8);
+  roundRect(ctx, valueX, rowY + rowH - 22, valuePillW, valuePillH, 8);
+  roundRect(ctx, valueX, rowY + rowH * 2 - 22, valuePillW, valuePillH, 8);
 
-  ctx.textAlign = "center";
-  ctx.strokeStyle = "rgba(120,205,255,0.18)";
+  ctx.strokeStyle = "rgba(120,205,255,0.25)";
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(panelX + 18, panelY + 126);
-  ctx.lineTo(panelX + panelW - 18, panelY + 126);
+  roundedRectPath(ctx, valueX + 0.5, rowY - 21.5, valuePillW - 1, valuePillH - 1, 8);
+  ctx.stroke();
+  roundedRectPath(ctx, valueX + 0.5, rowY + rowH - 21.5, valuePillW - 1, valuePillH - 1, 8);
+  ctx.stroke();
+  roundedRectPath(ctx, valueX + 0.5, rowY + rowH * 2 - 21.5, valuePillW - 1, valuePillH - 1, 8);
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(140,245,255,0.6)";
-  ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("TOTAL SCORE", cx, panelY + 150);
-
-  ctx.shadowColor = "rgba(0,255,208,0.65)";
-  ctx.shadowBlur = 18;
   ctx.fillStyle = "rgba(240,255,255,0.98)";
-  ctx.font = "800 52px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText(scoreText, cx, panelY + 196);
+  ctx.font = "800 13px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillText(`${formatNumber(glide)}  x${FLOAT_SCORE_MULT}`, right, rowY - 6);
+  ctx.fillText(`${formatNumber(dives)}  x${DIVE_SCORE_BONUS}`, right, rowY + rowH - 6);
+  ctx.fillText(`${formatNumber(dist)}`, right, rowY + rowH * 2 - 6);
+
+  // Divider
+  ctx.textAlign = "center";
+  ctx.strokeStyle = "rgba(120,205,255,0.22)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 20, panelY + 146);
+  ctx.lineTo(panelX + panelW - 20, panelY + 146);
+  ctx.stroke();
+
+  // Total score capsule
+  const pillX = panelX + 40;
+  const pillY = panelY + 162;
+  const pillW2 = panelW - 80;
+  const pillH2 = 54;
+  ctx.fillStyle = "rgba(8,12,18,0.8)";
+  roundRect(ctx, pillX, pillY, pillW2, pillH2, 14);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.fillStyle = "rgba(120,205,255,0.12)";
+  roundRect(ctx, pillX + 4, pillY + 4, pillW2 - 8, 16, 10);
+  ctx.restore();
+  ctx.strokeStyle = "rgba(120,205,255,0.45)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, pillX, pillY, pillW2, pillH2, 14);
+  ctx.stroke();
+
+  // Total score label inside the pill (HUD style)
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(150,245,255,0.75)";
+  ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("TOTAL SCORE", pillX + 16, pillY + 17);
+
+  // Auto-scale score to fit the pill width
+  const maxScoreWidth = pillW2 - 34;
+  let scoreFontSize = 40;
+  ctx.font = `800 ${scoreFontSize}px Share Tech Mono, Orbitron, Menlo, monospace`;
+  let scoreWidth = ctx.measureText(scoreText).width;
+  if (scoreWidth > maxScoreWidth) {
+    scoreFontSize = Math.max(28, Math.floor(scoreFontSize * (maxScoreWidth / scoreWidth)));
+    ctx.font = `800 ${scoreFontSize}px Share Tech Mono, Orbitron, Menlo, monospace`;
+    scoreWidth = ctx.measureText(scoreText).width;
+  }
+
+  ctx.shadowColor = "rgba(80,255,220,0.7)";
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = "rgba(240,255,255,0.98)";
+  ctx.textAlign = "center";
+  ctx.fillText(scoreText, cx, pillY + 40 + (40 - scoreFontSize) * 0.3);
 
   ctx.restore();
 }

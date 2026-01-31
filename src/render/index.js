@@ -117,7 +117,7 @@ function computeDeathCinematic(state, focusX) {
   const baseX = (Number.isFinite(focusX) ? focusX : snap.x) - world.INTERNAL_WIDTH * 0.7;
   const baseY = snap.y + snap.h * 0.22;
 
-  const targetX = snap.x + snap.w * 0.35;
+  const targetX = snap.x + snap.w * -0.02;
   const targetY = snap.y + snap.h * 0.38;
 
   const reachX = baseX + (targetX - baseX) * reachK;
@@ -194,7 +194,7 @@ function computeStartPush(state, focusX) {
   const baseX = (Number.isFinite(focusX) ? focusX : snap.x) - world.INTERNAL_WIDTH * 0.75;
   const baseY = snap.y + snap.h * 0.28;
 
-  const targetX = snap.x + snap.w * 0.35;
+  const targetX = snap.x + snap.w * 0.05;
   const targetY = snap.y + snap.h * 0.45;
 
   const reachX = baseX + (targetX - baseX) * reachK;
@@ -232,7 +232,7 @@ function computeStartPush(state, focusX) {
   };
 }
 
-function drawRobotArm(ctx, info, COLORS, animTime) {
+function drawRobotArm(ctx, info, COLORS, animTime, mode = "all") {
   if (!info || !info.arm) return;
   const arm = info.arm;
   const wobble = Math.sin((animTime || 0) * 6) * (1 - arm.dragK) * 4;
@@ -242,7 +242,8 @@ function drawRobotArm(ctx, info, COLORS, animTime) {
   const elbowY = arm.baseY - 28 + (arm.tipY - arm.baseY) * 0.20 + wobble;
 
   ctx.save();
-  ctx.globalAlpha = arm.alpha;
+  // Keep the arm fully opaque so it doesn't show Bob through it.
+  ctx.globalAlpha = 1;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   const steelDark = COLORS?.gantry || "rgba(20,22,28,0.85)";
@@ -251,88 +252,92 @@ function drawRobotArm(ctx, info, COLORS, animTime) {
   const warning = COLORS?.warning || "rgba(255,180,70,0.65)";
   const coreGlow = COLORS?.groundGlow || "rgba(255,85,110,0.22)";
 
-  // Ceiling rail / mount
-  ctx.strokeStyle = "rgba(0,0,0,0.55)";
-  ctx.lineWidth = 18;
-  ctx.beginPath();
-  ctx.moveTo(arm.baseX - 26, arm.baseY + 8);
-  ctx.lineTo(arm.baseX + 52, arm.baseY + 8);
-  ctx.stroke();
+  if (mode !== "claw") {
+    // Ceiling rail / mount
+    ctx.strokeStyle = "rgba(0,0,0,0.55)";
+    ctx.lineWidth = 18;
+    ctx.beginPath();
+    ctx.moveTo(arm.baseX - 26, arm.baseY + 8);
+    ctx.lineTo(arm.baseX + 52, arm.baseY + 8);
+    ctx.stroke();
 
-  ctx.strokeStyle = steelHi;
-  ctx.lineWidth = 10;
-  ctx.beginPath();
-  ctx.moveTo(arm.baseX - 18, arm.baseY + 6);
-  ctx.lineTo(arm.baseX + 46, arm.baseY + 6);
-  ctx.stroke();
+    // No cyan highlight on the rail (opaque arm look)
 
-  // Rail brackets
-  ctx.fillStyle = steelDark;
-  ctx.fillRect(arm.baseX - 34, arm.baseY + 2, 12, 14);
-  ctx.fillRect(arm.baseX + 40, arm.baseY + 2, 12, 14);
+    // Rail brackets
+    ctx.fillStyle = steelDark;
+    ctx.fillRect(arm.baseX - 34, arm.baseY + 2, 12, 14);
+    ctx.fillRect(arm.baseX + 40, arm.baseY + 2, 12, 14);
 
-  // Arm body
-  ctx.strokeStyle = steelMid;
-  ctx.lineWidth = 14;
-  ctx.beginPath();
-  ctx.moveTo(arm.baseX, arm.baseY);
-  ctx.lineTo(elbowX, elbowY);
-  ctx.lineTo(arm.tipX, arm.tipY);
-  ctx.stroke();
+    // Arm body
+    ctx.strokeStyle = steelMid;
+    ctx.lineWidth = 14;
+    ctx.beginPath();
+    ctx.moveTo(arm.baseX, arm.baseY);
+    ctx.lineTo(elbowX, elbowY);
+    ctx.lineTo(arm.tipX, arm.tipY);
+    ctx.stroke();
 
-  ctx.strokeStyle = steelHi;
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(arm.baseX, arm.baseY);
-  ctx.lineTo(elbowX, elbowY);
-  ctx.lineTo(arm.tipX, arm.tipY);
-  ctx.stroke();
+    // Cyan highlight on the arm body
+    ctx.strokeStyle = steelHi;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(arm.baseX, arm.baseY);
+    ctx.lineTo(elbowX, elbowY);
+    ctx.lineTo(arm.tipX, arm.tipY);
+    ctx.stroke();
 
-  // Joint caps + bolts
-  ctx.fillStyle = steelDark;
-  ctx.beginPath();
-  ctx.arc(arm.baseX, arm.baseY, 8, 0, Math.PI * 2);
-  ctx.arc(elbowX, elbowY, 7, 0, Math.PI * 2);
-  ctx.arc(arm.tipX, arm.tipY, 6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = warning;
-  ctx.beginPath();
-  ctx.arc(arm.baseX + 3, arm.baseY + 1, 2, 0, Math.PI * 2);
-  ctx.arc(elbowX - 2, elbowY + 1, 2, 0, Math.PI * 2);
-  ctx.fill();
+    // Joint caps + bolts
+    ctx.fillStyle = steelDark;
+    ctx.beginPath();
+    ctx.arc(arm.baseX, arm.baseY, 8, 0, Math.PI * 2);
+    ctx.arc(elbowX, elbowY, 7, 0, Math.PI * 2);
+    ctx.arc(arm.tipX, arm.tipY, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = warning;
+    ctx.beginPath();
+    ctx.arc(arm.baseX + 3, arm.baseY + 1, 2, 0, Math.PI * 2);
+    ctx.arc(elbowX - 2, elbowY + 1, 2, 0, Math.PI * 2);
+    ctx.fill();
 
-  // Small power conduit along the underside
-  ctx.strokeStyle = coreGlow;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(arm.baseX + 4, arm.baseY + 6);
-  ctx.lineTo(elbowX + 4, elbowY + 6);
-  ctx.lineTo(arm.tipX + 4, arm.tipY + 6);
-  ctx.stroke();
+    // Small power conduit along the underside
+    ctx.strokeStyle = coreGlow;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(arm.baseX + 4, arm.baseY + 6);
+    ctx.lineTo(elbowX + 4, elbowY + 6);
+    ctx.lineTo(arm.tipX + 4, arm.tipY + 6);
+    ctx.stroke();
+  }
 
-  // Claw
-  const clawLen = 14;
-  const spread = 18 - 10 * arm.gripK;
-  ctx.strokeStyle = "rgba(255,255,255,0.9)";
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(arm.tipX, arm.tipY);
-  ctx.lineTo(arm.tipX + clawLen, arm.tipY - spread);
-  ctx.moveTo(arm.tipX, arm.tipY);
-  ctx.lineTo(arm.tipX + clawLen, arm.tipY + spread);
-  ctx.stroke();
+  if (mode !== "body") {
+    // Claw: flatter, clamp-like hands with small pads
+    const bobW = Number.isFinite(info.snap?.w) ? info.snap.w : 0;
+    const totalLen = bobW > 0 ? bobW : 15;
+    const clawLen = totalLen * 0.7;
+    const padLen = totalLen * 0.3;
+    const spread = 14 - 5 * arm.gripK;
+    const clawBaseX = arm.tipX + 2;
 
-  // Claw tips + inner prongs
-  ctx.strokeStyle = steelHi;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(arm.tipX + clawLen - 2, arm.tipY - spread);
-  ctx.lineTo(arm.tipX + clawLen + 6, arm.tipY - spread + 4);
-  ctx.moveTo(arm.tipX + clawLen - 2, arm.tipY + spread);
-  ctx.lineTo(arm.tipX + clawLen + 6, arm.tipY + spread - 4);
-  ctx.moveTo(arm.tipX + clawLen * 0.6, arm.tipY - spread * 0.6);
-  ctx.lineTo(arm.tipX + clawLen * 0.6, arm.tipY + spread * 0.6);
-  ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(clawBaseX, arm.tipY - spread);
+    ctx.lineTo(clawBaseX + clawLen, arm.tipY - spread);
+    ctx.moveTo(clawBaseX, arm.tipY + spread);
+    ctx.lineTo(clawBaseX + clawLen, arm.tipY + spread);
+    ctx.stroke();
+
+    // Palm caps and inner pads to read as a clamp
+    ctx.strokeStyle = steelDark;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(clawBaseX + clawLen, arm.tipY - spread);
+    ctx.lineTo(clawBaseX + clawLen + padLen, arm.tipY - spread);
+    ctx.moveTo(clawBaseX + clawLen, arm.tipY + spread);
+    ctx.lineTo(clawBaseX + clawLen + padLen, arm.tipY + spread);
+    // No inner brace line
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -762,12 +767,12 @@ export function render(ctx, state) {
 
   if (deathActive) {
     resetCtx(ctx);
-    drawRobotArm(ctx, deathInfo, COLORS, animTime || 0);
+    drawRobotArm(ctx, deathInfo, COLORS, animTime || 0, "all");
   }
 
   if (!deathActive && startPush && !startPush.offscreen) {
     resetCtx(ctx);
-    drawRobotArm(ctx, startPush, COLORS, animTime || 0);
+    drawRobotArm(ctx, startPush, COLORS, animTime || 0, "all");
   }
 
   prevDeathActive = deathActive;
