@@ -1,7 +1,34 @@
 // src/game/constants.js
 
-export const INTERNAL_WIDTH = 800;
-export const INTERNAL_HEIGHT = 450;
+export const BASE_INTERNAL_WIDTH = 800;
+export const BASE_INTERNAL_HEIGHT = 450;
+export const BASE_ASPECT = BASE_INTERNAL_WIDTH / BASE_INTERNAL_HEIGHT;
+export const MAX_INTERNAL_WIDTH = 1600;
+
+export let INTERNAL_WIDTH = BASE_INTERNAL_WIDTH;
+export let INTERNAL_HEIGHT = BASE_INTERNAL_HEIGHT;
+
+export function setInternalSizeFromViewport(cssW, cssH) {
+  const safeW = Math.max(1, Math.floor(cssW || 0));
+  const safeH = Math.max(1, Math.floor(cssH || 0));
+  const aspect = safeW / safeH;
+  if (!Number.isFinite(aspect) || aspect <= 0) {
+    INTERNAL_WIDTH = BASE_INTERNAL_WIDTH;
+    INTERNAL_HEIGHT = BASE_INTERNAL_HEIGHT;
+    return { width: INTERNAL_WIDTH, height: INTERNAL_HEIGHT };
+  }
+
+  if (aspect > BASE_ASPECT) {
+    const targetW = Math.round(BASE_INTERNAL_HEIGHT * aspect);
+    INTERNAL_WIDTH = Math.min(MAX_INTERNAL_WIDTH, Math.max(BASE_INTERNAL_WIDTH, targetW));
+    INTERNAL_HEIGHT = BASE_INTERNAL_HEIGHT;
+  } else {
+    INTERNAL_WIDTH = BASE_INTERNAL_WIDTH;
+    INTERNAL_HEIGHT = BASE_INTERNAL_HEIGHT;
+  }
+
+  return { width: INTERNAL_WIDTH, height: INTERNAL_HEIGHT };
+}
 
 // World layout
 export const GROUND_Y = 390; // lethal ground level

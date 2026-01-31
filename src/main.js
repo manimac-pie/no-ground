@@ -1,10 +1,11 @@
 // No Ground (Canvas) — main entrypoint
 // Responsibilities:
-// - Create a consistent internal coordinate system (800x450)
+// - Create a consistent internal coordinate system (16:9 base, expands on ultrawide)
 // - Scale the canvas to fit the viewport (PC + mobile)
 // - Drive the main loop (requestAnimationFrame)
 import { createInput } from "./input.js";
 import { createGame } from "./game.js";
+import { setInternalSizeFromViewport } from "./game/constants.js";
 import { render } from "./render/index.js";
 
 const canvas = document.getElementById("game");
@@ -28,6 +29,7 @@ if (!ctx) {
 }
 
 const input = createInput(canvas);
+setInternalSizeFromViewport(window.innerWidth, window.innerHeight);
 const game = createGame();
 let cursorRunning = false;
 const sparkLayer = document.createElement("div");
@@ -103,6 +105,7 @@ function setCanvasSize() {
   const displayH = Math.max(1, Math.floor(window.innerHeight));
   canvas.style.width = `${displayW}px`;
   canvas.style.height = `${displayH}px`;
+  setInternalSizeFromViewport(displayW, displayH);
 }
 
 function updateOverlay() {

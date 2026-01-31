@@ -363,8 +363,8 @@ export function createGame() {
 }
 
 export const world = {
-  INTERNAL_WIDTH,
-  INTERNAL_HEIGHT,
+  get INTERNAL_WIDTH() { return INTERNAL_WIDTH; },
+  get INTERNAL_HEIGHT() { return INTERNAL_HEIGHT; },
   GROUND_Y,
   PLATFORM_H,
 };
