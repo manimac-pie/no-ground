@@ -129,10 +129,11 @@ export function spawnNextPlatform(state) {
   // Some CRUMBLE platforms will fully "break" (fall away) while you're mid-air.
   // This is distinct from roof stress collapse (standing too long).
   const breakChance = (motionKind === "crumble") ? (0.16 + 0.22 * d) : 0;
-  const breakArmed = Math.random() < breakChance;
+  const prevBreakArmed = !!(prev && prev.breakArmed);
+  const breakArmed = !prevBreakArmed && Math.random() < breakChance;
 
   // How quickly the break triggers once the platform starts crumbling (seconds-ish)
-  const breakDelay = breakArmed ? (0.10 + 0.30 * Math.random()) : 0;
+  const breakDelay = breakArmed ? (0.22 + 0.32 * Math.random()) : 0;
 
   // Amplitude in px
   const amp = hasMotion ? (18 + 44 * (0.35 + 0.65 * d) * Math.random()) : 0;
@@ -271,7 +272,10 @@ export function updatePlatforms(state, dt) {
   const HEAVY_BUMP_FRAC_EASY = 0.22; // fraction of collapseTime added on heavy landing (easy)
   const HEAVY_BUMP_FRAC_HARD = 0.34; // fraction of collapseTime added on heavy landing (hard)
 
-  for (const plat of state.platforms) {
+  for (let i = 0; i < state.platforms.length; i++) {
+    const plat = state.platforms[i];
+    const prevPlat = i > 0 ? state.platforms[i - 1] : null;
+    const prevJustBroke = !!(prevPlat && (prevPlat.breakTriggered || prevPlat.breaking));
     if (plat.collapsing) {
       plat.vy += ROOF_FALL_GRAVITY * dt;
       plat.y += plat.vy * dt;
@@ -332,6 +336,7 @@ export function updatePlatforms(state, dt) {
       plat.lowSpawnBreak &&
       inWindow &&
       !plat.breaking &&
+      !prevJustBroke &&
       plat.motion !== "rise" &&
       plat.y >= lowSpawnBreakY
     ) {
@@ -423,6 +428,7 @@ export function updatePlatforms(state, dt) {
           plat.motionStarted &&
           !plat.breaking &&
           !plat.collapsing &&
+          !prevJustBroke &&
           plat.y >= lowBreakY
         ) {
           plat.breakTriggered = true;
@@ -444,13 +450,21 @@ export function updatePlatforms(state, dt) {
           plat.motion === "crumble" &&
           plat.motionStarted &&
           !plat.breakTriggered &&
+          !prevJustBroke &&
           plat.breakArmed
         ) {
           const airborneNow = !(p && p.onGround);
           if (airborneNow) {
+            // Delay break if the player is still close enough to plausibly land on it.
+            const playerLeft = p ? p.x : 0;
+            const playerRight = p ? p.x + p.w : 0;
+            const aheadEdge = plat.x - playerRight;
+            const passed = playerLeft > plat.x + plat.w;
+            const safeToBreak = passed || aheadEdge > 90;
+
             // Start counting once the crumble is underway.
             const visibleCrumble = plat.motionT >= 0.55;
-            if (visibleCrumble) {
+            if (visibleCrumble && safeToBreak) {
               plat.breakT += dt;
               if (plat.breakT >= plat.breakDelay) {
                 // Instead of collapsing immediately, start breaking animation

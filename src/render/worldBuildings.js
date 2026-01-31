@@ -655,7 +655,6 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
   // (set by the main renderer) and re-apply it before drawing each platform.
   const baseTx = typeof ctx.getTransform === "function" ? ctx.getTransform() : null;
 
-  // IMPORTANT: do NOT reset the canvas transform here.
   // The main renderer sets up the scale/translate to internal resolution.
   // Resetting it makes buildings render at the wrong size/position.
 
