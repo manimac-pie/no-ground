@@ -44,6 +44,45 @@ export function createGame() {
     resetPlatforms(state);
   }
 
+  function updateScoreTally(dt) {
+    const onRestartScreen =
+      state.gameOver && state.deathCinematicDone && !state.restartFlybyActive;
+    if (!onRestartScreen) {
+      state.scoreBoardT = 0;
+      state.scoreTallyActive = false;
+      state.scoreTallyT = 0;
+      state.scoreTally = 0;
+      state.scoreTallyDone = false;
+      state.scoreTallyDoneT = 0;
+      return;
+    }
+
+    state.scoreBoardT = (state.scoreBoardT || 0) + dt;
+    const boardIntro = 0.25;
+    if ((state.scoreBoardT || 0) < boardIntro) return;
+
+    if (!state.scoreTallyActive) {
+      state.scoreTallyActive = true;
+      state.scoreTallyT = 0;
+      state.scoreTally = 0;
+      state.scoreTallyDone = false;
+      state.scoreTallyDoneT = 0;
+    }
+    state.scoreTallyT += dt;
+    const duration = 0.9;
+    const t = clamp(state.scoreTallyT / duration, 0, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    const finalScore = Number.isFinite(state.score)
+      ? state.score
+      : (state.distance || 0);
+    state.scoreTally = Math.floor(finalScore * ease);
+    if (t >= 1) {
+      state.scoreTally = Math.floor(finalScore);
+      state.scoreTallyDone = true;
+      state.scoreTallyDoneT += dt;
+    }
+  }
+
   function armStart() {
     if (state.gameOver) reset();
     state.startReady = true;
@@ -98,6 +137,7 @@ export function createGame() {
   function update(dt, input) {
     state.uiTime += dt;
     if (state.running || state.menuZooming || state.startDelay > 0) state.animTime += dt;
+    updateScoreTally(dt);
 
     if (state.restartFlybyActive) {
       state.restartFlybyT = (state.restartFlybyT || 0) + dt;
@@ -303,11 +343,13 @@ export function createGame() {
     integratePlayer(state, dt, endGame);
 
     if (!Number.isFinite(state.score)) state.score = 0;
+    if (!Number.isFinite(state.glideDistance)) state.glideDistance = 0;
     const p = state.player;
     const airborne = p ? p.onGround === false : false;
     const floating = airborne && state.floatHeld === true && !(p && p.diving);
     const scoreMult = floating ? FLOAT_SCORE_MULT : 1;
     state.score += deltaDist * scoreMult;
+    if (floating) state.glideDistance += deltaDist;
 
     tryConsumeBufferedJump(state);
     return state;

@@ -6,6 +6,8 @@ import {
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
+  FLOAT_SCORE_MULT,
+  DIVE_SCORE_BONUS,
 } from "../game/constants.js";
 
 function clamp(v, lo, hi) {
@@ -405,8 +407,16 @@ export function drawCenterScore(ctx, state, W, H) {
   const w = Number.isFinite(W) ? W : 800;
   const h = Number.isFinite(H) ? H : 450;
   const baseScore = Number.isFinite(state.score) ? state.score : (state.distance || 0);
-  const hudScore = Math.floor(baseScore);
+  const displayScore = Number.isFinite(state.scoreTally) ? state.scoreTally : baseScore;
+  const hudScore = Math.floor(displayScore);
   const scoreText = String(hudScore).padStart(6, "0");
+  const glide = Math.floor(state.glideDistance || 0);
+  const dives = Math.floor(state.diveCount || 0);
+  const dist = Math.floor(state.distance || 0);
+  const boardIntro = 0.25;
+  const boardT = Number.isFinite(state.scoreBoardT) ? state.scoreBoardT : 0;
+  const boardK = Math.max(0, Math.min(1, boardT / boardIntro));
+  const uiT = Number.isFinite(state.uiTime) ? state.uiTime : 0;
 
   ctx.save();
   ctx.textAlign = "center";
@@ -415,15 +425,150 @@ export function drawCenterScore(ctx, state, W, H) {
   const cx = w * 0.5;
   const cy = h * 0.5;
 
-  ctx.fillStyle = "rgba(140,245,255,0.6)";
-  ctx.font = "700 14px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("SCORE", cx, cy - 26);
+  const panelW = Math.min(460, w * 0.74);
+  const panelH = 210;
+  const panelX = cx - panelW / 2;
+  const finalPanelY = cy - panelH / 2 - 6;
+  const startPanelY = -panelH - 40;
+  const panelY = startPanelY + (finalPanelY - startPanelY) * boardK;
 
-  ctx.shadowColor = "rgba(0,255,208,0.6)";
-  ctx.shadowBlur = 22;
+  const sway = 0;
+  const stringTop = -200;
+  const stringLeftX = panelX + panelW * 0.26 + sway;
+  const stringRightX = panelX + panelW * 0.74 + sway;
+
+  ctx.save();
+  ctx.globalAlpha = 0.98 * boardK;
+  // Cyberpunk hanging rig: top rail, chains, clamps.
+  // Heavy steel rail
+  const railGrad = ctx.createLinearGradient(panelX, stringTop - 6, panelX, stringTop + 6);
+  railGrad.addColorStop(0, "rgba(55,65,78,0.95)");
+  railGrad.addColorStop(0.5, "rgba(95,110,128,0.95)");
+  railGrad.addColorStop(1, "rgba(40,50,62,0.95)");
+  ctx.strokeStyle = railGrad;
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.moveTo(panelX + panelW * 0.18, stringTop);
+  ctx.lineTo(panelX + panelW * 0.82, stringTop);
+  ctx.stroke();
+
+  // Twin metal rods with inner highlight
+  ctx.strokeStyle = "rgba(120,140,160,0.95)";
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.moveTo(stringLeftX, stringTop);
+  ctx.lineTo(stringLeftX, panelY + 6);
+  ctx.moveTo(stringRightX, stringTop);
+  ctx.lineTo(stringRightX, panelY + 6);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(190,210,230,0.55)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(stringLeftX - 1, stringTop + 6);
+  ctx.lineTo(stringLeftX - 1, panelY + 2);
+  ctx.moveTo(stringRightX - 1, stringTop + 6);
+  ctx.lineTo(stringRightX - 1, panelY + 2);
+  ctx.stroke();
+
+  // Off-screen mount edge + brackets
+  ctx.fillStyle = "rgba(18,22,30,0.98)";
+  ctx.fillRect(panelX - 26, stringTop - 16, panelW + 52, 22);
+  ctx.fillStyle = "rgba(90,100,116,0.95)";
+  ctx.fillRect(panelX - 26, stringTop - 16, panelW + 52, 4);
+  ctx.fillStyle = "rgba(40,48,60,0.95)";
+  ctx.fillRect(panelX - 26, stringTop - 2, panelW + 52, 2);
+
+  ctx.fillStyle = "rgba(120,135,150,0.85)";
+  ctx.fillRect(stringLeftX - 9, stringTop - 6, 18, 12);
+  ctx.fillRect(stringRightX - 9, stringTop - 6, 18, 12);
+  ctx.fillStyle = "rgba(160,180,200,0.9)";
+  ctx.fillRect(stringLeftX - 7, stringTop - 4, 14, 2);
+  ctx.fillRect(stringRightX - 7, stringTop - 4, 14, 2);
+
+  // Bolts
+  ctx.fillStyle = "rgba(50,60,75,0.9)";
+  ctx.beginPath();
+  ctx.arc(stringLeftX - 5, stringTop - 2, 2, 0, Math.PI * 2);
+  ctx.arc(stringLeftX + 5, stringTop - 2, 2, 0, Math.PI * 2);
+  ctx.arc(stringRightX - 5, stringTop - 2, 2, 0, Math.PI * 2);
+  ctx.arc(stringRightX + 5, stringTop - 2, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(24,32,44,0.98)";
+  ctx.fillRect(stringLeftX - 9, panelY + 1, 18, 9);
+  ctx.fillRect(stringRightX - 9, panelY + 1, 18, 9);
+  ctx.fillStyle = "rgba(120,205,255,0.40)";
+  ctx.fillRect(stringLeftX - 7, panelY + 4, 14, 2);
+  ctx.fillRect(stringRightX - 7, panelY + 4, 14, 2);
+
+  // Panel body: heavier chassis with angled inner frame + neon edge
+  ctx.fillStyle = "rgba(12,14,18,0.98)";
+  roundRect(ctx, panelX, panelY, panelW, panelH, 10);
+  ctx.fillStyle = "rgba(22,26,34,0.98)";
+  roundRect(ctx, panelX + 4, panelY + 4, panelW - 8, panelH - 8, 8);
+
+  // Inner chamfer and scan panel
+  ctx.fillStyle = "rgba(8,12,18,0.95)";
+  roundRect(ctx, panelX + 10, panelY + 14, panelW - 20, panelH - 28, 6);
+  const plate = ctx.createLinearGradient(panelX, panelY + 14, panelX, panelY + panelH - 14);
+  plate.addColorStop(0, "rgba(18,24,34,0.9)");
+  plate.addColorStop(1, "rgba(6,10,16,0.9)");
+  ctx.fillStyle = plate;
+  roundRect(ctx, panelX + 12, panelY + 16, panelW - 24, panelH - 32, 6);
+
+  // Neon perimeter rail
+  ctx.strokeStyle = "rgba(120,205,255,0.45)";
+  ctx.lineWidth = 2;
+  roundedRectPath(ctx, panelX + 6, panelY + 6, panelW - 12, panelH - 12, 8);
+  ctx.stroke();
+
+  // Accent bars
+  ctx.fillStyle = "rgba(120,205,255,0.18)";
+  ctx.fillRect(panelX + 18, panelY + 28, panelW - 36, 2);
+  ctx.fillRect(panelX + 18, panelY + panelH - 30, panelW - 36, 2);
+  ctx.restore();
+
+  ctx.globalAlpha = boardK;
+  ctx.fillStyle = "rgba(140,245,255,0.7)";
+  ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("RUN SUMMARY", cx, panelY + 26);
+
+  ctx.textAlign = "left";
+  const left = panelX + 22;
+  const right = panelX + panelW - 22;
+  const rowY = panelY + 52;
+  const rowH = 22;
+  ctx.fillStyle = "rgba(120,220,255,0.8)";
+  ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("HOVER DISTANCE", left, rowY);
+  ctx.fillText("DIVE COUNT", left, rowY + rowH);
+  ctx.fillText("DISTANCE RAN", left, rowY + rowH * 2);
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = "rgba(220,255,255,0.95)";
+  ctx.font = "800 12px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillText(`${glide}  x${FLOAT_SCORE_MULT}`, right, rowY);
+  ctx.fillText(`${dives}  x${DIVE_SCORE_BONUS}`, right, rowY + rowH);
+  ctx.fillText(`${dist}`, right, rowY + rowH * 2);
+
+  ctx.textAlign = "center";
+  ctx.strokeStyle = "rgba(120,205,255,0.18)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 18, panelY + 126);
+  ctx.lineTo(panelX + panelW - 18, panelY + 126);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(140,245,255,0.6)";
+  ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("TOTAL SCORE", cx, panelY + 150);
+
+  ctx.shadowColor = "rgba(0,255,208,0.65)";
+  ctx.shadowBlur = 18;
   ctx.fillStyle = "rgba(240,255,255,0.98)";
-  ctx.font = "800 56px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText(scoreText, cx, cy + 18);
+  ctx.font = "800 52px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillText(scoreText, cx, panelY + 196);
 
   ctx.restore();
 }

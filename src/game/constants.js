@@ -75,7 +75,7 @@ export const DASH_CATCHUP_SPEED = 520;  // how fast the camera catches up after 
 export const DASH_COOLDOWN = 0.45;      // seconds between dashes
 export const DASH_SPEED_BOOST = 820;    // added to world speed on dash (keep peak speed)
 export const DASH_IMPULSE_DECAY = 2.4;  // decay rate for dash impulse (lower = longer)
-export const DASH_SCORE_BONUS = 53;    // score bonus per dash
+export const DASH_SCORE_BONUS = 53;   // score bonus per dash
 export const DASH_OFFSET_SNAP_SPEED = 1800; // max dash offset speed (px/sec)
 export const DASH_OFFSET_SMOOTH = 18;   // smoothing rate for dash offset
 export const DASH_CAM_SMOOTH = 12;      // smoothing rate for camera offset

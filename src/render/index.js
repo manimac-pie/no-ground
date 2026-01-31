@@ -757,7 +757,8 @@ export function render(ctx, state) {
   });
 
   const restartCenterX = focusX + (W / 2 - focusX) / Math.max(0.001, zoom);
-  drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, { centerX: restartCenterX });
+  const restartPromptReady =
+    state.scoreTallyDone && (state.scoreTallyDoneT || 0) >= 0.5;
 
   if (deathActive) {
     resetCtx(ctx);
@@ -795,6 +796,14 @@ export function render(ctx, state) {
   if (onRestartScreen) {
     resetCtx(ctx);
     drawCenterScore(ctx, state, W, H);
+    if (restartPromptReady) {
+      ctx.save();
+      ctx.translate(focusX, focusY);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-focusX, -focusY);
+      drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, { centerX: restartCenterX });
+      ctx.restore();
+    }
   }
 
   if (!deathActive && !state.restartFlybyActive) {

@@ -49,6 +49,14 @@ export function createInitialState() {
     styleCombo: 0,
 
     score: 0,
+    glideDistance: 0,
+    diveCount: 0,
+    scoreTally: 0,
+    scoreTallyT: 0,
+    scoreTallyActive: false,
+    scoreTallyDone: false,
+    scoreTallyDoneT: 0,
+    scoreBoardT: 0,
 
   speed: SPEED_START,
   // Start prompt world position (moves with scroll)
@@ -135,6 +143,14 @@ export function resetRunState(state) {
   state.styleScore = 0;
   state.styleCombo = 0;
   state.score = 0;
+  state.glideDistance = 0;
+  state.diveCount = 0;
+  state.scoreTally = 0;
+  state.scoreTallyT = 0;
+  state.scoreTallyActive = false;
+  state.scoreTallyDone = false;
+  state.scoreTallyDoneT = 0;
+  state.scoreBoardT = 0;
 
   state.speed = SPEED_START;
   state.startPromptX = PLAYER_X + PLAYER_W + 24;

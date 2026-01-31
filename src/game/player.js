@@ -102,6 +102,8 @@ function updateDivePhase(state, dt, airborne) {
     if ((p.vy ?? 0) < 220) p.vy = 220;
     if (!Number.isFinite(state.score)) state.score = 0;
     state.score += DIVE_SCORE_BONUS;
+    if (!Number.isFinite(state.diveCount)) state.diveCount = 0;
+    state.diveCount += 1;
   }
 
   if (airborne && p.diving) {
