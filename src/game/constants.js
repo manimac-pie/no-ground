@@ -23,8 +23,8 @@ export const JUMP_IMPULSE_FX_SEC = 0.18; // jump trail burst duration
 export const FLOAT_FUEL_MAX = 0.55;            // seconds of float available
 export const FLOAT_FUEL_REGEN_PER_SEC = 0.70;  // fuel/sec regained while grounded
 export const FLOAT_GRAVITY_MULT = 0.30;        // gravity multiplier while floating
-export const DIVE_GRAVITY_MULT = 2.35;         // extra gravity while diving (faster descent)
-export const DIVE_MAX_FALL_SPEED = 2600;       // faster terminal speed when diving
+export const DIVE_GRAVITY_MULT = 3.4;          // extra gravity while diving (faster descent)
+export const DIVE_MAX_FALL_SPEED = 3600;       // faster terminal speed when diving
 
 export const LAND_GRACE_SEC = 0.06;
 
@@ -136,7 +136,7 @@ export const START_PUSH_TOTAL =
 
 // Dive feel / animation timing
 // Used by game/player.js for phase timing, and by render/player.js for stable pose targets.
-export const DIVE_ANTICIPATION_SEC = 0.08; // seconds of anticipation before full dive commit
+export const DIVE_ANTICIPATION_SEC = 0.035; // seconds of anticipation before full dive commit
 export const DIVE_SPIKE_ANGLE_RAD = 0.82;  // visual target angle for dive commit (~47 degrees)
 
 // Render-only pose tuning (keep here so it’s easy to tweak without hunting values)

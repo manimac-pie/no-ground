@@ -467,7 +467,8 @@ export function updatePlatforms(state, dt) {
 
             // Start counting once the crumble is underway.
             const visibleCrumble = plat.motionT >= 0.55;
-            if (visibleCrumble && safeToBreak) {
+            // Only allow break if the crumble sinks too low.
+            if (visibleCrumble && safeToBreak && plat.y >= lowBreakY) {
               plat.breakT += dt;
               if (plat.breakT >= plat.breakDelay) {
                 // Instead of collapsing immediately, start breaking animation
