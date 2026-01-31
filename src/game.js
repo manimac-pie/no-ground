@@ -16,6 +16,7 @@ import {
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
+  START_PUSH_TOTAL,
 } from "./game/constants.js";
 
 import { clamp } from "./game/utils.js";
@@ -140,6 +141,22 @@ export function createGame() {
 
     if (state.deathCinematicDone && !state.deathCinematicActive) {
       state.deathRestartT = (state.deathRestartT || 0) + dt;
+    }
+
+    const onStartScreen =
+      !state.running &&
+      !state.gameOver &&
+      state.startReady === true &&
+      !state.menuZooming &&
+      (state.menuZoomK ?? 0) <= 0.001;
+
+    if (onStartScreen) {
+      state.startPushT = Math.min(
+        START_PUSH_TOTAL,
+        (state.startPushT || 0) + dt
+      );
+    } else {
+      state.startPushT = 0;
     }
 
     // Advance the zoom animation if the menu is zooming out.

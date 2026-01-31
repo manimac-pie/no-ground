@@ -33,6 +33,7 @@ function drawBrutalistFacade(ctx, x, y, w, h, seed, COLORS, crack01, animTime) {
   const panelDark = getColor(COLORS, "buildingPanelDark", "rgba(10,12,16,0.38)");
   const seam = getColor(COLORS, "neonLine", "rgba(120,205,255,0.25)");
   const winOn = getColor(COLORS, "windowOn", "rgba(120,205,255,0.22)");
+  const winWarm = getColor(COLORS, "windowWarm", "rgba(255,200,120,0.25)");
   const winOff = getColor(COLORS, "windowOff", "rgba(242,242,242,0.06)");
   const signal = getColor(COLORS, "signal", "rgba(255,85,110,0.55)");
   const stain = getColor(COLORS, "concreteStain", "rgba(0,0,0,0.18)");
@@ -133,7 +134,7 @@ function drawBrutalistFacade(ctx, x, y, w, h, seed, COLORS, crack01, animTime) {
     for (let c = 0; c < cols; c++) {
       const wx = x + 18 + c * (w - 36) / (cols - 1);
       const t = hash01(seed * 23.7 + r * 19.1 + c * 11.3);
-      ctx.fillStyle = t > 0.72 ? winOn : winOff;
+      ctx.fillStyle = t > 0.86 ? winWarm : (t > 0.72 ? winOn : winOff);
       ctx.fillRect(wx, wy, winW, winH);
     }
   }
@@ -738,8 +739,26 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
     ctx.fillStyle = getColor(COLORS, "platformShadow", "rgba(0,0,0,0.18)");
     ctx.fillRect(bodyX + 4, bodyY + 6, bodyW, bodyH);
 
-    ctx.fillStyle = pickBuildingColor(seed, COLORS);
+    const baseColor = pickBuildingColor(seed, COLORS);
+    ctx.fillStyle = baseColor;
     ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
+    // Subtle volume: vertical wash + edge accents to avoid flat slabs.
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    shadeRect(
+      ctx,
+      bodyX,
+      bodyY,
+      bodyW,
+      bodyH,
+      getColor(COLORS, "buildingWashTop", "rgba(242,242,242,0.06)"),
+      getColor(COLORS, "buildingWashBot", "rgba(0,0,0,0.25)")
+    );
+    ctx.restore();
+    ctx.fillStyle = getColor(COLORS, "buildingEdge", "rgba(242,242,242,0.05)");
+    ctx.fillRect(bodyX, bodyY + 4, 2, bodyH - 8);
+    ctx.fillStyle = getColor(COLORS, "buildingEdgeDark", "rgba(0,0,0,0.22)");
+    ctx.fillRect(bodyX + bodyW - 2, bodyY + 6, 2, bodyH - 10);
 
     drawBrutalistFacade(ctx, bodyX, bodyY, bodyW, bodyH, seed, COLORS, crack01, animTime);
 

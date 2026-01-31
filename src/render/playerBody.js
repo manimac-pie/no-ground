@@ -3,7 +3,7 @@
 
 import { clamp, roundedRectPath } from "./playerKit.js";
 
-export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS) {
+export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS, eyes) {
   // Local space: origin at player center after transforms in caller.
   const w = player.w;
   const h = player.h;
@@ -108,7 +108,16 @@ export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS) 
   );
   ctx.fill();
 
-  // Accent dot
+  // Accent dot (single eye)
+  let eyeX = visorX + visorW * 0.78;
+  let eyeY = visorY + visorH * 0.35;
+  if (eyes) {
+    const eyeT = eyes.t || 0;
+    const lookX = Math.sin(eyeT * 1.15) * 1.8 + Math.sin(eyeT * 2.3) * 0.9;
+    const lookY = Math.sin(eyeT * 0.9 + 1.2) * 0.8;
+    eyeX += lookX;
+    eyeY += lookY;
+  }
   ctx.fillStyle = COLORS.accent || "rgba(120,205,255,0.95)";
-  ctx.fillRect(visorX + visorW * 0.78, visorY + visorH * 0.35, 2, 2);
+  ctx.fillRect(eyeX, eyeY, 2, 2);
 }

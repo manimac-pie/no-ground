@@ -238,7 +238,16 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   }
 
   // Body
-  drawRunner(ctx, player, animTime, landed, state.running, state.speed || 0, COLORS);
+  drawRunner(
+    ctx,
+    player,
+    animTime,
+    landed,
+    state.running,
+    state.speed || 0,
+    COLORS,
+    opts.eyes || null
+  );
 
   if (jumpFxK > 0.01) {
     drawJumpTakeoffRubble(ctx, bodyW, bodyH, animTime || 0, jumpFxK);

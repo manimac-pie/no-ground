@@ -73,8 +73,8 @@ export const PLAYER_X = 160;
 export const DASH_DISTANCE = 140;       // how far the player jumps ahead (px)
 export const DASH_CATCHUP_SPEED = 520;  // how fast the camera catches up after landing (px/sec)
 export const DASH_COOLDOWN = 0.45;      // seconds between dashes
-export const DASH_SPEED_BOOST = 520;    // added to world speed on dash (keep peak speed)
-export const DASH_IMPULSE_DECAY = 2.8;  // decay rate for dash impulse (lower = longer)
+export const DASH_SPEED_BOOST = 650;    // added to world speed on dash (keep peak speed)
+export const DASH_IMPULSE_DECAY = 2.0;  // decay rate for dash impulse (lower = longer)
 export const DASH_OFFSET_SNAP_SPEED = 1800; // max dash offset speed (px/sec)
 export const DASH_OFFSET_SMOOTH = 18;   // smoothing rate for dash offset
 export const DASH_CAM_SMOOTH = 12;      // smoothing rate for camera offset
@@ -118,6 +118,20 @@ export const BREAK_SHARDS = {
 export const RESTART_FLYBY_SEC = 0.9;
 export const RESTART_FLYBY_HOLD_SEC = 0.18;
 export const RESTART_FLYBY_FADE_SEC = 0.22;
+
+// Start screen push-in (arm nudges Bob into place)
+export const START_PUSH = {
+  ARM_DELAY: 0.0,
+  ARM_REACH: 0.12,
+  PUSH: 0.8,
+  ARM_RETRACT: 0.8,
+};
+
+export const START_PUSH_TOTAL =
+  START_PUSH.ARM_DELAY +
+  START_PUSH.ARM_REACH +
+  START_PUSH.PUSH +
+  START_PUSH.ARM_RETRACT;
 
 
 // Dive feel / animation timing

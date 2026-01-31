@@ -10,6 +10,8 @@ import {
   PLAYER_H,
   DEATH_CINEMATIC,
   DEATH_CINEMATIC_TOTAL,
+  START_PUSH,
+  START_PUSH_TOTAL,
   BREAK_SHARDS,
 } from "../game/constants.js";
 
@@ -43,6 +45,10 @@ export const COLORS = {
   buildingRib: "rgba(12,14,18,0.65)",
   buildingPanel: "rgba(70,74,86,0.20)",
   buildingPanelDark: "rgba(8,10,14,0.40)",
+  buildingWashTop: "rgba(242,242,242,0.06)",
+  buildingWashBot: "rgba(0,0,0,0.25)",
+  buildingEdge: "rgba(242,242,242,0.05)",
+  buildingEdgeDark: "rgba(0,0,0,0.22)",
   neonLine: "rgba(120,205,255,0.25)",
   signal: "rgba(255,85,110,0.55)",
   concreteStain: "rgba(0,0,0,0.18)",
@@ -54,6 +60,7 @@ export const COLORS = {
   ledge: "rgba(0,0,0,0.25)",
   ledgeLite: "rgba(242,242,242,0.06)",
   windowOn: "rgba(120,205,255,0.22)",
+  windowWarm: "rgba(255,200,120,0.25)",
   windowOff: "rgba(242,242,242,0.06)",
   player: "#f2f2f2",
   hudBg: "rgba(0,0,0,0.35)",
@@ -98,7 +105,7 @@ function computeDeathCinematic(state, focusX) {
 
   const reachK = easeOutCubic(reachKRaw);
   const dragK = easeInOutCubic(dragKRaw);
-  const retractK = easeInOutCubic(retractKRaw);
+  const retractK = easeOutCubic(retractKRaw);
 
   const zoomBoost = 1.25 * easeOutCubic(
     DEATH_CINEMATIC.ZOOM_IN > 0
@@ -152,6 +159,74 @@ function computeDeathCinematic(state, focusX) {
       dragK,
       retractK,
       gripK,
+      alpha: armAlpha,
+    },
+  };
+}
+
+function computeStartPush(state, focusX) {
+  if (!state) return null;
+  if (state.running || state.gameOver || state.menuZooming) return null;
+  if (!(state.startReady === true)) return null;
+  if ((state.menuZoomK ?? 0) > 0.001) return null;
+
+  const snap = state.player;
+  if (!snap) return null;
+
+  const t = clamp(state.startPushT || 0, 0, START_PUSH_TOTAL);
+  const reachKRaw =
+    (t - START_PUSH.ARM_DELAY) /
+    Math.max(0.001, START_PUSH.ARM_REACH);
+  const pushKRaw =
+    (t - START_PUSH.ARM_DELAY - START_PUSH.ARM_REACH) /
+    Math.max(0.001, START_PUSH.PUSH);
+  const retractKRaw =
+    (t -
+      START_PUSH.ARM_DELAY -
+      START_PUSH.ARM_REACH -
+      START_PUSH.PUSH) /
+    Math.max(0.001, START_PUSH.ARM_RETRACT);
+
+  const reachK = easeOutCubic(reachKRaw);
+  const pushK = easeInOutCubic(pushKRaw);
+  const retractK = easeInOutCubic(retractKRaw);
+
+  const baseX = (Number.isFinite(focusX) ? focusX : snap.x) - world.INTERNAL_WIDTH * 0.75;
+  const baseY = snap.y + snap.h * 0.28;
+
+  const targetX = snap.x + snap.w * 0.35;
+  const targetY = snap.y + snap.h * 0.45;
+
+  const reachX = baseX + (targetX - baseX) * reachK;
+  const reachY = baseY + (targetY - baseY) * reachK;
+
+  const pushDist = snap.x + snap.w + 120;
+  const bobOffsetX = -pushDist + pushDist * pushK;
+
+  const retractOffset = -retractK * (world.INTERNAL_WIDTH * 0.55);
+  const tipX = reachX + bobOffsetX + retractOffset;
+  const tipY = reachY;
+
+  const armAlpha = 1;
+  const baseXFinal = baseX + retractOffset;
+  const armOffscreen = Math.max(baseXFinal, tipX) < -120;
+
+  return {
+    active: t > 0 && t < START_PUSH_TOTAL,
+    done: t >= START_PUSH_TOTAL - 0.001,
+    t,
+    snap,
+    bobOffsetX,
+    offscreen: armOffscreen,
+    arm: {
+      baseX: baseXFinal,
+      baseY,
+      tipX,
+      tipY,
+      reachK,
+      dragK: 0,
+      retractK,
+      gripK: 0,
       alpha: armAlpha,
     },
   };
@@ -555,6 +630,8 @@ export function render(ctx, state) {
       ? (freezeSnap.y + freezeSnap.h / 2)
       : (player?.y ?? world.GROUND_Y - PLAYER_H) + (player?.h ?? PLAYER_H) / 2;
 
+  const startPush = computeStartPush(state, focusX);
+
   ctx.save();
   ctx.translate(focusX, focusY);
   ctx.scale(zoom, zoom);
@@ -582,11 +659,15 @@ export function render(ctx, state) {
   drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, undefined, dt);
 
   // ---- PLAYER ----
-  const playerOffsetX = deathInfo ? deathInfo.bobOffsetX : 0;
+  const playerOffsetX = deathInfo
+    ? deathInfo.bobOffsetX
+    : (startPush ? startPush.bobOffsetX : 0);
   const playerAlpha = deathInfo ? deathInfo.bobAlpha : 1;
-  const playerTilt = deathInfo ? deathInfo.bobTilt : 0;
-  const playerLift = deathInfo ? deathInfo.bobLift : 0;
-  const playerScale = deathInfo ? deathInfo.bobScale : 1;
+  let playerTilt = deathInfo ? deathInfo.bobTilt : 0;
+  let playerLift = deathInfo ? deathInfo.bobLift : 0;
+  let playerScale = deathInfo ? deathInfo.bobScale : 1;
+
+  const startLookAround = startPush ? startPush.done === true : false;
 
   const renderState = deathActive
     ? {
@@ -627,6 +708,7 @@ export function render(ctx, state) {
   drawPlayer(ctx, renderState, animTime, false, COLORS, {
     noGlow: deathActive,
     noFx: deathActive,
+    eyes: startLookAround ? { t: uiTime || 0 } : null,
   });
   ctx.restore();
 
@@ -656,6 +738,11 @@ export function render(ctx, state) {
   if (deathActive) {
     resetCtx(ctx);
     drawRobotArm(ctx, deathInfo, COLORS, animTime || 0);
+  }
+
+  if (!deathActive && startPush && !startPush.offscreen) {
+    resetCtx(ctx);
+    drawRobotArm(ctx, startPush, COLORS, animTime || 0);
   }
 
   prevDeathActive = deathActive;

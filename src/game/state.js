@@ -34,6 +34,7 @@ export function createInitialState() {
     restartFlybyT: 0,
     restartFlybyResetDone: false,
     roofJumpT: 0,
+    startPushT: 0,
 
     uiTime: 0,
     animTime: 0,
@@ -118,6 +119,7 @@ export function resetRunState(state) {
   state.restartFlybyT = 0;
   state.restartFlybyResetDone = false;
   state.roofJumpT = 0;
+  state.startPushT = 0;
 
   state.uiTime = 0;
   state.animTime = 0;

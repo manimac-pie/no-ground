@@ -275,7 +275,10 @@ export function updatePlatforms(state, dt) {
   for (let i = 0; i < state.platforms.length; i++) {
     const plat = state.platforms[i];
     const prevPlat = i > 0 ? state.platforms[i - 1] : null;
-    const prevJustBroke = !!(prevPlat && (prevPlat.breakTriggered || prevPlat.breaking));
+    const prevJustBroke = !!(
+      prevPlat &&
+      (prevPlat.breakTriggered || prevPlat.breaking || prevPlat.collapsing)
+    );
     if (plat.collapsing) {
       plat.vy += ROOF_FALL_GRAVITY * dt;
       plat.y += plat.vy * dt;
