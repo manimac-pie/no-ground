@@ -3,6 +3,11 @@
 
 import { clamp, roundedRectPath } from "./playerKit.js";
 
+function hash01(n) {
+  const x = Math.sin(n * 999.123) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS, eyes) {
   // Local space: origin at player center after transforms in caller.
   const w = player.w;
@@ -113,8 +118,21 @@ export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS, 
   let eyeY = visorY + visorH * 0.35;
   if (eyes) {
     const eyeT = eyes.t || 0;
-    const lookX = Math.sin(eyeT * 1.15) * 1.8 + Math.sin(eyeT * 2.3) * 0.9;
-    const lookY = Math.sin(eyeT * 0.9 + 1.2) * 0.8;
+    const saccadeDur = 0.75;
+    const saccadeIdx = Math.floor(eyeT / saccadeDur);
+    const saccadeT = (eyeT - saccadeIdx * saccadeDur) / saccadeDur;
+    const jumpT = saccadeT < 0.2 ? saccadeT / 0.2 : 1;
+    const jumpEase = jumpT * jumpT * (3 - 2 * jumpT);
+    const baseX = (hash01(saccadeIdx * 13.7) - 0.5) * 3.4;
+    const baseY = (hash01(saccadeIdx * 31.9) - 0.5) * 2.2;
+    const nextX = (hash01((saccadeIdx + 1) * 13.7) - 0.5) * 3.4;
+    const nextY = (hash01((saccadeIdx + 1) * 31.9) - 0.5) * 2.2;
+    const saccX = baseX + (nextX - baseX) * jumpEase;
+    const saccY = baseY + (nextY - baseY) * jumpEase;
+    const driftX = Math.sin(eyeT * 2.7 + 1.3) * 0.35 + Math.sin(eyeT * 5.1) * 0.2;
+    const driftY = Math.sin(eyeT * 2.1 + 0.7) * 0.25;
+    const lookX = saccX + driftX;
+    const lookY = saccY + driftY;
     eyeX += lookX;
     eyeY += lookY;
   }

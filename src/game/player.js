@@ -21,11 +21,13 @@ const JUMP_IMPULSE_FX_SEC = getConst("JUMP_IMPULSE_FX_SEC", 0.18);
 const DIVE_GRAVITY_MULT = getConst("DIVE_GRAVITY_MULT", 2.2);
 const DIVE_MAX_FALL_SPEED = getConst("DIVE_MAX_FALL_SPEED", 2200);
 const DIVE_ANTICIPATION_SEC = getConst("DIVE_ANTICIPATION_SEC", 0.11);
+const DIVE_SCORE_BONUS = getConst("DIVE_SCORE_BONUS", 0);
 
 const DASH_COOLDOWN = getConst("DASH_COOLDOWN", 0.45);
 const DASH_SPEED_BOOST = getConst("DASH_SPEED_BOOST", 520);
 const DASH_IMPULSE_DECAY = getConst("DASH_IMPULSE_DECAY", 6.5);
 const DASH_IMPULSE_FX_SEC = getConst("DASH_IMPULSE_FX_SEC", 0.20);
+const DASH_SCORE_BONUS = getConst("DASH_SCORE_BONUS", 0);
 
 const FLOAT_FUEL_MAX = getConst("FLOAT_FUEL_MAX", 1.0);
 const FLOAT_GRAVITY_MULT = getConst("FLOAT_GRAVITY_MULT", 0.30);
@@ -98,6 +100,8 @@ function updateDivePhase(state, dt, airborne) {
     p.divePhaseT = 0;
 
     if ((p.vy ?? 0) < 220) p.vy = 220;
+    if (!Number.isFinite(state.score)) state.score = 0;
+    state.score += DIVE_SCORE_BONUS;
   }
 
   if (airborne && p.diving) {
@@ -247,6 +251,7 @@ export function updateDash(state, dt) {
   if (!Number.isFinite(p.dashCooldown)) p.dashCooldown = 0;
   if (!Number.isFinite(p.dashImpulseT)) p.dashImpulseT = 0;
   if (!Number.isFinite(state.speedImpulse)) state.speedImpulse = 0;
+  if (!Number.isFinite(state.score)) state.score = 0;
 
   if (p.dashCooldown > 0) {
     p.dashCooldown = Math.max(0, p.dashCooldown - dt);
@@ -263,6 +268,7 @@ export function updateDash(state, dt) {
     state.speedImpulse += DASH_SPEED_BOOST;
     p.dashCooldown = DASH_COOLDOWN;
     p.dashImpulseT = DASH_IMPULSE_FX_SEC;
+    state.score += DASH_SCORE_BONUS;
   }
 
   state.speedImpulse *= Math.exp(-DASH_IMPULSE_DECAY * dt);

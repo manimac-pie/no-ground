@@ -649,8 +649,10 @@ export function render(ctx, state) {
   ctx.restore();
 
   // Ground stays anchored to screen space to avoid forward/back jitter.
-  resetCtx(ctx);
-  drawLethalGround(ctx, W, H, animTime, danger01, COLORS);
+  if (!state.restartFlybyActive) {
+    resetCtx(ctx);
+    drawLethalGround(ctx, W, H, animTime, danger01, COLORS);
+  }
 
   // ---- WORLD ----
   ctx.save();
@@ -668,8 +670,14 @@ export function render(ctx, state) {
   let playerScale = deathInfo ? deathInfo.bobScale : 1;
 
   const startLookAround = startPush ? startPush.done === true : false;
+  const onStartScreen =
+    !state.running &&
+    !state.gameOver &&
+    state.startReady === true &&
+    !state.menuZooming &&
+    (state.menuZoomK ?? 0) <= 0.001;
 
-  const renderState = deathActive
+  let renderState = deathActive
     ? {
         ...state,
         floatHeld: false,
@@ -684,6 +692,22 @@ export function render(ctx, state) {
         },
       }
     : state;
+  if (onStartScreen) {
+    const starterPlat = state.platforms && state.platforms[0] ? state.platforms[0] : null;
+    const startGroundPlat = starterPlat && starterPlat.invulnerable ? starterPlat : null;
+    const basePlayer = renderState.player || state.player;
+    const menuPlayer = {
+      ...basePlayer,
+      onGround: true,
+      groundPlat: startGroundPlat,
+      dashImpulseT: 0,
+    };
+    renderState = {
+      ...renderState,
+      speedImpulse: 0,
+      player: menuPlayer,
+    };
+  }
   const renderPlayer = renderState.player;
 
   resetCtx(ctx);

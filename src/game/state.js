@@ -43,9 +43,12 @@ export function createInitialState() {
     distance: 0,
     _nextAirReq: "none",
     _nextAirReqDist: 0,
+    _breakableStreak: 0,
 
     styleScore: 0,
-  styleCombo: 0,
+    styleCombo: 0,
+
+    score: 0,
 
   speed: SPEED_START,
   // Start prompt world position (moves with scroll)
@@ -127,9 +130,11 @@ export function resetRunState(state) {
   state.distance = 0;
   state._nextAirReq = "none";
   state._nextAirReqDist = 0;
+  state._breakableStreak = 0;
 
   state.styleScore = 0;
   state.styleCombo = 0;
+  state.score = 0;
 
   state.speed = SPEED_START;
   state.startPromptX = PLAYER_X + PLAYER_W + 24;

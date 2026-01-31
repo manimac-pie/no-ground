@@ -25,6 +25,37 @@ function shadeRect(ctx, x, y, w, h, topColor, bottomColor) {
   ctx.fillRect(x, y, w, h);
 }
 
+function drawSafeBuildingAccents(ctx, plat, seed, bodyX, bodyY, bodyW, bodyH, animTime, COLORS) {
+  if (!plat || (plat.breakable !== false && plat.invulnerable !== true) || bodyW <= 0 || bodyH <= 0) return;
+
+  const safe = getColor(COLORS, "safe", "rgba(120,205,255,0.45)");
+  const safeBright = getColor(COLORS, "safeBright", "rgba(150,235,255,0.85)");
+  const pulse = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(animTime * 2.2 + seed * 0.7));
+
+  ctx.save();
+  ctx.globalAlpha = 0.35 + 0.35 * pulse;
+  ctx.fillStyle = safe;
+
+  // Vertical guide bars on the facade.
+  const barW = Math.max(2, Math.floor(bodyW * 0.02));
+  const inset = Math.max(4, Math.floor(bodyW * 0.06));
+  const barH = Math.max(10, bodyH - 18);
+  ctx.fillRect(bodyX + inset, bodyY + 8, barW, barH);
+  ctx.fillRect(bodyX + bodyW - inset - barW, bodyY + 8, barW, barH);
+
+  // Mid-band to read as reinforced structure.
+  const bandH = Math.max(4, Math.floor(bodyH * 0.035));
+  const bandY = bodyY + Math.floor(bodyH * 0.55);
+  ctx.fillRect(bodyX + 10, bandY, bodyW - 20, bandH);
+
+  // Bright roof band for quick ID.
+  ctx.globalAlpha = 0.55 + 0.35 * pulse;
+  ctx.fillStyle = safeBright;
+  ctx.fillRect(plat.x, plat.y - 1, plat.w, 2);
+
+  ctx.restore();
+}
+
 function drawBrutalistFacade(ctx, x, y, w, h, seed, COLORS, crack01, animTime) {
   if (w < 60 || h < 40) return;
 
@@ -248,19 +279,21 @@ function spawnBuildingChunks(plat, COLORS) {
 
   for (let y = bodyY; y < bodyY + bodyH && count < maxCount; y += step) {
     for (let x = bodyX; x < bodyX + bodyW && count < maxCount; x += step) {
-      if (Math.random() < 0.32) continue;
-      const w = sizeBase * (0.65 + 0.5 * Math.random());
-      const h = sizeBase * (0.65 + 0.5 * Math.random());
-      const cx = x + (Math.random() * step * 0.5);
-      const cy = y + (Math.random() * step * 0.5);
+      const cell = count + Math.floor((x - bodyX) / step) + Math.floor((y - bodyY) / step) * 7;
+      const keep = hash01(seed * 19.7 + cell * 2.3);
+      if (keep < 0.28) continue;
+      const w = sizeBase * (0.75 + 0.4 * hash01(seed * 5.1 + cell * 3.7));
+      const h = sizeBase * (0.75 + 0.4 * hash01(seed * 7.9 + cell * 4.1));
+      const cx = x + (hash01(seed * 11.7 + cell * 5.9) * step * 0.45);
+      const cy = y + (hash01(seed * 13.3 + cell * 6.7) * step * 0.45);
       buildingChunks.push({
         x: cx,
         y: cy,
         w,
         h,
-        vx: (Math.random() * 2 - 1) * (60 + 140 * Math.random()),
-        vy: -(60 + 220 * Math.random()),
-        life: 0.9 + 0.7 * Math.random(),
+        vx: (hash01(seed * 23.1 + cell * 7.1) * 2 - 1) * (60 + 140 * hash01(seed * 29.7 + cell * 2.1)),
+        vy: -(60 + 220 * hash01(seed * 31.9 + cell * 3.3)),
+        life: 0.9 + 0.7 * hash01(seed * 37.7 + cell * 4.7),
         age: 0,
         c: hash01(seed * 9.7 + count * 1.7) < 0.5 ? baseColor : altColor,
       });
@@ -272,16 +305,16 @@ function spawnBuildingChunks(plat, COLORS) {
   const roofColor = getColor(COLORS, "roofTop", "rgba(46,48,54,0.95)");
   const roofCount = Math.min(14, Math.floor(6 + bodyW / 40));
   for (let i = 0; i < roofCount; i++) {
-    const w = 6 + 10 * Math.random();
-    const h = 3 + 4 * Math.random();
+    const w = 6 + 10 * hash01(seed * 41.3 + i * 3.9);
+    const h = 3 + 4 * hash01(seed * 43.7 + i * 5.1);
     buildingChunks.push({
-      x: bodyX + Math.random() * bodyW,
-      y: plat.y + Math.random() * Math.max(1, plat.h),
+      x: bodyX + hash01(seed * 47.9 + i * 2.7) * bodyW,
+      y: plat.y + hash01(seed * 53.1 + i * 3.1) * Math.max(1, plat.h),
       w,
       h,
-      vx: (Math.random() * 2 - 1) * (70 + 130 * Math.random()),
-      vy: -(80 + 200 * Math.random()),
-      life: 0.7 + 0.6 * Math.random(),
+      vx: (hash01(seed * 59.9 + i * 4.3) * 2 - 1) * (70 + 130 * hash01(seed * 61.7 + i * 2.9)),
+      vy: -(80 + 200 * hash01(seed * 67.3 + i * 3.7)),
+      life: 0.7 + 0.6 * hash01(seed * 71.9 + i * 5.3),
       age: 0,
       c: roofColor,
     });
@@ -338,15 +371,19 @@ function pickBuildingColor(seed, COLORS) {
   return hash01(seed) < 0.5 ? a : b;
 }
 
-function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, impact01 = 0, impactX, impactY) {
+function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, animTime, COLORS, impact01 = 0, impactX, impactY) {
   if (crack01 <= 0.01 || h < 40 || w < 60) return;
 
-  const count = 2 + Math.floor(crack01 * 4);
+  const danger = crack01 > 0.6
+    ? (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(animTime * 12 + seed)))
+    : 1;
+  const count = 3 + Math.floor(crack01 * 5);
 
   ctx.save();
   const boost = 1 + 1.25 * impact01;
-  const baseAlpha = clamp(crack01 * 0.90 * boost, 0, 1);
-  ctx.strokeStyle = "rgba(255,85,110,0.55)";
+  const baseAlpha = clamp(crack01 * 0.95 * boost, 0, 1) * danger;
+  const crackCore = getColor(COLORS, "crackHi", "rgba(255,85,110,0.55)");
+  ctx.strokeStyle = crackCore;
 
   for (let i = 0; i < count; i++) {
     const a = hash01(seed * 17.3 + i * 9.7);
@@ -355,8 +392,8 @@ function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, impact01 = 0, impact
     const y0 = y + h * (0.05 + 0.25 * b);
     const len = h * (0.35 + 0.45 * hash01(seed * 3.7 + i * 5.9));
 
-    const segs = 5 + Math.floor(crack01 * 4);
-    const lw = 0.9 + 1.1 * hash01(seed * 44.7 + i * 7.1);
+    const segs = 6 + Math.floor(crack01 * 5);
+    const lw = 1.1 + 1.6 * hash01(seed * 44.7 + i * 7.1) + 0.8 * crack01;
 
     // Localize impact intensity near the landing site.
     let local = 1;
@@ -370,7 +407,7 @@ function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, impact01 = 0, impact
     }
 
     ctx.globalAlpha = clamp(baseAlpha * local, 0, 1);
-    ctx.lineWidth = lw * (0.9 + 0.25 * local);
+    ctx.lineWidth = lw * (0.95 + 0.35 * local);
     ctx.beginPath();
     ctx.moveTo(x0, y0);
     for (let s = 1; s <= segs; s++) {
@@ -378,6 +415,13 @@ function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, impact01 = 0, impact
       const jx = (hash01(seed * 77.7 + i * 13.3 + s * 5.1) - 0.5) * (6 + 10 * crack01);
       const jy = (hash01(seed * 21.9 + i * 19.7 + s * 3.7) - 0.5) * (2 + 6 * crack01);
       ctx.lineTo(x0 + jx, y0 + len * tt + jy);
+    }
+    if (crack01 > 0.65) {
+      ctx.save();
+      ctx.shadowColor = crackCore;
+      ctx.shadowBlur = 6 + 12 * crack01;
+      ctx.stroke();
+      ctx.restore();
     }
     ctx.stroke();
 
@@ -413,14 +457,15 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, crack01, hasBody, impact01 
 
   // cracks on roof surface
   if (crack01 > 0.01) {
-    const pulse = crack01 > 0.70 ? (0.65 + 0.35 * (0.5 + 0.5 * Math.sin(animTime * 16))) : 1;
-    const baseCount = 2 + Math.floor(crack01 * 5);
+    const pulse = crack01 > 0.65 ? (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(animTime * 14 + seed))) : 1;
+    const baseCount = 3 + Math.floor(crack01 * 7);
     const count = Math.max(1, Math.floor(baseCount * (hasBody ? 0.6 : 1)));
 
     ctx.save();
     const boost = 1 + 1.35 * impact01;
-    const baseAlpha = clamp(crack01 * 0.92 * boost, 0, 1) * pulse;
-    ctx.strokeStyle = getColor(COLORS, "crackHi", "rgba(255,85,110,0.55)");
+    const baseAlpha = clamp(crack01 * 0.98 * boost, 0, 1) * pulse;
+    const crackCore = getColor(COLORS, "crackHi", "rgba(255,85,110,0.55)");
+    ctx.strokeStyle = crackCore;
 
     for (let i = 0; i < count; i++) {
       const a = hash01(seed * 21.3 + i * 11.7);
@@ -431,8 +476,8 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, crack01, hasBody, impact01 
       const len = Math.max(h * (0.9 + 1.1 * hash01(seed * 9.9 + i * 3.1)), w * 0.16);
       const tilt = (hash01(seed * 61.1 + i * 4.3) - 0.5) * (0.25 + 0.25 * crack01);
 
-      const segs = 4 + Math.floor(crack01 * 4);
-      const lw = 0.9 + 0.9 * hash01(seed * 55.1 + i * 7.9);
+      const segs = 5 + Math.floor(crack01 * 5);
+      const lw = 1.1 + 1.4 * hash01(seed * 55.1 + i * 7.9) + 0.9 * crack01;
 
       // Localize impact intensity near the landing site on the roof.
       let local = 1;
@@ -446,7 +491,7 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, crack01, hasBody, impact01 
       }
 
       ctx.globalAlpha = clamp(baseAlpha * local, 0, 1);
-      ctx.lineWidth = lw * (0.9 + 0.3 * local);
+      ctx.lineWidth = lw * (0.95 + 0.35 * local);
       ctx.beginPath();
       ctx.moveTo(x0, y0);
 
@@ -457,6 +502,13 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, crack01, hasBody, impact01 
         const dx = (hash01(seed * 31.3 + i * 6.7) - 0.5) * (6 + 12 * crack01);
         const slant = tilt * (tt - 0.5) * w;
         ctx.lineTo(x0 + slant + dx + jx, y0 + len * tt + jy);
+      }
+      if (crack01 > 0.6) {
+        ctx.save();
+        ctx.shadowColor = crackCore;
+        ctx.shadowBlur = 5 + 10 * crack01;
+        ctx.stroke();
+        ctx.restore();
       }
       ctx.stroke();
 
@@ -476,9 +528,9 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, crack01, hasBody, impact01 
 
     // danger band when near collapse
     if (crack01 > 0.70) {
-      ctx.globalAlpha = 0.35 * pulse;
-      ctx.fillStyle = "rgba(255,85,110,0.55)";
-      ctx.fillRect(x, y, w, 2);
+      ctx.globalAlpha = 0.4 * pulse;
+      ctx.fillStyle = "rgba(255,85,110,0.65)";
+      ctx.fillRect(x, y, w, Math.max(2, Math.floor(2 + 2 * crack01)));
     }
 
     ctx.restore();
@@ -726,7 +778,15 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
       const crackBase = clamp(plat.crack01 ?? 0, 0, 1);
       const breakBoost = clamp((plat.break01 ?? 0) * 0.55, 0, 0.55);
       const crack01 = clamp(crackBase + breakBoost, 0, 1);
-      drawRoof(ctx, plat, seed, animTime, COLORS, crack01, false, impact01, impactX, impactY);
+      const roofColors = (plat.breakable === false || plat.invulnerable === true)
+        ? {
+          ...(COLORS || {}),
+          roofTop: getColor(COLORS, "roofSafeTop", "rgba(44,60,72,0.98)"),
+          roofSide: getColor(COLORS, "roofSafeSide", "rgba(30,44,56,0.98)"),
+          platformEdge: getColor(COLORS, "roofSafeEdge", "rgba(150,235,255,0.55)"),
+        }
+        : COLORS;
+      drawRoof(ctx, plat, seed, animTime, roofColors, crack01, false, impact01, impactX, impactY);
       continue;
     }
 
@@ -739,34 +799,54 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
     ctx.fillStyle = getColor(COLORS, "platformShadow", "rgba(0,0,0,0.18)");
     ctx.fillRect(bodyX + 4, bodyY + 6, bodyW, bodyH);
 
-    const baseColor = pickBuildingColor(seed, COLORS);
+    const unbreakable = plat.breakable === false || plat.invulnerable === true;
+    const baseColor = unbreakable
+      ? getColor(COLORS, "buildingSafe", "rgba(38,52,64,0.95)")
+      : pickBuildingColor(seed, COLORS);
     ctx.fillStyle = baseColor;
     ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
     // Subtle volume: vertical wash + edge accents to avoid flat slabs.
     ctx.save();
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = unbreakable ? 0.35 : 0.25;
     shadeRect(
       ctx,
       bodyX,
       bodyY,
       bodyW,
       bodyH,
-      getColor(COLORS, "buildingWashTop", "rgba(242,242,242,0.06)"),
-      getColor(COLORS, "buildingWashBot", "rgba(0,0,0,0.25)")
+      unbreakable
+        ? getColor(COLORS, "buildingSafeWashTop", "rgba(180,225,240,0.08)")
+        : getColor(COLORS, "buildingWashTop", "rgba(242,242,242,0.06)"),
+      unbreakable
+        ? getColor(COLORS, "buildingSafeWashBot", "rgba(0,20,30,0.28)")
+        : getColor(COLORS, "buildingWashBot", "rgba(0,0,0,0.25)")
     );
     ctx.restore();
-    ctx.fillStyle = getColor(COLORS, "buildingEdge", "rgba(242,242,242,0.05)");
+    ctx.fillStyle = unbreakable
+      ? getColor(COLORS, "buildingSafeEdge", "rgba(120,205,255,0.18)")
+      : getColor(COLORS, "buildingEdge", "rgba(242,242,242,0.05)");
     ctx.fillRect(bodyX, bodyY + 4, 2, bodyH - 8);
-    ctx.fillStyle = getColor(COLORS, "buildingEdgeDark", "rgba(0,0,0,0.22)");
+    ctx.fillStyle = unbreakable
+      ? getColor(COLORS, "buildingSafeEdgeDark", "rgba(0,35,45,0.28)")
+      : getColor(COLORS, "buildingEdgeDark", "rgba(0,0,0,0.22)");
     ctx.fillRect(bodyX + bodyW - 2, bodyY + 6, 2, bodyH - 10);
 
     drawBrutalistFacade(ctx, bodyX, bodyY, bodyW, bodyH, seed, COLORS, crack01, animTime);
 
     // whole-building cracks (not just roof)
-    drawBuildingCracks(ctx, bodyX, bodyY, bodyW, bodyH, seed, crack01, impact01, impactX, impactY);
+    drawBuildingCracks(ctx, bodyX, bodyY, bodyW, bodyH, seed, crack01, animTime, COLORS, impact01, impactX, impactY);
 
     // roof/platform surface (with cracks)
-    drawRoof(ctx, plat, seed, animTime, COLORS, crack01, true, impact01, impactX, impactY);
+    const roofColors = unbreakable
+      ? {
+        ...(COLORS || {}),
+        roofTop: getColor(COLORS, "roofSafeTop", "rgba(44,60,72,0.98)"),
+        roofSide: getColor(COLORS, "roofSafeSide", "rgba(30,44,56,0.98)"),
+        platformEdge: getColor(COLORS, "roofSafeEdge", "rgba(150,235,255,0.55)"),
+      }
+      : COLORS;
+    drawRoof(ctx, plat, seed, animTime, roofColors, crack01, true, impact01, impactX, impactY);
+    drawSafeBuildingAccents(ctx, plat, seed, bodyX, bodyY, bodyW, bodyH, animTime, COLORS);
   }
 
   drawRubble(ctx);

@@ -73,8 +73,9 @@ export const PLAYER_X = 160;
 export const DASH_DISTANCE = 140;       // how far the player jumps ahead (px)
 export const DASH_CATCHUP_SPEED = 520;  // how fast the camera catches up after landing (px/sec)
 export const DASH_COOLDOWN = 0.45;      // seconds between dashes
-export const DASH_SPEED_BOOST = 650;    // added to world speed on dash (keep peak speed)
-export const DASH_IMPULSE_DECAY = 2.0;  // decay rate for dash impulse (lower = longer)
+export const DASH_SPEED_BOOST = 820;    // added to world speed on dash (keep peak speed)
+export const DASH_IMPULSE_DECAY = 2.4;  // decay rate for dash impulse (lower = longer)
+export const DASH_SCORE_BONUS = 53;    // score bonus per dash
 export const DASH_OFFSET_SNAP_SPEED = 1800; // max dash offset speed (px/sec)
 export const DASH_OFFSET_SMOOTH = 18;   // smoothing rate for dash offset
 export const DASH_CAM_SMOOTH = 12;      // smoothing rate for camera offset
@@ -88,6 +89,8 @@ export const DASH_VY_SCALE_START = 200; // start reducing dash distance above th
 export const DASH_VY_SCALE_END = 1200;  // max reduction at this |vy|
 export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
 export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash streaks
+export const FLOAT_SCORE_MULT = 1.2;     // score multiplier while floating (blue halo)
+export const DIVE_SCORE_BONUS = 121;     // score bonus per dive
 
 // Input grace
 export const COYOTE_TIME_SEC = 0.13;

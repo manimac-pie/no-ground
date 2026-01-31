@@ -35,14 +35,30 @@ const focusCanvas = () => {
   try { canvas.focus({ preventScroll: true }); } catch { try { canvas.focus(); } catch {} }
 };
 
-canvas.addEventListener("pointerdown", focusCanvas, { passive: true });
-canvas.addEventListener("mousedown", focusCanvas, { passive: true });
+function tryEnterFullscreen() {
+  if (document.fullscreenElement) return;
+  const el = canvas;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (typeof req === "function") {
+    try { req.call(el); } catch {}
+  }
+}
+
+canvas.addEventListener("pointerdown", () => {
+  focusCanvas();
+  tryEnterFullscreen();
+}, { passive: true });
+canvas.addEventListener("mousedown", () => {
+  focusCanvas();
+  tryEnterFullscreen();
+}, { passive: true });
 
 // Also focus on key press, but avoid stealing focus from form controls.
 document.addEventListener("keydown", (e) => {
   const t = e.target;
   if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
   focusCanvas();
+  tryEnterFullscreen();
 });
 
 // Prevent context menu on right click / long press.
@@ -78,6 +94,7 @@ function onResize() {
 
 window.addEventListener("resize", onResize, { passive: true });
 window.addEventListener("orientationchange", onResize, { passive: true });
+document.addEventListener("fullscreenchange", onResize, { passive: true });
 
 // Initial layout
 onResize();

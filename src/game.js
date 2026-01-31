@@ -11,6 +11,7 @@ import {
   SPEED_RAMP_PER_SEC,
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
+  FLOAT_SCORE_MULT,
   DEATH_CINEMATIC_TOTAL,
   BREAK_SHARDS,
   RESTART_FLYBY_SEC,
@@ -293,12 +294,20 @@ export function createGame() {
       if (trickPressed) startSpin(state, trickIntent);
     }
 
-    state.distance += state.speed * dt;
+    const deltaDist = state.speed * dt;
+    state.distance += deltaDist;
 
     scrollWorld(state, dt);
     updatePlatforms(state, dt);
     updateTricks(state, dt);
     integratePlayer(state, dt, endGame);
+
+    if (!Number.isFinite(state.score)) state.score = 0;
+    const p = state.player;
+    const airborne = p ? p.onGround === false : false;
+    const floating = airborne && state.floatHeld === true && !(p && p.diving);
+    const scoreMult = floating ? FLOAT_SCORE_MULT : 1;
+    state.score += deltaDist * scoreMult;
 
     tryConsumeBufferedJump(state);
     return state;

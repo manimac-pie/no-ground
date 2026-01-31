@@ -126,11 +126,17 @@ export function spawnNextPlatform(state) {
   const hasMotion = Math.random() < motionChance;
   const motionKind = hasMotion ? (Math.random() < 0.5 ? "rise" : "crumble") : "none";
 
+  const breakableChance = 0.6 + 0.35 * d; // not all buildings can break
+  let breakable = Math.random() < breakableChance;
+  const streak = Number.isFinite(state._breakableStreak) ? state._breakableStreak : 0;
+  if (streak >= 2) breakable = false;
+  if (streak <= -2) breakable = true;
+
   // Some CRUMBLE platforms will fully "break" (fall away) while you're mid-air.
   // This is distinct from roof stress collapse (standing too long).
-  const breakChance = (motionKind === "crumble") ? (0.16 + 0.22 * d) : 0;
+  const breakChance = (breakable && motionKind === "crumble") ? (0.16 + 0.22 * d) : 0;
   const prevBreakArmed = !!(prev && prev.breakArmed);
-  const breakArmed = !prevBreakArmed && Math.random() < breakChance;
+  const breakArmed = breakable && !prevBreakArmed && Math.random() < breakChance;
 
   // How quickly the break triggers once the platform starts crumbling (seconds-ish)
   const breakDelay = breakArmed ? (0.22 + 0.32 * Math.random()) : 0;
@@ -178,7 +184,8 @@ export function spawnNextPlatform(state) {
     motionRate,
     motionFromY: fromY,
     motionToY: toY,
-    lowSpawnBreak: baseYRest >= lowSpawnBreakY,
+    lowSpawnBreak: breakable && baseYRest >= lowSpawnBreakY,
+    breakable,
 
     // Break state (for some crumble platforms)
     breakArmed,
@@ -195,6 +202,12 @@ export function spawnNextPlatform(state) {
     collapsing: false,
     vy: 0,
   });
+
+  if (breakable) {
+    state._breakableStreak = streak >= 0 ? streak + 1 : 1;
+  } else {
+    state._breakableStreak = streak <= 0 ? streak - 1 : -1;
+  }
 }
 
 export function resetPlatforms(state) {
@@ -304,6 +317,7 @@ export function updatePlatforms(state, dt) {
     if (!Number.isFinite(plat.break01)) plat.break01 = 0;
     if (typeof plat.lowSpawnBreak !== "boolean") plat.lowSpawnBreak = false;
     if (typeof plat.invulnerable !== "boolean") plat.invulnerable = false;
+    if (typeof plat.breakable !== "boolean") plat.breakable = true;
 
     // Keep the starter platform rock solid: no cracks, motion, or collapse.
     if (plat.invulnerable) {
@@ -336,6 +350,7 @@ export function updatePlatforms(state, dt) {
 
     // If a platform spawns too low (danger zone), break it once it comes into view.
     if (
+      plat.breakable &&
       plat.lowSpawnBreak &&
       inWindow &&
       !plat.breaking &&
@@ -429,6 +444,7 @@ export function updatePlatforms(state, dt) {
         if (
           plat.motion === "crumble" &&
           plat.motionStarted &&
+          plat.breakable &&
           !plat.breaking &&
           !plat.collapsing &&
           !prevJustBroke &&
@@ -452,6 +468,7 @@ export function updatePlatforms(state, dt) {
         if (
           plat.motion === "crumble" &&
           plat.motionStarted &&
+          plat.breakable &&
           !plat.breakTriggered &&
           !prevJustBroke &&
           plat.breakArmed
@@ -486,7 +503,7 @@ export function updatePlatforms(state, dt) {
     }
 
     // Advance breaking animation and trigger collapse when done.
-    if (plat.breaking === true && plat.collapsing !== true) {
+    if (plat.breakable && plat.breaking === true && plat.collapsing !== true) {
       plat.breakT += dt;
       const BREAK_ANIM_SEC = 0.22;
       plat.break01 = clamp(plat.breakT / BREAK_ANIM_SEC, 0, 1);
@@ -519,7 +536,7 @@ export function updatePlatforms(state, dt) {
     }
 
     // Stress only the roof you're currently standing on.
-    if (state.running && p.onGround && p.groundPlat === plat) {
+    if (plat.breakable && state.running && p.onGround && p.groundPlat === plat) {
       // Base stress rate
       let add = dt;
 
@@ -540,9 +557,19 @@ export function updatePlatforms(state, dt) {
       }
     }
 
-    plat.crack01 = clamp(plat.stress / collapseTime, 0, 1);
+    if (!plat.breakable) {
+      plat.stress = 0;
+      plat.crack01 = 0;
+      plat.breaking = false;
+      plat.breakTriggered = false;
+      plat.breakArmed = false;
+      plat.breakT = 0;
+      plat.break01 = 0;
+    } else {
+      plat.crack01 = clamp(plat.stress / collapseTime, 0, 1);
+    }
 
-    if (plat.stress >= collapseTime) {
+    if (plat.breakable && plat.stress >= collapseTime) {
       plat.collapsing = true;
       plat.vy = 0;
       plat.crack01 = 1;

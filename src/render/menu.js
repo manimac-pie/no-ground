@@ -182,7 +182,7 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
 
   ctx.save();
 
-  const pulse = 0.65 + 0.35 * (0.5 + 0.5 * Math.sin((uiTime || 0) * 2.4));
+  const pulse = 1;
 
   // Text as physical tiles near Bob; crumbles when smashed.
   const lines = ["PRESS", "SPACEBAR"];
@@ -235,11 +235,22 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
         fade = Math.max(0, 1 - tSec / smashDuration);
       }
 
-      const alpha = 0.94 * fade * pulse;
-      ctx.fillStyle = `rgba(230,234,240,${alpha})`;
+      const alpha = 0.92 * fade * pulse;
+      const glow = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin((uiTime || 0) * 1.2));
+
+      ctx.save();
+      ctx.shadowColor = `rgba(120,205,255,${0.65 * glow})`;
+      ctx.shadowBlur = 10 + 12 * glow;
+      ctx.fillStyle = `rgba(140,220,255,${alpha})`;
       ctx.fillRect(px, py, t.w, t.h);
-      ctx.fillStyle = `rgba(20,22,28,${0.45 * fade})`;
+      ctx.restore();
+
+      ctx.fillStyle = `rgba(30,40,52,${0.4 * fade})`;
       ctx.fillRect(px, py + t.h - 1, t.w, 1);
+
+      // Hot core line to sell neon tubing.
+      ctx.fillStyle = `rgba(230,250,255,${0.7 * alpha})`;
+      ctx.fillRect(px, py, t.w, 1);
     });
     accY += c.height + lineGap;
   });

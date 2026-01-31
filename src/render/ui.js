@@ -345,7 +345,8 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   ctx.restore();
 
   // Score
-  const hudScore = Math.floor(state.distance || 0);
+  const baseScore = Number.isFinite(state.score) ? state.score : (state.distance || 0);
+  const hudScore = Math.floor(baseScore);
   const scoreText = String(hudScore).padStart(6, "0");
   ctx.fillStyle = "rgba(150,245,255,0.75)";
   ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
@@ -355,14 +356,11 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   ctx.font = "800 28px Share Tech Mono, Orbitron, Menlo, monospace";
   ctx.fillText(scoreText, x + 14, y + 52);
 
-  // Style line
-  if (Number.isFinite(state.styleScore)) {
-    const s = Math.floor(state.styleScore || 0);
-    const c = Math.floor(state.styleCombo || 0);
-    ctx.fillStyle = "rgba(120,220,255,0.75)";
-    ctx.font = "600 10px Orbitron, Share Tech Mono, Menlo, monospace";
-    ctx.fillText(`STYLE ${s}  X${c}`, x + 14, y + 66);
-  }
+  // Distance line
+  const hudDistance = Math.floor(state.distance || 0);
+  ctx.fillStyle = "rgba(120,220,255,0.75)";
+  ctx.font = "600 10px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText(`DIST ${hudDistance}`, x + 14, y + 66);
 
   // Right-side status strip
   const statX = x + w - 88;
@@ -406,7 +404,8 @@ export function drawHUD(ctx, state, danger01, COLORS) {
 export function drawCenterScore(ctx, state, W, H) {
   const w = Number.isFinite(W) ? W : 800;
   const h = Number.isFinite(H) ? H : 450;
-  const hudScore = Math.floor(state.distance || 0);
+  const baseScore = Number.isFinite(state.score) ? state.score : (state.distance || 0);
+  const hudScore = Math.floor(baseScore);
   const scoreText = String(hudScore).padStart(6, "0");
 
   ctx.save();
