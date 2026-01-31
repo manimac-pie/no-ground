@@ -30,6 +30,9 @@ export function createInput(canvas) {
     pointerDown: false,
     _activePointer: false,
     _pointerDownAt: 0,
+    pointerX: 0,
+    pointerY: 0,
+    pointerInside: false,
   };
 
   function pressJump(source = null) {
@@ -140,6 +143,12 @@ export function createInput(canvas) {
     }
   }
 
+  function onPointerMove(e) {
+    state.pointerX = e.clientX ?? 0;
+    state.pointerY = e.clientY ?? 0;
+    state.pointerInside = isEventInsideCanvas(e);
+  }
+
   function onPointerUp(e) {
     const wasActive = state._activePointer;
     const downAt = state._pointerDownAt;
@@ -161,6 +170,11 @@ export function createInput(canvas) {
     state.pointerDown = false;
     state._activePointer = false;
     state._pointerDownAt = 0;
+    state.pointerInside = false;
+  }
+
+  function onPointerLeave() {
+    state.pointerInside = false;
   }
 
   function resetInputs() {
@@ -176,6 +190,7 @@ export function createInput(canvas) {
     state.pointerDown = false;
     state._activePointer = false;
     state._pointerDownAt = 0;
+    state.pointerInside = false;
   }
 
   function onVisibilityChange() {
@@ -189,8 +204,10 @@ export function createInput(canvas) {
   window.addEventListener("visibilitychange", onVisibilityChange, { passive: true });
 
   canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+  window.addEventListener("pointermove", onPointerMove, { passive: true });
   window.addEventListener("pointerup", onPointerUp, { passive: false });
   window.addEventListener("pointercancel", onPointerCancel, { passive: true });
+  canvas.addEventListener("pointerleave", onPointerLeave, { passive: true });
 
   return {
     consumeJumpPress() {
@@ -247,14 +264,28 @@ export function createInput(canvas) {
       return state.pointerDown;
     },
 
+    get pointerX() {
+      return state.pointerX;
+    },
+
+    get pointerY() {
+      return state.pointerY;
+    },
+
+    get pointerInside() {
+      return state.pointerInside;
+    },
+
     destroy() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", resetInputs);
       window.removeEventListener("visibilitychange", onVisibilityChange);
       canvas.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);
+      canvas.removeEventListener("pointerleave", onPointerLeave);
     },
   };
 }

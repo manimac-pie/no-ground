@@ -635,6 +635,32 @@ export function render(ctx, state) {
       ? (freezeSnap.y + freezeSnap.h / 2)
       : (player?.y ?? world.GROUND_Y - PLAYER_H) + (player?.h ?? PLAYER_H) / 2;
 
+  let pointerWorld = null;
+  if (state.pointerInside && ctx.canvas) {
+    const rect = ctx.canvas.getBoundingClientRect();
+    const pxCss = (state.pointerX ?? 0) - rect.left;
+    const pyCss = (state.pointerY ?? 0) - rect.top;
+    const sx = cssW / W;
+    const sy = cssH / H;
+    const s = Math.min(sx, sy);
+    const oxCss = (cssW - W * s) * 0.5;
+    const oyCss = (cssH - H * s) * 0.5;
+    const insideViewport =
+      pxCss >= oxCss &&
+      pxCss <= oxCss + W * s &&
+      pyCss >= oyCss &&
+      pyCss <= oyCss + H * s;
+    if (insideViewport) {
+      const internalX = (pxCss - oxCss) / s;
+      const internalY = (pyCss - oyCss) / s;
+      const invZoom = 1 / Math.max(0.001, zoom);
+      pointerWorld = {
+        x: focusX + (internalX - focusX) * invZoom,
+        y: focusY + (internalY - focusY) * invZoom,
+      };
+    }
+  }
+
   const startPush = computeStartPush(state, focusX);
 
   ctx.save();
@@ -806,7 +832,10 @@ export function render(ctx, state) {
       ctx.translate(focusX, focusY);
       ctx.scale(zoom, zoom);
       ctx.translate(-focusX, -focusY);
-      drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, { centerX: restartCenterX });
+      drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, {
+        centerX: restartCenterX,
+        pointer: pointerWorld,
+      });
       ctx.restore();
     }
   }

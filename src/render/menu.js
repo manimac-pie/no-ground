@@ -299,11 +299,20 @@ export function drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   const dropK = Math.min(1, dropT / 1.0);
   const bounce = easeOutBounce(dropK);
   const baseY = startY + (endY - startY) * bounce;
+  const pointer = opts.pointer || null;
+  const isHover = Boolean(
+    pointer &&
+    pointer.x >= baseX &&
+    pointer.x <= baseX + cache.width &&
+    pointer.y >= baseY &&
+    pointer.y <= baseY + totalHeight
+  );
+  const fillMain = isHover ? "rgba(255,68,68,0.96)" : "rgba(230,234,240,0.94)";
 
   cache.tiles.forEach((t) => {
     const px = baseX + t.x;
     const py = baseY + t.y;
-    ctx.fillStyle = "rgba(230,234,240,0.94)";
+    ctx.fillStyle = fillMain;
     ctx.fillRect(px, py, t.w, t.h);
     ctx.fillStyle = "rgba(20,22,28,0.45)";
     ctx.fillRect(px, py + t.h - 1, t.w, 1);

@@ -60,14 +60,17 @@ export function createInitialState() {
 
   speed: SPEED_START,
   // Start prompt world position (moves with scroll)
-  startPromptX: PLAYER_X + PLAYER_W + 24,
-  // Y will be derived each frame to sit on the starter roof.
-  startPromptY: null,
+    startPromptX: PLAYER_X + PLAYER_W + 24,
+    // Y will be derived each frame to sit on the starter roof.
+    startPromptY: null,
 
   jumpBuffer: 0,
   jumpHeld: false,
     jumpCut: 0,
     dashPressed: false,
+    pointerX: 0,
+    pointerY: 0,
+    pointerInside: false,
 
     player: {
       x: PLAYER_X,

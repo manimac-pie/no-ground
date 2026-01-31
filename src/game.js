@@ -256,6 +256,9 @@ export function createGame() {
 
     state.jumpHeld = input?.jumpHeld === true;
     state.floatHeld = input?.floatHeld === true;
+    state.pointerX = input?.pointerX ?? state.pointerX;
+    state.pointerY = input?.pointerY ?? state.pointerY;
+    state.pointerInside = input?.pointerInside === true;
 
     // One-press pulses
     state.divePressed = input?.consumeDivePressed?.() === true;

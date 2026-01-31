@@ -21,7 +21,7 @@
         background: #111;
         overflow: hidden;
         touch-action: none; /* prevents gestures like double-tap zoom on supported browsers */
-        cursor: none;
+        cursor: url("./assets/cursor-no-ground.svg") 6 6, auto;
       }
 
       /* Center the canvas and let JS handle sizing */
@@ -30,7 +30,52 @@
         margin: 0 auto;
         background: #111;
         outline: none;
+        cursor: url("./assets/cursor-no-ground.svg") 6 6, auto;
+      }
+
+      body.is-running,
+      body.is-running #game {
         cursor: none;
+      }
+
+      #cursor-sparks {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 999;
+        overflow: hidden;
+      }
+
+      .spark {
+        position: absolute;
+        width: 6px;
+        height: 2px;
+        background: linear-gradient(90deg, #ffe089, #ff8a00);
+        box-shadow: 0 0 4px rgba(255, 168, 46, 0.8);
+        transform: translate(-50%, -50%);
+        animation: spark-fly 420ms ease-out forwards;
+      }
+
+      .spark::after {
+        content: "";
+        position: absolute;
+        inset: -1px 0;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+        opacity: 0.6;
+      }
+
+      @keyframes spark-fly {
+        0% {
+          opacity: 1;
+          transform: translate(-50%, -50%) rotate(var(--rot)) scaleX(1);
+        }
+        100% {
+          opacity: 0;
+          transform:
+            translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
+            rotate(var(--rot))
+            scaleX(0.2);
+        }
       }
 
       #game:focus {
