@@ -71,6 +71,10 @@ export function createInitialState() {
     pointerX: 0,
     pointerY: 0,
     pointerInside: false,
+    pointerUiX: 0,
+    pointerUiY: 0,
+    pointerInViewport: false,
+    controlsPanelOpen: false,
 
     player: {
       x: PLAYER_X,
@@ -163,6 +167,10 @@ export function resetRunState(state) {
   state.jumpHeld = false;
   state.jumpCut = 0;
   state.dashPressed = false;
+  state.pointerUiX = 0;
+  state.pointerUiY = 0;
+  state.pointerInViewport = false;
+  state.controlsPanelOpen = false;
 
   state.lastLandQuality = null;
   state.lastLandQualityT = 0;

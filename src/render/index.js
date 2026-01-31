@@ -23,8 +23,16 @@ import {
 } from "./world.js";
 
 import { drawPlayerShadow, drawPlayer } from "./player.js";
-import { drawHUD, drawLandingPopup, drawRestartFlyby, drawCenterScore } from "./ui.js";
+import {
+  drawHUD,
+  drawLandingPopup,
+  drawRestartFlyby,
+  drawCenterScore,
+  drawControlsButton,
+  drawControlsPanel,
+} from "./ui.js";
 import { drawStartPrompt, drawRestartPrompt } from "./menu.js";
+import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "../ui/layout.js";
 import { clamp } from "./playerKit.js";
 
 export const COLORS = {
@@ -848,6 +856,19 @@ export function render(ctx, state) {
   if (state.restartFlybyActive) {
     resetCtx(ctx);
     drawRestartFlyby(ctx, state, COLORS, W, H);
+  }
+
+  if (onStartScreen) {
+    resetCtx(ctx);
+    const btnRect = getControlsButtonRect(W, H);
+    const panelRect = getControlsPanelRect(W, H);
+    const hover =
+      state.pointerInViewport === true
+      && pointInRect(state.pointerUiX, state.pointerUiY, btnRect);
+    drawControlsButton(ctx, btnRect, state.controlsPanelOpen === true, hover);
+    if (state.controlsPanelOpen) {
+      drawControlsPanel(ctx, panelRect, COLORS);
+    }
   }
 
   // Restore viewport transform

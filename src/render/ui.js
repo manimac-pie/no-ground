@@ -198,6 +198,222 @@ function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
   });
 }
 
+function drawHudPanelBezel(ctx, x, y, w, h) {
+  ctx.save();
+  ctx.globalAlpha = 0.96;
+  ctx.fillStyle = "rgba(10,12,18,0.94)";
+  roundRect(ctx, x, y, w, h, 14);
+
+  ctx.strokeStyle = "rgba(20,24,34,0.92)";
+  ctx.lineWidth = 6;
+  roundedRectPath(ctx, x + 3, y + 3, w - 6, h - 6, 12);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(80,90,110,0.55)";
+  ctx.lineWidth = 2;
+  roundedRectPath(ctx, x + 7, y + 7, w - 14, h - 14, 10);
+  ctx.stroke();
+
+  const bezel = ctx.createLinearGradient(x, y, x, y + h);
+  bezel.addColorStop(0, "rgba(40,48,62,0.85)");
+  bezel.addColorStop(0.5, "rgba(18,22,32,0.9)");
+  bezel.addColorStop(1, "rgba(10,12,18,0.95)");
+  ctx.fillStyle = bezel;
+  roundRect(ctx, x + 2, y + 2, w - 4, h - 4, 12);
+
+  ctx.fillStyle = "rgba(160,175,200,0.5)";
+  const boltR = 2.2;
+  const boltPts = [
+    [x + 14, y + 14],
+    [x + w - 14, y + 14],
+    [x + 14, y + h - 14],
+    [x + w - 14, y + h - 14],
+  ];
+  boltPts.forEach(([bx, by]) => {
+    ctx.beginPath();
+    ctx.arc(bx, by, boltR, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.save();
+  roundedRectPath(ctx, x + 1, y + 1, w - 2, h - 2, 11);
+  ctx.clip();
+  ctx.globalAlpha = 0.14;
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  for (let sy = y + 6; sy < y + h - 4; sy += 4) {
+    ctx.fillRect(x + 2, sy, w - 4, 1);
+  }
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = "rgba(0,255,208,0.16)";
+  ctx.lineWidth = 1;
+  for (let i = -1; i < 8; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x - 20 + i * 48, y + h);
+    ctx.lineTo(x + 30 + i * 48, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.restore();
+}
+
+export function drawControlsButton(ctx, rect, active = false, hot = false) {
+  if (!rect) return;
+  const { x, y, w, h } = rect;
+  ctx.save();
+  const glow = active ? "rgba(0,255,225,0.28)" : "rgba(120,205,255,0.18)";
+  drawGlow(ctx, x + 8, y + 8, w - 16, h - 16, glow, 20);
+
+  const body = ctx.createLinearGradient(x, y, x, y + h);
+  body.addColorStop(0, "rgba(16,20,30,0.98)");
+  body.addColorStop(1, "rgba(8,10,16,0.98)");
+  ctx.fillStyle = body;
+  roundRect(ctx, x, y, w, h, 12);
+
+  // Neon edge
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = active
+    ? "rgba(0,255,225,0.85)"
+    : hot
+      ? "rgba(120,205,255,0.7)"
+      : "rgba(80,120,160,0.45)";
+  roundedRectPath(ctx, x + 1, y + 1, w - 2, h - 2, 12);
+  ctx.stroke();
+
+  // Inner glow rim
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  roundedRectPath(ctx, x + 4, y + 4, w - 8, h - 8, 10);
+  ctx.stroke();
+
+  // Scanline sheen
+  ctx.save();
+  roundedRectPath(ctx, x + 2, y + 2, w - 4, h - 4, 10);
+  ctx.clip();
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = "rgba(255,255,255,0.05)";
+  for (let sy = y + 6; sy < y + h; sy += 4) {
+    ctx.fillRect(x + 4, sy, w - 8, 1);
+  }
+  ctx.restore();
+
+  // Accent sliver
+  ctx.fillStyle = active ? "rgba(0,255,225,0.75)" : "rgba(120,205,255,0.55)";
+  roundRect(ctx, x + 10, y + 8, 6, h - 16, 4);
+
+  // Label plate
+  const labelX = x + 22;
+  const labelW = w - 44;
+  ctx.fillStyle = "rgba(6,10,16,0.9)";
+  roundRect(ctx, labelX, y + 6, labelW, h - 12, 8);
+
+  ctx.fillStyle = "rgba(210,245,255,0.95)";
+  let fontSize = 11;
+  ctx.font = `800 ${fontSize}px Orbitron, Share Tech Mono, Menlo, monospace`;
+  const label = "GAME CONTROLS";
+  const maxW = labelW - 12;
+  let textW = ctx.measureText(label).width;
+  if (textW > maxW) {
+    fontSize = Math.max(9, Math.floor(fontSize * (maxW / textW)));
+    ctx.font = `800 ${fontSize}px Orbitron, Share Tech Mono, Menlo, monospace`;
+    textW = ctx.measureText(label).width;
+  }
+  ctx.fillText(label, labelX + (labelW - textW) / 2, y + h / 2 + 4);
+
+  ctx.restore();
+}
+
+export function drawControlsPanel(ctx, rect, COLORS) {
+  if (!rect) return;
+  const { x, y, w, h } = rect;
+  ctx.save();
+  // Neon sci-fi glass panel
+  const body = ctx.createLinearGradient(x, y, x, y + h);
+  body.addColorStop(0, "rgba(14,18,28,0.96)");
+  body.addColorStop(1, "rgba(6,8,14,0.96)");
+  ctx.fillStyle = body;
+  roundRect(ctx, x, y, w, h, 14);
+
+  ctx.strokeStyle = "rgba(0,255,225,0.35)";
+  ctx.lineWidth = 2;
+  roundedRectPath(ctx, x + 1, y + 1, w - 2, h - 2, 14);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, x + 6, y + 6, w - 12, h - 12, 10);
+  ctx.stroke();
+
+  // Diagonal light grid
+  ctx.save();
+  roundedRectPath(ctx, x + 4, y + 4, w - 8, h - 8, 12);
+  ctx.clip();
+  ctx.globalAlpha = 0.22;
+  ctx.strokeStyle = "rgba(120,205,255,0.12)";
+  ctx.lineWidth = 1;
+  for (let gx = x + 20; gx < x + w + 40; gx += 28) {
+    ctx.beginPath();
+    ctx.moveTo(gx, y + 8);
+    ctx.lineTo(gx - 40, y + h - 8);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Header bar
+  ctx.fillStyle = "rgba(8,12,20,0.75)";
+  roundRect(ctx, x + 16, y + 14, w - 32, 22, 8);
+  ctx.strokeStyle = "rgba(0,255,225,0.45)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, x + 16, y + 14, w - 32, 22, 8);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(160,245,255,0.95)";
+  ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("GAME CONTROLS", x + 26, y + 29);
+
+  // Controls layout (centered Space row, centered W/S/D row)
+  const topPad = 48;
+  const warnH = 16;
+  const warnGap = 10;
+  const available = h - topPad - warnH - warnGap - 12;
+  const rowGap = Math.max(44, Math.min(52, Math.floor(available / 3)));
+  let rowY = y + topPad;
+
+  ctx.save();
+  ctx.font = "800 16px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+  const spaceW = Math.max(64, ctx.measureText("SPACE / LMB").width + 28);
+  const wW = Math.max(64, ctx.measureText("W").width + 28);
+  const sW = Math.max(64, ctx.measureText("S").width + 28);
+  const dW = Math.max(64, ctx.measureText("D").width + 28);
+  ctx.restore();
+
+  const spaceX = x + (w - spaceW) / 2;
+  drawKeyChip(ctx, "SPACE / LMB", "Jump / Start", spaceX, rowY, COLORS);
+
+  rowY += rowGap;
+  const gap = 12;
+  const rowWidth = wW + sW + dW + gap * 2;
+  let rowX = x + (w - rowWidth) / 2;
+  drawKeyChip(ctx, "W", "Float", rowX, rowY, COLORS);
+  rowX += wW + gap;
+  drawKeyChip(ctx, "S", "Dive", rowX, rowY, COLORS);
+  rowX += sW + gap;
+  drawKeyChip(ctx, "D", "Dash", rowX, rowY, COLORS);
+
+  // Warning capsule
+  const warnY = y + h - warnH - 10;
+  ctx.fillStyle = "rgba(10,14,20,0.85)";
+  roundRect(ctx, x + 16, warnY, w - 32, warnH, 6);
+  ctx.strokeStyle = "rgba(255,160,120,0.65)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, x + 16, warnY, w - 32, warnH, 6);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,210,170,0.95)";
+  ctx.font = "700 9px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("WARNING: NON-REINFORCED BUILDINGS BREAK.", x + 22, warnY + 11);
+
+  ctx.restore();
+}
+
 function drawMenuPanel(ctx, x, y, w, h, COLORS) {
   // Dark underlay prevents world elements from reading through.
   ctx.save();

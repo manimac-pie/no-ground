@@ -29,6 +29,7 @@ import {
   updateDash,
 } from "./game/player.js";
 import { startSpin, updateTricks } from "./game/tricks.js";
+import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "./ui/layout.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
@@ -250,6 +251,7 @@ export function createGame() {
     const jumpPress = input?.consumeJumpPress?.() || { pressed: false, source: null };
     let jumpPressed = jumpPress.pressed === true;
     const jumpSource = jumpPress.source;
+    const pointerPressed = input?.consumePointerPressed?.() === true;
     const trickPressed = input?.consumeTrickPressed?.() === true;
     const trickIntent = input?.consumeTrickIntent?.() || "neutral";
     const dashPressed = input?.consumeDashPressed?.() === true;
@@ -259,6 +261,9 @@ export function createGame() {
     state.pointerX = input?.pointerX ?? state.pointerX;
     state.pointerY = input?.pointerY ?? state.pointerY;
     state.pointerInside = input?.pointerInside === true;
+    state.pointerUiX = input?.pointerInternalX ?? state.pointerUiX;
+    state.pointerUiY = input?.pointerInternalY ?? state.pointerUiY;
+    state.pointerInViewport = input?.pointerInViewport === true;
 
     // One-press pulses
     state.divePressed = input?.consumeDivePressed?.() === true;
@@ -266,6 +271,32 @@ export function createGame() {
 
     // Kept for UI/debug only
     state.diveHeld = input?.diveHeld === true;
+
+    const onRestartScreen =
+      state.gameOver && state.deathCinematicDone && !state.restartFlybyActive;
+
+    if (!onStartScreen && state.controlsPanelOpen) {
+      state.controlsPanelOpen = false;
+    }
+
+    if (pointerPressed && onStartScreen && state.pointerInViewport) {
+      const btnRect = getControlsButtonRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
+      const panelRect = getControlsPanelRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
+      const hitButton = pointInRect(state.pointerUiX, state.pointerUiY, btnRect);
+      const hitPanel = state.controlsPanelOpen
+        && pointInRect(state.pointerUiX, state.pointerUiY, panelRect);
+
+      if (hitButton) {
+        state.controlsPanelOpen = !state.controlsPanelOpen;
+        jumpPressed = false;
+        state.jumpBuffer = 0;
+        input?.suppressPointerJump?.();
+      } else if (hitPanel) {
+        jumpPressed = false;
+        state.jumpBuffer = 0;
+        input?.suppressPointerJump?.();
+      }
+    }
 
     if (!state.running) {
       // Freeze input while the death cinematic plays.

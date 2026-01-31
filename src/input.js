@@ -7,6 +7,8 @@
 // - Dash: D press (one-shot pulse)
 // - Flip: A (backflip)
 
+import { INTERNAL_WIDTH, INTERNAL_HEIGHT } from "./game/constants.js";
+
 export function createInput(canvas) {
   if (!canvas) throw new Error("createInput(canvas): canvas is required.");
 
@@ -33,6 +35,11 @@ export function createInput(canvas) {
     pointerX: 0,
     pointerY: 0,
     pointerInside: false,
+    pointerInternalX: 0,
+    pointerInternalY: 0,
+    pointerInViewport: false,
+    pointerPressed: false,
+    _pointerJumpSuppressed: false,
   };
 
   function pressJump(source = null) {
@@ -126,17 +133,42 @@ export function createInput(canvas) {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
 
+  function updatePointerInternal(ev) {
+    const rect = canvas.getBoundingClientRect();
+    const pxCss = (ev.clientX ?? 0) - rect.left;
+    const pyCss = (ev.clientY ?? 0) - rect.top;
+    const cssW = rect.width || 1;
+    const cssH = rect.height || 1;
+    const W = INTERNAL_WIDTH || 1;
+    const H = INTERNAL_HEIGHT || 1;
+    const sx = cssW / W;
+    const sy = cssH / H;
+    const s = Math.min(sx, sy);
+    const ox = (cssW - W * s) * 0.5;
+    const oy = (cssH - H * s) * 0.5;
+    const inside =
+      pxCss >= ox &&
+      pxCss <= ox + W * s &&
+      pyCss >= oy &&
+      pyCss <= oy + H * s;
+    state.pointerInternalX = (pxCss - ox) / s;
+    state.pointerInternalY = (pyCss - oy) / s;
+    state.pointerInViewport = inside;
+  }
+
   function onPointerDown(e) {
     // Mouse: primary button only.
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     state.pointerDown = true;
     state._activePointer = isEventInsideCanvas(e);
+    updatePointerInternal(e);
+    if (state.pointerInViewport) state.pointerPressed = true;
 
     // Prevent scrolling/zooming while playing.
     e.preventDefault();
 
-    if (state._activePointer) {
+    if (state._activePointer && !state._pointerJumpSuppressed) {
       state._pointerDownAt = performance.now();
       state.jumpHeld = true;
       pressJump("pointer");
@@ -147,6 +179,7 @@ export function createInput(canvas) {
     state.pointerX = e.clientX ?? 0;
     state.pointerY = e.clientY ?? 0;
     state.pointerInside = isEventInsideCanvas(e);
+    updatePointerInternal(e);
   }
 
   function onPointerUp(e) {
@@ -157,6 +190,8 @@ export function createInput(canvas) {
     state.pointerDown = false;
     state._activePointer = false;
     state._pointerDownAt = 0;
+    state.pointerInViewport = false;
+    state._pointerJumpSuppressed = false;
 
     e.preventDefault();
 
@@ -171,6 +206,9 @@ export function createInput(canvas) {
     state._activePointer = false;
     state._pointerDownAt = 0;
     state.pointerInside = false;
+    state.pointerInViewport = false;
+    state.pointerPressed = false;
+    state._pointerJumpSuppressed = false;
   }
 
   function onPointerLeave() {
@@ -191,6 +229,9 @@ export function createInput(canvas) {
     state._activePointer = false;
     state._pointerDownAt = 0;
     state.pointerInside = false;
+    state.pointerInViewport = false;
+    state.pointerPressed = false;
+    state._pointerJumpSuppressed = false;
   }
 
   function onVisibilityChange() {
@@ -274,6 +315,31 @@ export function createInput(canvas) {
 
     get pointerInside() {
       return state.pointerInside;
+    },
+
+    get pointerInternalX() {
+      return state.pointerInternalX;
+    },
+
+    get pointerInternalY() {
+      return state.pointerInternalY;
+    },
+
+    get pointerInViewport() {
+      return state.pointerInViewport;
+    },
+
+    consumePointerPressed() {
+      const v = state.pointerPressed;
+      state.pointerPressed = false;
+      return v;
+    },
+
+    suppressPointerJump() {
+      state.jumpPressed = false;
+      state.lastJumpSource = null;
+      state.jumpHeld = false;
+      state._pointerJumpSuppressed = true;
     },
 
     destroy() {
