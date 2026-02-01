@@ -116,9 +116,9 @@ export const BREAK_JIT_SCORE_BONUS = 30; // Just-in-time bonus after break jump
 export const BILLBOARD_BOUNCE_VY = 900; // downward kick when bouncing off a billboard
 
 // Input grace
-export const COYOTE_TIME_SEC = 0.5;
+export const COYOTE_TIME_SEC = 0.2;
 export const JUMP_BUFFER_SEC = 0.13;
-export const BREAK_JUMP_GRACE_SEC = 0.5;
+export const BREAK_JUMP_GRACE_SEC = 0.3;
 
 // Death cinematic (game over) timing
 export const DEATH_CINEMATIC = {

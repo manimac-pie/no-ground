@@ -297,9 +297,9 @@ export function integratePlayer(state, dt, endGame) {
           billboardHit = true;
           break;
         }
-        const leftHalfX = bx + bw * 0.5;
-        const hitLeftHalf = px1 < leftHalfX && px2 > bx;
-        if (!hitLeftHalf) continue;
+        const leftGraceEdge = bx + bw * 0.1;
+        const rightGraceEdge = bx + bw * 0.70;
+        if (px2 <= leftGraceEdge || px1 >= rightGraceEdge) continue;
         if (b.reinforced === false && isDashing) {
           if (!Number.isFinite(state.score)) state.score = 0;
           state.score += BILLBOARD_DASH_SCORE;
@@ -312,7 +312,6 @@ export function integratePlayer(state, dt, endGame) {
           b.breakSpawned = false;
           b.hit = false;
         } else {
-          b.resolved = true;
           b.hit = true;
           p.billboardDeath = true;
           p.billboardDeathT = 0;
@@ -413,7 +412,7 @@ export function integratePlayer(state, dt, endGame) {
   }
 }
 
-// ---------------- DASH (FIXED) ----------------
+// ---------------- DASH ----------------
 export function updateDash(state, dt) {
   const p = state.player;
   if (!p) return;
