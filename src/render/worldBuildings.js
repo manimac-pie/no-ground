@@ -56,6 +56,76 @@ function drawSafeBuildingAccents(ctx, plat, seed, bodyX, bodyY, bodyW, bodyH, an
   ctx.restore();
 }
 
+function drawBillboard(ctx, plat, billboard, animTime, COLORS) {
+  if (!plat || !billboard) return;
+  if (billboard.broken === true) return;
+
+  const bw = Number.isFinite(billboard.w) ? billboard.w : 0;
+  const bh = Number.isFinite(billboard.h) ? billboard.h : 0;
+  if (bw <= 0 || bh <= 0) return;
+
+  const bx = plat.x + (Number.isFinite(billboard.offsetX) ? billboard.offsetX : 0);
+  const by = plat.y - (Number.isFinite(billboard.offsetY) ? billboard.offsetY : 0);
+
+  const frame = getColor(COLORS, "billboardFrame", "rgba(10,12,16,0.85)");
+  const panel = billboard.reinforced
+    ? getColor(COLORS, "billboardReinforced", "rgba(120,205,255,0.35)")
+    : getColor(COLORS, "billboardPanel", "rgba(255,120,110,0.45)");
+  const glow = billboard.reinforced
+    ? getColor(COLORS, "billboardReinforcedGlow", "rgba(120,205,255,0.65)")
+    : getColor(COLORS, "billboardGlow", "rgba(255,140,120,0.7)");
+
+  const pulse = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(animTime * 2.2 + bx * 0.01));
+  const breaking = billboard.breaking === true;
+  const breakT = Number.isFinite(billboard.breakT) ? billboard.breakT : 0;
+  const breakK = breaking ? clamp(breakT / 0.28, 0, 1) : 0;
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+
+  // Posts
+  ctx.fillStyle = frame;
+  const postW = Math.max(2, Math.floor(bw * 0.06));
+  const postExtra = 0;
+  const postH = Math.max(6, plat.y - (by + bh) + postExtra);
+  ctx.fillRect(bx + 6, by + bh, postW, postH);
+  ctx.fillRect(bx + bw - 6 - postW, by + bh, postW, postH);
+
+  // Frame + panel
+  ctx.fillStyle = frame;
+  ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+  ctx.fillStyle = panel;
+  ctx.fillRect(bx, by, bw, bh);
+
+  // Glow strip
+  ctx.globalAlpha *= 0.6 + 0.25 * pulse;
+  ctx.fillStyle = glow;
+  ctx.fillRect(bx + 6, by + 4, bw - 12, 3);
+  ctx.fillRect(bx + 6, by + bh - 7, bw - 12, 2);
+
+  if (breaking) {
+    const shardCount = 6;
+    ctx.globalAlpha = 0.7 * (1 - breakK);
+    ctx.fillStyle = frame;
+    for (let i = 0; i < shardCount; i++) {
+      const t = hash01(bx * 0.13 + by * 0.07 + i * 9.3);
+      const sx = bx + bw * (0.15 + 0.7 * t);
+      const sy = by + bh * (0.1 + 0.8 * hash01(t * 91.7));
+      const vx = (hash01(t * 51.3) - 0.5) * 30;
+      const vy = (hash01(t * 73.9) - 0.6) * 40;
+      const size = 4 + 6 * hash01(t * 11.1);
+      ctx.fillRect(
+        sx + vx * breakK,
+        sy + vy * breakK + breakK * breakK * 22,
+        size,
+        size * 0.6
+      );
+    }
+  }
+
+  ctx.restore();
+}
+
 function drawBrutalistFacade(ctx, x, y, w, h, seed, COLORS, crack01, animTime) {
   if (w < 60 || h < 40) return;
 
@@ -256,6 +326,9 @@ let prevRoofJumpT = 0;
 
 // ---------------- debris (whole-building breaks) ----------------
 const debris = [];
+
+// ---------------- billboard debris ----------------
+const billboardDebris = [];
 
 // ---------------- crumble chunks (whole-building break) ----------------
 const buildingChunks = [];
@@ -570,6 +643,41 @@ function spawnBuildingDebrisBurst(plat, COLORS) {
   }
 }
 
+function spawnBillboardDebrisBurst(plat, billboard, COLORS) {
+  const bx = plat.x + (Number.isFinite(billboard.offsetX) ? billboard.offsetX : 0);
+  const by = plat.y - (Number.isFinite(billboard.offsetY) ? billboard.offsetY : 0);
+  const bw = Number.isFinite(billboard.w) ? billboard.w : 0;
+  const bh = Number.isFinite(billboard.h) ? billboard.h : 0;
+  if (bw <= 0 || bh <= 0) return;
+
+  const panel = billboard.reinforced
+    ? getColor(COLORS, "billboardReinforced", "rgba(120,205,255,0.35)")
+    : getColor(COLORS, "billboardPanel", "rgba(255,120,110,0.45)");
+  const frame = getColor(COLORS, "billboardFrame", "rgba(10,12,16,0.85)");
+
+  const n = 18;
+  for (let i = 0; i < n; i++) {
+    const u = (i + 1) / (n + 1);
+    const px = bx + bw * u + (Math.random() * 6 - 3);
+    const py = by + bh * (0.2 + 0.6 * Math.random());
+    const a = Math.PI * (0.15 + 0.70 * Math.random());
+    const sp = 180 + 260 * Math.random();
+    const dir = Math.random() < 0.5 ? -1 : 1;
+
+    billboardDebris.push({
+      x: px,
+      y: py,
+      vx: Math.cos(a) * sp * dir,
+      vy: -Math.sin(a) * sp,
+      life: 0.55 + Math.random() * 0.35,
+      age: 0,
+      w: 3 + Math.random() * 6,
+      h: 2 + Math.random() * 4,
+      c: Math.random() < 0.5 ? panel : frame,
+    });
+  }
+}
+
 function stepDebris(dt) {
   const G = 1700;
   const DRAG = 0.985;
@@ -589,6 +697,24 @@ function stepDebris(dt) {
   }
 }
 
+function stepBillboardDebris(dt) {
+  const G = 1900;
+  const DRAG = 0.985;
+  for (let i = billboardDebris.length - 1; i >= 0; i--) {
+    const d = billboardDebris[i];
+    d.age += dt;
+    if (d.age >= d.life) {
+      billboardDebris.splice(i, 1);
+      continue;
+    }
+    d.vy += G * dt;
+    d.vx *= DRAG;
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+    if (d.y > world.GROUND_Y + 120) billboardDebris.splice(i, 1);
+  }
+}
+
 function drawDebris(ctx) {
   for (const d of debris) {
     const a = 1 - d.age / d.life;
@@ -596,6 +722,17 @@ function drawDebris(ctx) {
     ctx.globalAlpha = 0.18 + 0.32 * a;
     ctx.fillStyle = d.c;
     ctx.fillRect(d.x, d.y, d.s, d.s);
+    ctx.restore();
+  }
+}
+
+function drawBillboardDebris(ctx) {
+  for (const d of billboardDebris) {
+    const a = 1 - d.age / d.life;
+    ctx.save();
+    ctx.globalAlpha = 0.25 + 0.45 * a;
+    ctx.fillStyle = d.c;
+    ctx.fillRect(d.x, d.y, d.w, d.h);
     ctx.restore();
   }
 }
@@ -743,6 +880,7 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
 
   stepRubble(dt);
   stepDebris(dt);
+  stepBillboardDebris(dt);
   stepBuildingChunks(dt);
 
   for (const plat of state.platforms) {
@@ -766,6 +904,11 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
 
     if (plat.collapsing) {
       continue;
+    }
+
+    if (plat.billboard && plat.billboard.breaking && !plat.billboard.breakSpawned) {
+      spawnBillboardDebrisBurst(plat, plat.billboard, COLORS);
+      plat.billboard.breakSpawned = true;
     }
 
     const bodyX = plat.x;
@@ -846,11 +989,13 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
       }
       : COLORS;
     drawRoof(ctx, plat, seed, animTime, roofColors, crack01, true, impact01, impactX, impactY);
+    drawBillboard(ctx, plat, plat.billboard, animTime, COLORS);
     drawSafeBuildingAccents(ctx, plat, seed, bodyX, bodyY, bodyW, bodyH, animTime, COLORS);
   }
 
   drawRubble(ctx);
   drawDebris(ctx);
+  drawBillboardDebris(ctx);
   drawBuildingChunks(ctx);
 
   // baseline

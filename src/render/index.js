@@ -13,6 +13,7 @@ import {
   START_PUSH,
   START_PUSH_TOTAL,
   BREAK_SHARDS,
+  MENU_START_ZOOM,
 } from "../game/constants.js";
 
 import {
@@ -31,7 +32,11 @@ import {
   drawControlsPanel,
 } from "./ui.js";
 import { drawStartPrompt, drawRestartPrompt } from "./menu.js";
-import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "../ui/layout.js";
+import {
+  getControlsButtonRect,
+  getControlsPanelRect,
+  pointInRect,
+} from "../ui/layout.js";
 import { clamp } from "./playerKit.js";
 
 export const COLORS = {
@@ -473,7 +478,6 @@ let dragTrailEmitT = 0;
 
 let _prevFrameT = 0;
 let _camX = 0;
-const MENU_START_ZOOM = 2.8;
 
 function ensureCanvasSize(ctx, W, H) {
   // Renderer owns backing store sizing; main.js only sets CSS size.
@@ -714,6 +718,7 @@ export function render(ctx, state) {
     state.startReady === true &&
     !state.menuZooming &&
     (state.menuZoomK ?? 0) <= 0.001;
+  if (!onStartScreen) state.startPromptBounds = null;
 
   let renderState = deathActive
     ? {
@@ -792,6 +797,9 @@ export function render(ctx, state) {
         state.menuSmashT = 0;
         state.menuSmashRed = hovered === true;
       }
+    },
+    onBounds: (bounds) => {
+      state.startPromptBounds = bounds;
     },
     pointer: pointerWorld,
   });

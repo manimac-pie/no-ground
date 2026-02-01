@@ -161,6 +161,8 @@ export function createInput(canvas) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     state.pointerDown = true;
+    state.pointerX = e.clientX ?? 0;
+    state.pointerY = e.clientY ?? 0;
     state._activePointer = isEventInsideCanvas(e);
     updatePointerInternal(e);
     if (state.pointerInViewport) state.pointerPressed = true;

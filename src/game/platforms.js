@@ -19,6 +19,7 @@ import {
   GRAVITY,
   FALL_GRAVITY_MULT,
   JUMP_VELOCITY,
+  PLAYER_H,
   SPEED_START,
   BREAK_JUMP_GRACE_SEC,
 } from "./constants.js";
@@ -169,6 +170,39 @@ export function spawnNextPlatform(state) {
     y = fromY;
   }
 
+  const buildingIndex = Number.isFinite(state._buildingCount)
+    ? state._buildingCount + 1
+    : 1;
+  state._buildingCount = buildingIndex;
+
+  let billboard = null;
+  if (buildingIndex % 5 === 0 && Math.random() < 0.5) {
+    const maxW = Math.max(70, w - 24);
+    const bbW = clamp(160, 70, maxW);
+    const bbH = 96;
+    const xPad = Math.max(8, Math.floor((w - bbW) * 0.08));
+    const bbX = clamp(
+      xPad + (w - bbW - xPad * 2) * Math.random(),
+      6,
+      Math.max(6, w - bbW - 6)
+    );
+    const minOffsetY = bbH + PLAYER_H + 25;
+    const bbOffsetY = Math.max(minOffsetY, 84 + 26 * Math.random());
+    billboard = {
+      offsetX: bbX,
+      offsetY: bbOffsetY,
+      w: bbW,
+      h: bbH,
+      reinforced: !breakable,
+      resolved: false,
+      broken: false,
+      hit: false,
+      breaking: false,
+      breakT: 0,
+      breakSpawned: false,
+    };
+  }
+
   state.platforms.push({
     x: lastRight + gap,
     y,
@@ -202,6 +236,8 @@ export function spawnNextPlatform(state) {
     crack01: 0,
     collapsing: false,
     vy: 0,
+
+    billboard,
   });
 
   if (breakable) {
@@ -248,6 +284,8 @@ export function resetPlatforms(state) {
     crack01: 0,
     collapsing: false,
     vy: 0,
+
+    billboard: null,
   });
 
   while (rightmostPlatformX(state) < INTERNAL_WIDTH + 600) {
@@ -319,6 +357,22 @@ export function updatePlatforms(state, dt) {
     if (typeof plat.lowSpawnBreak !== "boolean") plat.lowSpawnBreak = false;
     if (typeof plat.invulnerable !== "boolean") plat.invulnerable = false;
     if (typeof plat.breakable !== "boolean") plat.breakable = true;
+    if (plat.billboard && typeof plat.billboard !== "object") plat.billboard = null;
+    if (plat.billboard) {
+      const b = plat.billboard;
+      if (!Number.isFinite(b.breakT)) b.breakT = 0;
+      if (typeof b.breaking !== "boolean") b.breaking = false;
+      if (typeof b.broken !== "boolean") b.broken = false;
+      if (typeof b.resolved !== "boolean") b.resolved = false;
+      if (typeof b.breakSpawned !== "boolean") b.breakSpawned = false;
+      if (b.breaking && !b.broken) {
+        b.breakT += dt;
+        if (b.breakT >= 0.28) {
+          b.breaking = false;
+          b.broken = true;
+        }
+      }
+    }
 
     // Keep the starter platform rock solid: no cracks, motion, or collapse.
     if (plat.invulnerable) {

@@ -40,6 +40,10 @@ const LAND_GRACE_SEC = getConst("LAND_GRACE_SEC", 0.06);
 const JUMP_BUFFER_SEC = getConst("JUMP_BUFFER_SEC", 0.13);
 const JUMP_VELOCITY = getConst("JUMP_VELOCITY", -630);
 const BREAK_JIT_SCORE_BONUS = getConst("BREAK_JIT_SCORE_BONUS", 0);
+const BILLBOARD_OVER_SCORE = getConst("BILLBOARD_OVER_SCORE", 50);
+const BILLBOARD_UNDER_SCORE = getConst("BILLBOARD_UNDER_SCORE", 60);
+const BILLBOARD_DASH_SCORE = getConst("BILLBOARD_DASH_SCORE", 130);
+const BILLBOARD_BOUNCE_VY = getConst("BILLBOARD_BOUNCE_VY", 0);
 
 // ---------------- helpers ----------------
 function smoothstep01(t) {
@@ -100,6 +104,12 @@ export function bufferJump(state) {
 function updateDivePhase(state, dt, airborne) {
   const p = state.player;
   if (!p) return;
+  if (p.billboardDeath === true) {
+    p.diving = false;
+    p.divePhase = "";
+    p.divePhaseT = 0;
+    return;
+  }
 
   if (typeof p.diving !== "boolean") p.diving = false;
   if (typeof p.divePhase !== "string") p.divePhase = "";
@@ -145,9 +155,11 @@ export function integratePlayer(state, dt, endGame) {
   if (!Number.isFinite(p.dashCooldown)) p.dashCooldown = 0;
   if (!Number.isFinite(p.jumpImpulseT)) p.jumpImpulseT = 0;
   if (!Number.isFinite(p.floatFuel)) p.floatFuel = FLOAT_FUEL_MAX;
+  if (typeof p.billboardDeath !== "boolean") p.billboardDeath = false;
 
   const wasOnGround = p.onGround === true;
   const wasDiving = p.diving === true;
+  const deathFall = p.billboardDeath === true;
 
   p.groundPlat = null;
   const airborne = !p.onGround;
@@ -171,12 +183,12 @@ export function integratePlayer(state, dt, endGame) {
     state.jumpCut = 0;
   }
 
-  if (airborne && state.floatHeld && !p.diving && p.floatFuel > 0) {
+  if (!deathFall && airborne && state.floatHeld && !p.diving && p.floatFuel > 0) {
     g *= FLOAT_GRAVITY_MULT;
     p.floatFuel = Math.max(0, p.floatFuel - dt);
   }
 
-  if (airborne && p.diving) {
+  if (!deathFall && airborne && p.diving) {
     const t =
       p.divePhase === "anticipate"
         ? p.divePhaseT / Math.max(0.001, DIVE_ANTICIPATION_SEC)
@@ -186,7 +198,7 @@ export function integratePlayer(state, dt, endGame) {
     maxFall = MAX_FALL_SPEED + (DIVE_MAX_FALL_SPEED - MAX_FALL_SPEED) * blend;
   }
 
-  if (p.onGround && p.floatFuel < FLOAT_FUEL_MAX) {
+  if (!deathFall && p.onGround && p.floatFuel < FLOAT_FUEL_MAX) {
     p.floatFuel = Math.min(
       FLOAT_FUEL_MAX,
       p.floatFuel + FLOAT_FUEL_REGEN_PER_SEC * dt
@@ -211,7 +223,60 @@ export function integratePlayer(state, dt, endGame) {
   const prevBottom = prevY + p.h;
   const bottom = p.y + p.h;
 
-  if (p.vy >= 0 && Array.isArray(state.platforms)) {
+  let billboardHit = false;
+  if (Array.isArray(state.platforms)) {
+    for (const plat of state.platforms) {
+      if (!plat || plat.collapsing) continue;
+      const b = plat.billboard;
+      if (!b || b.resolved) continue;
+
+      const bw = Number.isFinite(b.w) ? b.w : 0;
+      const bh = Number.isFinite(b.h) ? b.h : 0;
+      if (bw <= 0 || bh <= 0) continue;
+
+      const bx = plat.x + (Number.isFinite(b.offsetX) ? b.offsetX : 0);
+      const by = plat.y - (Number.isFinite(b.offsetY) ? b.offsetY : 0);
+      const overlapsX = px2 > bx && px1 < bx + bw;
+      const overlapsY = bottom > by && p.y < by + bh;
+
+      if (overlapsX && overlapsY) {
+        const leftHalfX = bx + bw * 0.5;
+        const hitLeftHalf = px1 < leftHalfX && px2 > bx;
+        if (!hitLeftHalf) continue;
+        const isDashing = (p.dashImpulseT || 0) > 0.01;
+        if (b.reinforced === false && isDashing) {
+          if (!Number.isFinite(state.score)) state.score = 0;
+          state.score += BILLBOARD_DASH_SCORE;
+          b.resolved = true;
+          b.breaking = true;
+          b.breakT = 0.28;
+          b.broken = true;
+          b.breakSpawned = false;
+          b.hit = false;
+        } else {
+          b.resolved = true;
+          b.hit = true;
+          p.billboardDeath = true;
+          p.onGround = false;
+          p.groundPlat = null;
+          p.coyote = 0;
+          p.landGrace = 0;
+          p.jumpsRemaining = 0;
+          p.breakGrace = 0;
+          p.breakJumpEligible = false;
+          p.vy = Math.max(p.vy || 0, BILLBOARD_BOUNCE_VY);
+          p.y = Math.max(p.y, by + bh + 2);
+        }
+        billboardHit = true;
+        break;
+      }
+    }
+  }
+
+  if (!deathFall && p.vy >= 0 && Array.isArray(state.platforms)) {
+    if (billboardHit) {
+      // Skip roof landing this frame so billboard hit forces a drop.
+    } else {
     for (const plat of state.platforms) {
       if (!plat || plat.collapsing) continue;
 
@@ -240,10 +305,38 @@ export function integratePlayer(state, dt, endGame) {
         break;
       }
     }
+    }
   }
 
   if (!p.onGround && wasOnGround) {
     p.coyote = COYOTE_TIME_SEC;
+  }
+
+  if (!billboardHit && Array.isArray(state.platforms)) {
+    const centerX = p.x + p.w * 0.5;
+    for (const plat of state.platforms) {
+      if (!plat || plat.collapsing) continue;
+      const b = plat.billboard;
+      if (!b || b.resolved) continue;
+      const bw = Number.isFinite(b.w) ? b.w : 0;
+      const bh = Number.isFinite(b.h) ? b.h : 0;
+      if (bw <= 0 || bh <= 0) continue;
+
+      const bx = plat.x + (Number.isFinite(b.offsetX) ? b.offsetX : 0);
+      const by = plat.y - (Number.isFinite(b.offsetY) ? b.offsetY : 0);
+      if (bx + bw < centerX) {
+        if (!Number.isFinite(state.score)) state.score = 0;
+        if (p.y + p.h <= by) {
+          state.score += BILLBOARD_OVER_SCORE;
+          b.resolved = true;
+        } else if (p.y >= by + bh) {
+          state.score += BILLBOARD_UNDER_SCORE;
+          b.resolved = true;
+        } else {
+          b.resolved = true;
+        }
+      }
+    }
   }
 
   if (p.y + p.h >= GROUND_Y + 1) {

@@ -406,8 +406,11 @@ export function drawControlsPanel(ctx, rect, COLORS) {
   const warnH = 16;
   const warnGap = 10;
   const infoH = 16;
-  const infoGap = 8;
-  const available = h - topPad - warnH - infoH - warnGap - infoGap - 12;
+  const infoGap = 6;
+  const info2H = 16;
+  const info2Gap = 6;
+  const available =
+    h - topPad - warnH - infoH - info2H - warnGap - infoGap - info2Gap - 12;
   const rowGap = Math.max(44, Math.min(56, Math.floor(available / 2)));
   let rowY = y + topPad;
 
@@ -438,6 +441,28 @@ export function drawControlsPanel(ctx, rect, COLORS) {
   // Warning capsule
   const warnY = y + h - warnH - 10;
   const infoY = warnY - infoGap - infoH;
+  const info2Y = infoY - info2Gap - info2H;
+  ctx.fillStyle = "rgba(10,14,20,0.85)";
+  roundRect(ctx, x + 16, info2Y, w - 32, info2H, 6);
+  ctx.strokeStyle = "rgba(120,205,255,0.65)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, x + 16, info2Y, w - 32, info2H, 6);
+  ctx.stroke();
+  ctx.font = "700 9px Orbitron, Share Tech Mono, Menlo, monospace";
+  const dashPrefix = "DASH THROUGH ";
+  const dashHot = "NON-REINFORCED";
+  const dashSuffix = " BILLBOARDS.";
+  let dashX = x + 22;
+  const dashY = info2Y + 11;
+  ctx.fillStyle = "rgba(180,235,255,0.95)";
+  ctx.fillText(dashPrefix, dashX, dashY);
+  dashX += ctx.measureText(dashPrefix).width;
+  ctx.fillStyle = "rgba(255,120,120,0.98)";
+  ctx.fillText(dashHot, dashX, dashY);
+  dashX += ctx.measureText(dashHot).width;
+  ctx.fillStyle = "rgba(180,235,255,0.95)";
+  ctx.fillText(dashSuffix, dashX, dashY);
+
   ctx.fillStyle = "rgba(10,14,20,0.85)";
   roundRect(ctx, x + 16, infoY, w - 32, infoH, 6);
   ctx.strokeStyle = "rgba(120,205,255,0.65)";
@@ -448,15 +473,26 @@ export function drawControlsPanel(ctx, rect, COLORS) {
   ctx.font = "700 9px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText("JUMP BOOST: HOLD W + JUMP + DASH.", x + 22, infoY + 11);
 
-  ctx.fillStyle = "rgba(10,14,20,0.85)";
+  ctx.fillStyle = "rgba(36,8,10,0.88)";
   roundRect(ctx, x + 16, warnY, w - 32, warnH, 6);
-  ctx.strokeStyle = "rgba(255,160,120,0.65)";
+  ctx.strokeStyle = "rgba(255,120,120,0.75)";
   ctx.lineWidth = 1;
   roundedRectPath(ctx, x + 16, warnY, w - 32, warnH, 6);
   ctx.stroke();
-  ctx.fillStyle = "rgba(255,210,170,0.95)";
   ctx.font = "700 9px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("WARNING: NON-REINFORCED BUILDINGS BREAK.", x + 22, warnY + 11);
+  const warnPrefix = "WARNING: ";
+  const warnHot = "NON-REINFORCED";
+  const warnSuffix = " BUILDINGS BREAK.";
+  let warnX = x + 22;
+  const warnTextY = warnY + 11;
+  ctx.fillStyle = "rgba(255,160,160,0.98)";
+  ctx.fillText(warnPrefix, warnX, warnTextY);
+  warnX += ctx.measureText(warnPrefix).width;
+  ctx.fillStyle = "rgba(255,90,90,0.98)";
+  ctx.fillText(warnHot, warnX, warnTextY);
+  warnX += ctx.measureText(warnHot).width;
+  ctx.fillStyle = "rgba(255,160,160,0.98)";
+  ctx.fillText(warnSuffix, warnX, warnTextY);
 
   ctx.restore();
 }

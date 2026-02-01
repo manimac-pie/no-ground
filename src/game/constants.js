@@ -159,6 +159,9 @@ export const START_PUSH_TOTAL =
   START_PUSH.PUSH +
   START_PUSH.ARM_RETRACT;
 
+// Menu zoom factor (menu view -> gameplay view)
+export const MENU_START_ZOOM = 2.8;
+
 
 // Dive feel / animation timing
 // Used by game/player.js for phase timing, and by render/player.js for stable pose targets.

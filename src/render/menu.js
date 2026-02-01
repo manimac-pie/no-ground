@@ -201,6 +201,7 @@ function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
 
 export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   const onSmashTrigger = typeof opts.onSmashTrigger === "function" ? opts.onSmashTrigger : null;
+  const onBounds = typeof opts.onBounds === "function" ? opts.onBounds : null;
   // Use logical internal size.
   const w = Number.isFinite(W) ? W : 800;
   const h = Number.isFinite(H) ? H : 450;
@@ -246,6 +247,7 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   // Compute overall bounds and draw line by line.
   let accY = 0;
   const maxWidth = Math.max(...caches.map((c) => c.width));
+  if (onBounds) onBounds({ x: baseX, y: baseY, w: maxWidth, h: totalHeight });
   const pointer = opts.pointer || null;
   const hover =
     pointer &&
@@ -316,7 +318,7 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   }
 
   ctx.restore();
-  return true;
+  return hover;
 }
 
 export function drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {

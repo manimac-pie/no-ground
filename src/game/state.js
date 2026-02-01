@@ -50,6 +50,7 @@ export function createInitialState() {
     _nextAirReq: "none",
     _nextAirReqDist: 0,
     _breakableStreak: 0,
+    _buildingCount: 0,
 
     styleScore: 0,
     styleCombo: 0,
@@ -69,6 +70,7 @@ export function createInitialState() {
     startPromptX: PLAYER_X + PLAYER_W + 24,
     // Y will be derived each frame to sit on the starter roof.
     startPromptY: null,
+    startPromptBounds: null,
 
   jumpBuffer: 0,
   jumpHeld: false,
@@ -114,6 +116,7 @@ export function createInitialState() {
       dashOffsetV: 0,
       dashImpulseT: 0,
       jumpImpulseT: 0,
+      billboardDeath: false,
     },
 
     platforms: [],
@@ -158,6 +161,7 @@ export function resetRunState(state) {
   state._nextAirReq = "none";
   state._nextAirReqDist = 0;
   state._breakableStreak = 0;
+  state._buildingCount = 0;
 
   state.styleScore = 0;
   state.styleCombo = 0;
@@ -174,6 +178,7 @@ export function resetRunState(state) {
   state.speed = SPEED_START;
   state.startPromptX = PLAYER_X + PLAYER_W + 24;
   state.startPromptY = null;
+  state.startPromptBounds = null;
 
   state.jumpBuffer = 0;
   state.jumpHeld = false;
@@ -214,4 +219,5 @@ export function resetRunState(state) {
   p.dashOffsetV = 0;
   p.dashImpulseT = 0;
   p.jumpImpulseT = 0;
+  p.billboardDeath = false;
 }

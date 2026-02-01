@@ -18,6 +18,7 @@ import {
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
   START_PUSH_TOTAL,
+  MENU_START_ZOOM,
 } from "./game/constants.js";
 
 import { clamp } from "./game/utils.js";
@@ -298,6 +299,7 @@ export function createGame() {
       state.controlsPanelOpen = false;
     }
 
+    let startPromptPressed = false;
     if (pointerPressed && onStartScreen && state.pointerInViewport) {
       const btnRect = getControlsButtonRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
       const panelRect = getControlsPanelRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
@@ -314,6 +316,28 @@ export function createGame() {
         jumpPressed = false;
         state.jumpBuffer = 0;
         input?.suppressPointerJump?.();
+      } else if (state.startPromptBounds) {
+        const player = state.player || {};
+        const focusX = (player.x ?? 0) + (player.w ?? 0) / 2;
+        const focusY = (player.y ?? 0) + (player.h ?? 0) / 2;
+        const zoomK = clamp(state.menuZoomK ?? 0, 0, 1);
+        const zoom = MENU_START_ZOOM - (MENU_START_ZOOM - 1) * zoomK;
+        const invZoom = 1 / Math.max(0.001, zoom);
+        const pointerWorldX = focusX + (state.pointerUiX - focusX) * invZoom;
+        const pointerWorldY = focusY + (state.pointerUiY - focusY) * invZoom;
+        const bounds = state.startPromptBounds;
+        const hitStart =
+          pointerWorldX >= bounds.x &&
+          pointerWorldX <= bounds.x + bounds.w &&
+          pointerWorldY >= bounds.y &&
+          pointerWorldY <= bounds.y + bounds.h;
+
+        if (hitStart) {
+          startPromptPressed = true;
+          jumpPressed = false;
+          state.jumpBuffer = 0;
+          input?.suppressPointerJump?.();
+        }
       }
     }
 
@@ -323,8 +347,12 @@ export function createGame() {
         return state;
       }
 
-      // Start/restart flow: Spacebar or click/tap triggers zoom-out.
-      if (jumpPressed && !state.menuZooming && state.startDelay <= 0) {
+      const startRequest = onStartScreen
+        ? (startPromptPressed || (jumpPressed && jumpSource !== "pointer"))
+        : jumpPressed;
+
+      // Start/restart flow: Spacebar or Start button triggers zoom-out.
+      if (startRequest && !state.menuZooming && state.startDelay <= 0) {
         if (state.gameOver) {
           state.restartSmashActive = true;
           state.restartSmashBroken = true;
