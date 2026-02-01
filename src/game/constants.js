@@ -115,9 +115,9 @@ export const DIVE_SCORE_BONUS = 121;     // score bonus per dive
 export const BREAK_JIT_SCORE_BONUS = 30; // Just-in-time bonus after break jump
 
 // Input grace
-export const COYOTE_TIME_SEC = 0.6;
+export const COYOTE_TIME_SEC = 0.5;
 export const JUMP_BUFFER_SEC = 0.13;
-export const BREAK_JUMP_GRACE_SEC = 0.85;
+export const BREAK_JUMP_GRACE_SEC = 0.5;
 
 // Death cinematic (game over) timing
 export const DEATH_CINEMATIC = {
