@@ -418,7 +418,10 @@ export function createGame() {
     }
 
     const deltaDist = state.speed * dt;
-    state.distance += deltaDist;
+    const onBillboard = state.player && state.player.onBillboard === true;
+    const distanceMult = onBillboard ? 1.2 : 1;
+    const distanceDelta = deltaDist * distanceMult;
+    state.distance += distanceDelta;
 
     scrollWorld(state, dt);
     updatePlatforms(state, dt);
@@ -431,8 +434,8 @@ export function createGame() {
     const airborne = p ? p.onGround === false : false;
     const floating = airborne && state.floatHeld === true && !(p && p.diving);
     const scoreMult = floating ? FLOAT_SCORE_MULT : 1;
-    state.score += deltaDist * scoreMult;
-    if (floating) state.glideDistance += deltaDist;
+    state.score += distanceDelta * scoreMult;
+    if (floating) state.glideDistance += distanceDelta;
 
     tryConsumeBufferedJump(state);
     return state;

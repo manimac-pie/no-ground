@@ -50,8 +50,8 @@ export const JUMP_IMPULSE_FX_SEC = 0.18; // jump trail burst duration
 export const FLOAT_FUEL_MAX = 0.55;            // seconds of float available
 export const FLOAT_FUEL_REGEN_PER_SEC = 0.70;  // fuel/sec regained while grounded
 export const FLOAT_GRAVITY_MULT = 0.30;        // gravity multiplier while floating
-export const DIVE_GRAVITY_MULT = 3.4;          // extra gravity while diving (faster descent)
-export const DIVE_MAX_FALL_SPEED = 3600;       // faster terminal speed when diving
+export const DIVE_GRAVITY_MULT = 4.2;          // extra gravity while diving (faster descent)
+export const DIVE_MAX_FALL_SPEED = 4200;       // faster terminal speed when diving
 
 export const LAND_GRACE_SEC = 0.06;
 
@@ -111,7 +111,7 @@ export const DASH_VY_SCALE_END = 1200;  // max reduction at this |vy|
 export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
 export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash streaks
 export const FLOAT_SCORE_MULT = 1.2;     // score multiplier while floating (blue halo)
-export const DIVE_SCORE_BONUS = 121;     // score bonus per dive
+export const DIVE_SCORE_BONUS = 40;     // score bonus per dive
 export const BREAK_JIT_SCORE_BONUS = 30; // Just-in-time bonus after break jump
 
 // Input grace

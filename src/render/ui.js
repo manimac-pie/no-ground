@@ -6,8 +6,6 @@ import {
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
-  FLOAT_SCORE_MULT,
-  DIVE_SCORE_BONUS,
 } from "../game/constants.js";
 
 function clamp(v, lo, hi) {
@@ -714,8 +712,9 @@ export function drawCenterScore(ctx, state, W, H) {
   const displayScore = Number.isFinite(state.scoreTally) ? state.scoreTally : baseScore;
   const hudScore = Math.floor(displayScore);
   const scoreText = String(hudScore).padStart(6, "0");
-  const glide = Math.floor(state.glideDistance || 0);
-  const dives = Math.floor(state.diveCount || 0);
+  const drift = Math.floor(state.glideDistance || 0);
+  const backflips = Math.floor(state.backflipCount || 0);
+  const billboardsDashed = Math.floor(state.billboardDashCount || 0);
   const dist = Math.floor(state.distance || 0);
   const boardIntro = 0.25;
   const boardT = Number.isFinite(state.scoreBoardT) ? state.scoreBoardT : 0;
@@ -730,7 +729,7 @@ export function drawCenterScore(ctx, state, W, H) {
   const cy = h * 0.5;
 
   const panelW = Math.min(460, w * 0.74);
-  const panelH = 230;
+  const panelH = 256;
   const panelX = cx - panelW / 2;
   const finalPanelY = cy - panelH / 2 - 6;
   const startPanelY = -panelH - 40;
@@ -883,31 +882,37 @@ export function drawCenterScore(ctx, state, W, H) {
   ctx.textAlign = "left";
   const left = panelX + 26;
   const right = panelX + panelW - 26;
-  const rowY = panelY + 66;
-  const rowH = 26;
+  const rowY = panelY + 64;
+  const rowH = 24;
   const pillH = 20;
   const pillW = 160;
+  const rows = [
+    { label: "DRIFT DISTANCE", value: formatNumber(drift) },
+    { label: "BACKFLIPS", value: formatNumber(backflips) },
+    { label: "BILLBOARDS BROKEN", value: formatNumber(billboardsDashed) },
+    { label: "TOTAL DISTANCE", value: formatNumber(dist) },
+  ];
 
   // Row backgrounds
   ctx.fillStyle = "rgba(8,12,18,0.78)";
-  roundRect(ctx, left - 8, rowY - 16, panelW - 36, 24, 8);
-  roundRect(ctx, left - 8, rowY + rowH - 16, panelW - 36, 24, 8);
-  roundRect(ctx, left - 8, rowY + rowH * 2 - 16, panelW - 36, 24, 8);
+  rows.forEach((_, idx) => {
+    roundRect(ctx, left - 8, rowY + rowH * idx - 16, panelW - 36, 24, 8);
+  });
 
   // Left label chips
   const labelGrad = ctx.createLinearGradient(left, 0, left + pillW, 0);
   labelGrad.addColorStop(0, "rgba(120,200,255,0.26)");
   labelGrad.addColorStop(1, "rgba(90,120,160,0.18)");
   ctx.fillStyle = labelGrad;
-  roundRect(ctx, left - 2, rowY - 22, pillW, pillH, 8);
-  roundRect(ctx, left - 2, rowY + rowH - 22, pillW, pillH, 8);
-  roundRect(ctx, left - 2, rowY + rowH * 2 - 22, pillW, pillH, 8);
+  rows.forEach((_, idx) => {
+    roundRect(ctx, left - 2, rowY + rowH * idx - 22, pillW, pillH, 8);
+  });
 
   ctx.fillStyle = "rgba(160,235,255,0.95)";
   ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("HOVER DISTANCE", left + 8, rowY - 6);
-  ctx.fillText("DIVE COUNT", left + 8, rowY + rowH - 6);
-  ctx.fillText("DISTANCE RAN", left + 8, rowY + rowH * 2 - 6);
+  rows.forEach((row, idx) => {
+    ctx.fillText(row.label, left + 8, rowY + rowH * idx - 6);
+  });
 
   // Right values
   ctx.textAlign = "right";
@@ -918,37 +923,43 @@ export function drawCenterScore(ctx, state, W, H) {
   valueGrad.addColorStop(0, "rgba(12,18,28,0.92)");
   valueGrad.addColorStop(1, "rgba(20,28,42,0.92)");
   ctx.fillStyle = valueGrad;
-  roundRect(ctx, valueX, rowY - 22, valuePillW, valuePillH, 8);
-  roundRect(ctx, valueX, rowY + rowH - 22, valuePillW, valuePillH, 8);
-  roundRect(ctx, valueX, rowY + rowH * 2 - 22, valuePillW, valuePillH, 8);
+  rows.forEach((_, idx) => {
+    roundRect(ctx, valueX, rowY + rowH * idx - 22, valuePillW, valuePillH, 8);
+  });
 
   ctx.strokeStyle = "rgba(120,205,255,0.25)";
   ctx.lineWidth = 1;
-  roundedRectPath(ctx, valueX + 0.5, rowY - 21.5, valuePillW - 1, valuePillH - 1, 8);
-  ctx.stroke();
-  roundedRectPath(ctx, valueX + 0.5, rowY + rowH - 21.5, valuePillW - 1, valuePillH - 1, 8);
-  ctx.stroke();
-  roundedRectPath(ctx, valueX + 0.5, rowY + rowH * 2 - 21.5, valuePillW - 1, valuePillH - 1, 8);
-  ctx.stroke();
+  rows.forEach((_, idx) => {
+    roundedRectPath(
+      ctx,
+      valueX + 0.5,
+      rowY + rowH * idx - 21.5,
+      valuePillW - 1,
+      valuePillH - 1,
+      8
+    );
+    ctx.stroke();
+  });
 
   ctx.fillStyle = "rgba(240,255,255,0.98)";
   ctx.font = "800 13px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText(`${formatNumber(glide)}  x${FLOAT_SCORE_MULT}`, right, rowY - 6);
-  ctx.fillText(`${formatNumber(dives)}  x${DIVE_SCORE_BONUS}`, right, rowY + rowH - 6);
-  ctx.fillText(`${formatNumber(dist)}`, right, rowY + rowH * 2 - 6);
+  rows.forEach((row, idx) => {
+    ctx.fillText(row.value, right, rowY + rowH * idx - 6);
+  });
 
   // Divider
   ctx.textAlign = "center";
   ctx.strokeStyle = "rgba(120,205,255,0.22)";
   ctx.lineWidth = 1;
+  const dividerY = rowY + rowH * rows.length + 6;
   ctx.beginPath();
-  ctx.moveTo(panelX + 20, panelY + 146);
-  ctx.lineTo(panelX + panelW - 20, panelY + 146);
+  ctx.moveTo(panelX + 20, dividerY);
+  ctx.lineTo(panelX + panelW - 20, dividerY);
   ctx.stroke();
 
   // Total score capsule
   const pillX = panelX + 40;
-  const pillY = panelY + 162;
+  const pillY = dividerY + 16;
   const pillW2 = panelW - 80;
   const pillH2 = 54;
   ctx.fillStyle = "rgba(8,12,18,0.8)";

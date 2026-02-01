@@ -57,6 +57,8 @@ export function createInitialState() {
 
     score: 0,
     glideDistance: 0,
+    backflipCount: 0,
+    billboardDashCount: 0,
     diveCount: 0,
     scoreTally: 0,
     scoreTallyT: 0,
@@ -91,6 +93,7 @@ export function createInitialState() {
       h: PLAYER_H,
       vy: 0,
       onGround: true,
+      onBillboard: false,
       jumpsRemaining: 2,
       coyote: COYOTE_TIME_SEC,
       landGrace: 0,
@@ -167,6 +170,8 @@ export function resetRunState(state) {
   state.styleCombo = 0;
   state.score = 0;
   state.glideDistance = 0;
+  state.backflipCount = 0;
+  state.billboardDashCount = 0;
   state.diveCount = 0;
   state.scoreTally = 0;
   state.scoreTallyT = 0;
@@ -196,6 +201,7 @@ export function resetRunState(state) {
   p.y = GROUND_Y - SAFE_CLEARANCE - PLAYER_H;
   p.vy = 0;
   p.onGround = true;
+  p.onBillboard = false;
   p.jumpsRemaining = 2;
   p.coyote = COYOTE_TIME_SEC;
   p.landGrace = 0;

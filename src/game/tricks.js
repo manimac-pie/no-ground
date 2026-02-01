@@ -28,9 +28,8 @@ export function startSpin(state, intent = "neutral") {
   if (i === "backflip") {
     p.trickKind = "flip";
     p.spinDir = -1;
-  } else if (i === "frontflip") {
-    p.trickKind = "flip";
-    p.spinDir = 1;
+    if (!Number.isFinite(state.backflipCount)) state.backflipCount = 0;
+    state.backflipCount += 1;
   } else {
     p.trickKind = "spin";
     p.spinDir = p.spinDir === 1 ? -1 : 1;

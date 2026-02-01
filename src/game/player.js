@@ -75,6 +75,7 @@ export function performJump(state) {
 
   p.vy = JUMP_VELOCITY;
   p.onGround = false;
+  p.onBillboard = false;
   p.coyote = 0;
   p.jumpsRemaining = Math.max(0, p.jumpsRemaining - 1);
   p.jumpImpulseT = JUMP_IMPULSE_FX_SEC;
@@ -228,7 +229,7 @@ export function integratePlayer(state, dt, endGame) {
     for (const plat of state.platforms) {
       if (!plat || plat.collapsing) continue;
       const b = plat.billboard;
-      if (!b || b.resolved) continue;
+      if (!b || b.resolved || b.broken) continue;
 
       const bw = Number.isFinite(b.w) ? b.w : 0;
       const bh = Number.isFinite(b.h) ? b.h : 0;
@@ -240,6 +241,40 @@ export function integratePlayer(state, dt, endGame) {
       const overlapsY = bottom > by && p.y < by + bh;
 
       if (overlapsX && overlapsY) {
+        const fromAbove = prevBottom <= by && bottom >= by && p.vy >= 0;
+        if (fromAbove) {
+          if (p.diving === true && b.reinforced === false) {
+            b.resolved = true;
+            b.breaking = true;
+            b.breakT = 0.28;
+            b.broken = true;
+            b.breakSpawned = false;
+            b.hit = false;
+            if (!Number.isFinite(state.billboardDashCount)) state.billboardDashCount = 0;
+            state.billboardDashCount += 1;
+            billboardHit = true;
+            break;
+          }
+          p.y = by - p.h;
+          p.vy = 0;
+          p.onGround = true;
+          p.onBillboard = true;
+          p.jumpsRemaining = 2;
+          p.coyote = COYOTE_TIME_SEC;
+          p.landGrace = LAND_GRACE_SEC;
+          p.breakGrace = 0;
+          p.breakJumpEligible = false;
+          p.groundPlat = null;
+          if (wasDiving && !state.heavyLandT) {
+            state.heavyLandT = 0.3;
+          }
+          p.diving = false;
+          p.divePhase = "";
+          p.divePhaseT = 0;
+          p.floatFuel = FLOAT_FUEL_MAX;
+          billboardHit = true;
+          break;
+        }
         const leftHalfX = bx + bw * 0.5;
         const hitLeftHalf = px1 < leftHalfX && px2 > bx;
         if (!hitLeftHalf) continue;
@@ -247,6 +282,8 @@ export function integratePlayer(state, dt, endGame) {
         if (b.reinforced === false && isDashing) {
           if (!Number.isFinite(state.score)) state.score = 0;
           state.score += BILLBOARD_DASH_SCORE;
+          if (!Number.isFinite(state.billboardDashCount)) state.billboardDashCount = 0;
+          state.billboardDashCount += 1;
           b.resolved = true;
           b.breaking = true;
           b.breakT = 0.28;
