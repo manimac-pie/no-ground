@@ -157,10 +157,16 @@ export function integratePlayer(state, dt, endGame) {
   if (!Number.isFinite(p.jumpImpulseT)) p.jumpImpulseT = 0;
   if (!Number.isFinite(p.floatFuel)) p.floatFuel = FLOAT_FUEL_MAX;
   if (typeof p.billboardDeath !== "boolean") p.billboardDeath = false;
+  if (!Number.isFinite(p.billboardDeathT)) p.billboardDeathT = 0;
 
   const wasOnGround = p.onGround === true;
   const wasDiving = p.diving === true;
   const deathFall = p.billboardDeath === true;
+  if (deathFall) {
+    p.billboardDeathT += dt;
+  } else if (p.billboardDeathT > 0) {
+    p.billboardDeathT = 0;
+  }
 
   p.groundPlat = null;
   const airborne = !p.onGround;
@@ -241,6 +247,22 @@ export function integratePlayer(state, dt, endGame) {
       const overlapsY = bottom > by && p.y < by + bh;
 
       if (overlapsX && overlapsY) {
+        const isDashing = (p.dashImpulseT || 0) > 0.01;
+        const isDiving = p.diving === true;
+        if (b.reinforced === false && (isDashing || isDiving)) {
+          if (!Number.isFinite(state.score)) state.score = 0;
+          state.score += BILLBOARD_DASH_SCORE;
+          if (!Number.isFinite(state.billboardDashCount)) state.billboardDashCount = 0;
+          state.billboardDashCount += 1;
+          b.resolved = true;
+          b.breaking = true;
+          b.breakT = 0.28;
+          b.broken = true;
+          b.breakSpawned = false;
+          b.hit = false;
+          billboardHit = true;
+          break;
+        }
         const fromAbove = prevBottom <= by && bottom >= by && p.vy >= 0;
         if (fromAbove) {
           if (p.diving === true && b.reinforced === false) {
@@ -278,7 +300,6 @@ export function integratePlayer(state, dt, endGame) {
         const leftHalfX = bx + bw * 0.5;
         const hitLeftHalf = px1 < leftHalfX && px2 > bx;
         if (!hitLeftHalf) continue;
-        const isDashing = (p.dashImpulseT || 0) > 0.01;
         if (b.reinforced === false && isDashing) {
           if (!Number.isFinite(state.score)) state.score = 0;
           state.score += BILLBOARD_DASH_SCORE;
@@ -294,6 +315,7 @@ export function integratePlayer(state, dt, endGame) {
           b.resolved = true;
           b.hit = true;
           p.billboardDeath = true;
+          p.billboardDeathT = 0;
           p.onGround = false;
           p.groundPlat = null;
           p.coyote = 0;
@@ -301,7 +323,7 @@ export function integratePlayer(state, dt, endGame) {
           p.jumpsRemaining = 0;
           p.breakGrace = 0;
           p.breakJumpEligible = false;
-          p.vy = Math.max(p.vy || 0, BILLBOARD_BOUNCE_VY);
+          p.vy = Math.max(p.vy || 0, BILLBOARD_BOUNCE_VY * 0.6);
           p.y = Math.max(p.y, by + bh + 2);
           if (!state.heavyLandT) state.heavyLandT = 0.12;
         }

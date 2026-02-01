@@ -703,13 +703,20 @@ export function render(ctx, state) {
   drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, undefined, dt);
 
   // ---- PLAYER ----
-  const playerOffsetX = deathInfo
+  let playerOffsetX = deathInfo
     ? deathInfo.bobOffsetX
     : (startPush ? startPush.bobOffsetX : 0);
   const playerAlpha = deathInfo ? deathInfo.bobAlpha : 1;
   let playerTilt = deathInfo ? deathInfo.bobTilt : 0;
   let playerLift = deathInfo ? deathInfo.bobLift : 0;
   let playerScale = deathInfo ? deathInfo.bobScale : 1;
+  if (state.player && state.player.billboardDeath === true) {
+    const t = clamp((state.player.billboardDeathT || 0) / 0.35, 0, 1);
+    const ease = 1 - Math.pow(1 - t, 2);
+    playerTilt += -Math.PI / 2 * ease;
+    playerOffsetX += -18 * ease;
+    playerLift += -4 * ease;
+  }
 
   const startLookAround = startPush ? startPush.done === true : false;
   const onStartScreen =

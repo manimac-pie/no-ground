@@ -120,6 +120,7 @@ export function createInitialState() {
       dashImpulseT: 0,
       jumpImpulseT: 0,
       billboardDeath: false,
+      billboardDeathT: 0,
     },
 
     platforms: [],
@@ -226,4 +227,5 @@ export function resetRunState(state) {
   p.dashImpulseT = 0;
   p.jumpImpulseT = 0;
   p.billboardDeath = false;
+  p.billboardDeathT = 0;
 }

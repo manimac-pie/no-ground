@@ -146,6 +146,10 @@ export function createGame() {
     state.uiTime += dt;
     if (state.running || state.menuZooming || state.startDelay > 0) state.animTime += dt;
     updateScoreTally(dt);
+    const billboardDeath = state.player && state.player.billboardDeath === true;
+    if (billboardDeath) {
+      state.speedImpulse = 0;
+    }
 
     if (state.restartSmashActive) {
       state.restartSmashT = (state.restartSmashT || 0) + dt;
@@ -383,7 +387,7 @@ export function createGame() {
     }
 
     // Hold movement briefly after zoom-out while still advancing timers/FX.
-    let movementHeld = state.startDelay > 0;
+    let movementHeld = state.startDelay > 0 || billboardDeath;
     if (movementHeld) {
       state.startDelay = Math.max(0, state.startDelay - dt);
       movementHeld = state.startDelay > 0;
@@ -406,11 +410,15 @@ export function createGame() {
     const desiredSpeed = movementHeld ? 0 : baseSpeed + impulse;
 
     const alpha = 1 - Math.exp(-SPEED_SMOOTH * dt);
-    state.speed = clamp(
-      state.speed + (desiredSpeed - state.speed) * alpha,
-      SPEED_START,
-      SPEED_MAX + impulse
-    );
+    if (billboardDeath) {
+      state.speed = 0;
+    } else {
+      state.speed = clamp(
+        state.speed + (desiredSpeed - state.speed) * alpha,
+        SPEED_START,
+        SPEED_MAX + impulse
+      );
+    }
 
     if (!movementHeld) {
       if (jumpPressed) state.jumpBuffer = JUMP_BUFFER_SEC;

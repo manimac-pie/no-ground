@@ -655,7 +655,7 @@ function spawnBillboardDebrisBurst(plat, billboard, COLORS) {
     : getColor(COLORS, "billboardPanel", "rgba(255,120,110,0.45)");
   const frame = getColor(COLORS, "billboardFrame", "rgba(10,12,16,0.85)");
 
-  const n = 18;
+  const n = 36;
   for (let i = 0; i < n; i++) {
     const u = (i + 1) / (n + 1);
     const px = bx + bw * u + (Math.random() * 6 - 3);
