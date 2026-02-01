@@ -906,29 +906,4 @@ export function drawCenterScore(ctx, state, W, H) {
   ctx.restore();
 }
 
-export function drawLandingPopup(ctx, state, COLORS) {
-  if (!state.lastLandQuality || !(state.lastLandQualityT > 0)) return;
-
-  const t = state.lastLandQualityT; // seconds left
-  const a = clamp(t / 0.55, 0, 1);
-
-  let label = "CLEAN";
-  let color = "rgba(120,205,255,0.92)";
-  if (state.lastLandQuality === "perfect") {
-    label = "PERFECT";
-    color = "rgba(255,230,160,0.92)";
-  }
-
-  ctx.save();
-  ctx.globalAlpha = 0.25 + 0.75 * a;
-  ctx.fillStyle = "rgba(0,0,0,0.40)";
-  roundRect(ctx, 320, 70, 160, 44, 14);
-
-  ctx.fillStyle = color;
-  ctx.font = "900 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  centerText(ctx, label, 400, 98);
-
-  ctx.restore();
-}
-
 // drawMenus moved to src/render/menu.js

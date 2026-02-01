@@ -20,6 +20,7 @@ import {
   FALL_GRAVITY_MULT,
   JUMP_VELOCITY,
   SPEED_START,
+  BREAK_JUMP_GRACE_SEC,
 } from "./constants.js";
 import { clamp, randRange, pick } from "./utils.js";
 
@@ -531,6 +532,8 @@ export function updatePlatforms(state, dt) {
           p.onGround = false;
           p.groundPlat = null;
           p.coyote = Math.max(p.coyote ?? 0, 0.08);
+          p.breakGrace = Math.max(p.breakGrace ?? 0, BREAK_JUMP_GRACE_SEC);
+          p.breakJumpEligible = true;
         }
       }
     }
@@ -590,6 +593,8 @@ export function updatePlatforms(state, dt) {
         p.onGround = false;
         p.groundPlat = null;
         p.coyote = Math.max(p.coyote, 0.06);
+        p.breakGrace = Math.max(p.breakGrace ?? 0, BREAK_JUMP_GRACE_SEC);
+        p.breakJumpEligible = true;
       }
     }
   }

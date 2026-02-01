@@ -25,7 +25,6 @@ import {
 import { drawPlayerShadow, drawPlayer } from "./player.js";
 import {
   drawHUD,
-  drawLandingPopup,
   drawRestartFlyby,
   drawCenterScore,
   drawControlsButton,
@@ -846,11 +845,6 @@ export function render(ctx, state) {
       });
       ctx.restore();
     }
-  }
-
-  if (!deathActive && !state.restartFlybyActive) {
-    resetCtx(ctx);
-    drawLandingPopup(ctx, state, COLORS);
   }
 
   if (state.restartFlybyActive) {

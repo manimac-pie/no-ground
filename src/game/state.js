@@ -86,6 +86,8 @@ export function createInitialState() {
       jumpsRemaining: 2,
       coyote: COYOTE_TIME_SEC,
       landGrace: 0,
+      breakGrace: 0,
+      breakJumpEligible: false,
       groundPlat: null,
 
       spinning: false,
@@ -110,8 +112,6 @@ export function createInitialState() {
 
     platforms: [],
 
-    lastLandQuality: null,
-    lastLandQualityT: 0,
     heavyLandT: 0,
   };
 }
@@ -172,8 +172,6 @@ export function resetRunState(state) {
   state.pointerInViewport = false;
   state.controlsPanelOpen = false;
 
-  state.lastLandQuality = null;
-  state.lastLandQualityT = 0;
   state.heavyLandT = 0;
 
   const p = state.player;
@@ -184,6 +182,8 @@ export function resetRunState(state) {
   p.jumpsRemaining = 2;
   p.coyote = COYOTE_TIME_SEC;
   p.landGrace = 0;
+  p.breakGrace = 0;
+  p.breakJumpEligible = false;
   p.groundPlat = null;
 
   p.spinning = false;

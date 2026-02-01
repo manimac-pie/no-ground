@@ -245,8 +245,8 @@ export function createGame() {
     state.jumpBuffer = Math.max(0, state.jumpBuffer - dt);
     state.player.coyote = Math.max(0, state.player.coyote - dt);
     state.player.landGrace = Math.max(0, state.player.landGrace - dt);
-    state.lastLandQualityT = Math.max(0, state.lastLandQualityT - dt);
-    if (state.lastLandQualityT === 0) state.lastLandQuality = null;
+    state.player.breakGrace = Math.max(0, state.player.breakGrace - dt);
+    if (state.player.breakGrace === 0) state.player.breakJumpEligible = false;
 
     const jumpPress = input?.consumeJumpPress?.() || { pressed: false, source: null };
     let jumpPressed = jumpPress.pressed === true;

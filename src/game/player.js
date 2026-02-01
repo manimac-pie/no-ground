@@ -39,6 +39,7 @@ const COYOTE_TIME_SEC = getConst("COYOTE_TIME_SEC", 0.13);
 const LAND_GRACE_SEC = getConst("LAND_GRACE_SEC", 0.06);
 const JUMP_BUFFER_SEC = getConst("JUMP_BUFFER_SEC", 0.13);
 const JUMP_VELOCITY = getConst("JUMP_VELOCITY", -630);
+const BREAK_JIT_SCORE_BONUS = getConst("BREAK_JIT_SCORE_BONUS", 0);
 
 // ---------------- helpers ----------------
 function smoothstep01(t) {
@@ -51,7 +52,10 @@ function canJumpNow(state) {
   if (!p || p.jumpsRemaining <= 0) return false;
 
   if (p.jumpsRemaining === 2) {
-    return p.onGround || (p.coyote ?? 0) > 0 || (p.landGrace ?? 0) > 0;
+    return p.onGround
+      || (p.coyote ?? 0) > 0
+      || (p.landGrace ?? 0) > 0
+      || (p.breakGrace ?? 0) > 0;
   }
   return true;
 }
@@ -70,6 +74,13 @@ export function performJump(state) {
   p.coyote = 0;
   p.jumpsRemaining = Math.max(0, p.jumpsRemaining - 1);
   p.jumpImpulseT = JUMP_IMPULSE_FX_SEC;
+
+  if ((p.breakGrace ?? 0) > 0 && p.breakJumpEligible === true) {
+    if (!Number.isFinite(state.score)) state.score = 0;
+    state.score += BREAK_JIT_SCORE_BONUS;
+    p.breakGrace = 0;
+    p.breakJumpEligible = false;
+  }
 }
 
 export function tryConsumeBufferedJump(state) {
@@ -128,6 +139,8 @@ export function integratePlayer(state, dt, endGame) {
   if (!Number.isFinite(p.x)) p.x = PLAYER_X;
   if (!Number.isFinite(p.coyote)) p.coyote = 0;
   if (!Number.isFinite(p.landGrace)) p.landGrace = 0;
+  if (!Number.isFinite(p.breakGrace)) p.breakGrace = 0;
+  if (typeof p.breakJumpEligible !== "boolean") p.breakJumpEligible = false;
   if (!Number.isFinite(state.jumpCut)) state.jumpCut = 0;
   if (!Number.isFinite(p.dashCooldown)) p.dashCooldown = 0;
   if (!Number.isFinite(p.jumpImpulseT)) p.jumpImpulseT = 0;
@@ -213,6 +226,8 @@ export function integratePlayer(state, dt, endGame) {
         p.coyote = COYOTE_TIME_SEC;
         p.landGrace = LAND_GRACE_SEC;
         p.groundPlat = plat;
+        p.breakGrace = 0;
+        p.breakJumpEligible = false;
 
         if (wasDiving && !state.heavyLandT) {
           state.heavyLandT = 0.3;

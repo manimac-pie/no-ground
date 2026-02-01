@@ -85,12 +85,6 @@ export const SPIN_COOLDOWN = 0.08;
 export const STYLE_BASE = 25;
 export const STYLE_COMBO_BONUS = 10;
 
-// Landing quality
-export const CLEAN_MIN_PROG = 0.82;
-export const PERFECT_MIN_PROG = 0.93;
-export const STYLE_CLEAN_BONUS = 20;
-export const STYLE_PERFECT_BONUS = 45;
-
 // Player
 export const PLAYER_W = 34;
 export const PLAYER_H = 34;
@@ -118,10 +112,12 @@ export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
 export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash streaks
 export const FLOAT_SCORE_MULT = 1.2;     // score multiplier while floating (blue halo)
 export const DIVE_SCORE_BONUS = 121;     // score bonus per dive
+export const BREAK_JIT_SCORE_BONUS = 30; // Just-in-time bonus after break jump
 
 // Input grace
-export const COYOTE_TIME_SEC = 0.13;
+export const COYOTE_TIME_SEC = 0.6;
 export const JUMP_BUFFER_SEC = 0.13;
+export const BREAK_JUMP_GRACE_SEC = 0.85;
 
 // Death cinematic (game over) timing
 export const DEATH_CINEMATIC = {
