@@ -23,6 +23,12 @@ export function createInitialState() {
     menuSmashActive: false,
     menuSmashArmed: false,
     menuSmashBroken: false,
+    menuSmashRed: false,
+    restartSmashActive: false,
+    restartSmashBroken: false,
+    restartSmashRed: false,
+    restartSmashT: 0,
+    restartHover: false,
 
     deathCinematicActive: false,
     deathCinematicDone: false,
@@ -126,6 +132,12 @@ export function resetRunState(state) {
   state.menuSmashActive = false;
   state.menuSmashArmed = false;
   state.menuSmashBroken = false;
+  state.menuSmashRed = false;
+  state.restartSmashActive = false;
+  state.restartSmashBroken = false;
+  state.restartSmashRed = false;
+  state.restartSmashT = 0;
+  state.restartHover = false;
 
   state.deathCinematicActive = false;
   state.deathCinematicDone = false;

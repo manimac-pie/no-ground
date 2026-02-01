@@ -785,13 +785,15 @@ export function render(ctx, state) {
   // Start prompt stays in-world (moves with camera/zoom, fixed world size).
   resetCtx(ctx);
   drawStartPrompt(ctx, state, uiTime, COLORS, W, H, {
-    onSmashTrigger: () => {
+    onSmashTrigger: (hovered) => {
       if (!state.menuSmashActive) {
         state.menuSmashActive = true;
         state.menuSmashBroken = true;
         state.menuSmashT = 0;
+        state.menuSmashRed = hovered === true;
       }
     },
+    pointer: pointerWorld,
   });
 
   const restartCenterX = focusX + (W / 2 - focusX) / Math.max(0.001, zoom);
@@ -839,12 +841,17 @@ export function render(ctx, state) {
       ctx.translate(focusX, focusY);
       ctx.scale(zoom, zoom);
       ctx.translate(-focusX, -focusY);
-      drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, {
+      const restartHover = drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, {
         centerX: restartCenterX,
         pointer: pointerWorld,
       });
+      state.restartHover = restartHover === true;
       ctx.restore();
+    } else {
+      state.restartHover = false;
     }
+  } else {
+    state.restartHover = false;
   }
 
   if (state.restartFlybyActive) {

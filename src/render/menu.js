@@ -114,25 +114,56 @@ function drawKeyChip(ctx, label, caption, x, y, COLORS, opts = {}) {
   const lw = ctx.measureText(label).width;
   const w = Math.max(64, lw + padX * 2);
   const h = 40;
+  const r = 12;
 
-  // Chip body
-  ctx.fillStyle = active ? "rgba(120,205,255,0.24)" : "rgba(255,255,255,0.12)";
-  roundRect(ctx, x, y, w, h, 12);
+  // Outer glow + frame
+  const glow = active ? "rgba(120,205,255,0.55)" : "rgba(120,205,255,0.22)";
+  ctx.shadowColor = glow;
+  ctx.shadowBlur = active ? 16 : 10;
+  ctx.fillStyle = "rgba(8,10,16,0.85)";
+  roundRect(ctx, x, y, w, h, r);
+  ctx.shadowBlur = 0;
+
+  // Body gradient
+  const body = ctx.createLinearGradient(x, y, x, y + h);
+  body.addColorStop(0, "rgba(24,28,40,0.95)");
+  body.addColorStop(1, "rgba(10,12,20,0.92)");
+  ctx.fillStyle = body;
+  roundRect(ctx, x + 1, y + 1, w - 2, h - 2, r - 1);
 
   // Stroke
-  ctx.strokeStyle = active ? "rgba(120,205,255,0.8)" : "rgba(255,255,255,0.28)";
-  ctx.lineWidth = active ? 2 : 1;
-  roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 12);
+  ctx.strokeStyle = active ? "rgba(120,205,255,0.9)" : "rgba(120,205,255,0.35)";
+  ctx.lineWidth = active ? 2 : 1.25;
+  roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, r);
   ctx.stroke();
 
+  // Inner line
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, x + 2.5, y + 2.5, w - 5, h - 5, r - 2);
+  ctx.stroke();
+
+  // Top scanline
+  const scan = ctx.createLinearGradient(x, y, x + w, y);
+  scan.addColorStop(0, "rgba(120,205,255,0)");
+  scan.addColorStop(0.35, "rgba(120,205,255,0.12)");
+  scan.addColorStop(0.65, "rgba(120,205,255,0.12)");
+  scan.addColorStop(1, "rgba(120,205,255,0)");
+  ctx.fillStyle = scan;
+  ctx.fillRect(x + 6, y + 6, w - 12, 2);
+
+  // Left notch
+  ctx.fillStyle = active ? "rgba(120,205,255,0.35)" : "rgba(120,205,255,0.18)";
+  ctx.fillRect(x + 6, y + 8, 3, h - 16);
+
   // Label
-  ctx.fillStyle = COLORS.hudText;
+  ctx.fillStyle = "rgba(240,255,255,0.98)";
   ctx.font = "800 15px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   centerText(ctx, label, x + w / 2, y + 23);
 
   if (caption) {
     ctx.font = "600 11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.fillStyle = "rgba(242,242,242,0.78)";
+    ctx.fillStyle = "rgba(170,210,230,0.9)";
     centerText(ctx, caption, x + w / 2, y + 37);
   }
 
@@ -142,11 +173,11 @@ function drawKeyChip(ctx, label, caption, x, y, COLORS, opts = {}) {
 
 function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
   const controls = [
-    { label: "SPACE", caption: "Jump / Start" },
+    { label: "SPACE", caption: "Jump / Double Jump" },
     { label: "W", caption: "Float" },
     { label: "D", caption: "Dash" },
     { label: "S", caption: "Dive" },
-    { label: "A", caption: "Flip" },
+    { label: "A", caption: "Backflip" },
   ];
 
   // Measure total width
@@ -185,11 +216,11 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   const pulse = 1;
 
   // Text as physical tiles near Bob; crumbles when smashed.
-  const lines = ["PRESS", "SPACEBAR"];
+  const lines = ["START"];
   const margin = 12;
 
   const tileSize = 2; // finer tiles for cleaner letter shapes
-  let headingSize = 28; // slightly larger but crisper with smaller tiles
+  let headingSize = 32; // slightly larger but crisper with smaller tiles
   let font = `800 ${headingSize}px "Inter Tight", "Inter", "Segoe UI", "Helvetica Neue", system-ui, sans-serif`;
 
   const letterSpacing = 2; // more spacing to prevent merged glyphs
@@ -215,6 +246,14 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   // Compute overall bounds and draw line by line.
   let accY = 0;
   const maxWidth = Math.max(...caches.map((c) => c.width));
+  const pointer = opts.pointer || null;
+  const hover =
+    pointer &&
+    pointer.x >= baseX &&
+    pointer.x <= baseX + maxWidth &&
+    pointer.y >= baseY &&
+    pointer.y <= baseY + totalHeight;
+  const useRed = hover || (smashActive && state.menuSmashRed === true);
   caches.forEach((c, idx) => {
     const lineY = baseY + accY;
     c.tiles.forEach((t, i) => {
@@ -239,9 +278,13 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
       const glow = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin((uiTime || 0) * 1.2));
 
       ctx.save();
-      ctx.shadowColor = `rgba(120,205,255,${0.65 * glow})`;
+      ctx.shadowColor = useRed
+        ? `rgba(255,120,120,${0.75 * glow})`
+        : `rgba(120,205,255,${0.65 * glow})`;
       ctx.shadowBlur = 10 + 12 * glow;
-      ctx.fillStyle = `rgba(140,220,255,${alpha})`;
+      ctx.fillStyle = useRed
+        ? `rgba(255,90,90,${alpha})`
+        : `rgba(140,220,255,${alpha})`;
       ctx.fillRect(px, py, t.w, t.h);
       ctx.restore();
 
@@ -249,7 +292,9 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
       ctx.fillRect(px, py + t.h - 1, t.w, 1);
 
       // Hot core line to sell neon tubing.
-      ctx.fillStyle = `rgba(230,250,255,${0.7 * alpha})`;
+      ctx.fillStyle = useRed
+        ? `rgba(255,190,190,${0.7 * alpha})`
+        : `rgba(230,250,255,${0.7 * alpha})`;
       ctx.fillRect(px, py, t.w, 1);
     });
     accY += c.height + lineGap;
@@ -267,7 +312,7 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
       px + pw > baseX &&
       py < baseY + totalHeight &&
       py + ph > baseY;
-    if (hit) onSmashTrigger();
+    if (hit) onSmashTrigger(hover);
   }
 
   ctx.restore();
@@ -282,11 +327,18 @@ export function drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
 
   ctx.save();
 
+  const smashActive = state.restartSmashActive === true;
+  const smashT = smashActive ? Math.max(0, state.restartSmashT || 0) : 0;
+  if (state.restartSmashBroken && !smashActive) {
+    ctx.restore();
+    return false;
+  }
+
   const tileSize = 2;
   const headingSize = 34;
   const font = `800 ${headingSize}px "Inter Tight", "Inter", "Segoe UI", "Helvetica Neue", system-ui, sans-serif`;
   const letterSpacing = 2;
-  const cache = getTextTiles("RESTART", font, tileSize, letterSpacing);
+  const cache = getTextTiles("RESET", font, tileSize, letterSpacing);
 
   const centerX = Number.isFinite(opts.centerX) ? opts.centerX : w * 0.5;
   const baseX = centerX - cache.width / 2;
@@ -307,17 +359,34 @@ export function drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
     pointer.y >= baseY &&
     pointer.y <= baseY + totalHeight
   );
-  const fillMain = isHover ? "rgba(255,68,68,0.96)" : "rgba(230,234,240,0.94)";
+  const useRed = isHover || (smashActive && state.restartSmashRed === true);
+  const fillMain = useRed ? "rgba(255,68,68,0.96)" : "rgba(230,234,240,0.94)";
 
-  cache.tiles.forEach((t) => {
-    const px = baseX + t.x;
-    const py = baseY + t.y;
+  const gravity = 720;
+  const smashDuration = 1.4;
+
+  cache.tiles.forEach((t, i) => {
+    const h1 = hash01(i * 13.7);
+    const h2 = hash01(i * 97.3);
+    let px = baseX + t.x;
+    let py = baseY + t.y;
+    let fade = 1;
+    if (smashActive) {
+      const tSec = Math.min(smashDuration, smashT);
+      const vx = 80 + 220 * h1;
+      const vy = -(90 + 160 * h2);
+      px += vx * tSec;
+      py += vy * tSec + 0.5 * gravity * tSec * tSec;
+      fade = Math.max(0, 1 - tSec / smashDuration);
+    }
     ctx.fillStyle = fillMain;
     ctx.fillRect(px, py, t.w, t.h);
-    ctx.fillStyle = "rgba(20,22,28,0.45)";
+    ctx.fillStyle = useRed
+      ? `rgba(90,20,24,${0.45 * fade})`
+      : `rgba(20,22,28,${0.45 * fade})`;
     ctx.fillRect(px, py + t.h - 1, t.w, 1);
   });
 
   ctx.restore();
-  return true;
+  return isHover;
 }

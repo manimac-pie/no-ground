@@ -48,25 +48,56 @@ function drawKeyChip(ctx, label, caption, x, y, COLORS, opts = {}) {
   const lw = ctx.measureText(label).width;
   const w = Math.max(64, lw + padX * 2);
   const h = 40;
+  const r = 12;
 
-  // Chip body
-  ctx.fillStyle = active ? "rgba(120,205,255,0.24)" : "rgba(255,255,255,0.12)";
-  roundRect(ctx, x, y, w, h, 12);
+  // Outer glow + frame
+  const glow = active ? "rgba(120,205,255,0.55)" : "rgba(120,205,255,0.22)";
+  ctx.shadowColor = glow;
+  ctx.shadowBlur = active ? 16 : 10;
+  ctx.fillStyle = "rgba(8,10,16,0.85)";
+  roundRect(ctx, x, y, w, h, r);
+  ctx.shadowBlur = 0;
+
+  // Body gradient
+  const body = ctx.createLinearGradient(x, y, x, y + h);
+  body.addColorStop(0, "rgba(24,28,40,0.95)");
+  body.addColorStop(1, "rgba(10,12,20,0.92)");
+  ctx.fillStyle = body;
+  roundRect(ctx, x + 1, y + 1, w - 2, h - 2, r - 1);
 
   // Stroke
-  ctx.strokeStyle = active ? "rgba(120,205,255,0.8)" : "rgba(255,255,255,0.28)";
-  ctx.lineWidth = active ? 2 : 1;
-  roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 12);
+  ctx.strokeStyle = active ? "rgba(120,205,255,0.9)" : "rgba(120,205,255,0.35)";
+  ctx.lineWidth = active ? 2 : 1.25;
+  roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, r);
   ctx.stroke();
 
+  // Inner line
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, x + 2.5, y + 2.5, w - 5, h - 5, r - 2);
+  ctx.stroke();
+
+  // Top scanline
+  const scan = ctx.createLinearGradient(x, y, x + w, y);
+  scan.addColorStop(0, "rgba(120,205,255,0)");
+  scan.addColorStop(0.35, "rgba(120,205,255,0.12)");
+  scan.addColorStop(0.65, "rgba(120,205,255,0.12)");
+  scan.addColorStop(1, "rgba(120,205,255,0)");
+  ctx.fillStyle = scan;
+  ctx.fillRect(x + 6, y + 6, w - 12, 2);
+
+  // Left notch
+  ctx.fillStyle = active ? "rgba(120,205,255,0.35)" : "rgba(120,205,255,0.18)";
+  ctx.fillRect(x + 6, y + 8, 3, h - 16);
+
   // Label
-  ctx.fillStyle = COLORS.hudText;
+  ctx.fillStyle = "rgba(240,255,255,0.98)";
   ctx.font = "800 15px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   centerText(ctx, label, x + w / 2, y + 23);
 
   if (caption) {
     ctx.font = "600 11px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-    ctx.fillStyle = "rgba(242,242,242,0.78)";
+    ctx.fillStyle = "rgba(170,210,230,0.9)";
     centerText(ctx, caption, x + w / 2, y + 37);
   }
 
@@ -172,11 +203,11 @@ function formatNumber(n) {
 
 function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
   const controls = [
-    { label: "SPACE", caption: "Jump / Start" },
+    { label: "SPACE", caption: "Jump / Double Jump" },
     { label: "W", caption: "Float" },
     { label: "D", caption: "Dash" },
     { label: "S", caption: "Dive" },
-    { label: "A", caption: "Flip" },
+    { label: "A", caption: "Backflip" },
   ];
 
   // Measure total width
@@ -374,33 +405,49 @@ export function drawControlsPanel(ctx, rect, COLORS) {
   const topPad = 48;
   const warnH = 16;
   const warnGap = 10;
-  const available = h - topPad - warnH - warnGap - 12;
-  const rowGap = Math.max(44, Math.min(52, Math.floor(available / 3)));
+  const infoH = 16;
+  const infoGap = 8;
+  const available = h - topPad - warnH - infoH - warnGap - infoGap - 12;
+  const rowGap = Math.max(44, Math.min(56, Math.floor(available / 2)));
   let rowY = y + topPad;
 
   ctx.save();
   ctx.font = "800 16px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   const spaceW = Math.max(64, ctx.measureText("SPACE / LMB").width + 28);
   const wW = Math.max(64, ctx.measureText("W").width + 28);
+  const aW = Math.max(64, ctx.measureText("A").width + 28);
   const sW = Math.max(64, ctx.measureText("S").width + 28);
   const dW = Math.max(64, ctx.measureText("D").width + 28);
   ctx.restore();
 
   const spaceX = x + (w - spaceW) / 2;
-  drawKeyChip(ctx, "SPACE / LMB", "Jump / Start", spaceX, rowY, COLORS);
+  drawKeyChip(ctx, "SPACE / LMB", "Jump / Double Jump", spaceX, rowY, COLORS);
 
   rowY += rowGap;
   const gap = 12;
-  const rowWidth = wW + sW + dW + gap * 2;
+  const rowWidth = wW + aW + sW + dW + gap * 3;
   let rowX = x + (w - rowWidth) / 2;
   drawKeyChip(ctx, "W", "Float", rowX, rowY, COLORS);
   rowX += wW + gap;
+  drawKeyChip(ctx, "A", "Backflip", rowX, rowY, COLORS);
+  rowX += aW + gap;
   drawKeyChip(ctx, "S", "Dive", rowX, rowY, COLORS);
   rowX += sW + gap;
   drawKeyChip(ctx, "D", "Dash", rowX, rowY, COLORS);
 
   // Warning capsule
   const warnY = y + h - warnH - 10;
+  const infoY = warnY - infoGap - infoH;
+  ctx.fillStyle = "rgba(10,14,20,0.85)";
+  roundRect(ctx, x + 16, infoY, w - 32, infoH, 6);
+  ctx.strokeStyle = "rgba(120,205,255,0.65)";
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, x + 16, infoY, w - 32, infoH, 6);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(180,235,255,0.95)";
+  ctx.font = "700 9px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText("JUMP BOOST: HOLD W + JUMP + DASH.", x + 22, infoY + 11);
+
   ctx.fillStyle = "rgba(10,14,20,0.85)";
   roundRect(ctx, x + 16, warnY, w - 32, warnH, 6);
   ctx.strokeStyle = "rgba(255,160,120,0.65)";

@@ -35,6 +35,7 @@ const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
 const SMASH_APPROACH = 0.90;    // delay before smash to let Bob reach the text
 const SMASH_VISIBLE = 1.4;      // how long shards stay visible after impact
+const RESTART_SMASH_LEAD = 0.28; // delay before restart flyby after reset breaks
 const HUD_SLIDE_SEC = 0.55;
 
 export function createGame() {
@@ -128,6 +129,11 @@ export function createGame() {
       state.deathCinematicT = 0;
       state.deathRestartT = 0;
       state.startReady = false;
+      state.restartSmashActive = false;
+      state.restartSmashBroken = false;
+      state.restartSmashRed = false;
+      state.restartSmashT = 0;
+      state.restartHover = false;
     }
 
     state.running = false;
@@ -139,6 +145,19 @@ export function createGame() {
     state.uiTime += dt;
     if (state.running || state.menuZooming || state.startDelay > 0) state.animTime += dt;
     updateScoreTally(dt);
+
+    if (state.restartSmashActive) {
+      state.restartSmashT = (state.restartSmashT || 0) + dt;
+      if (!state.restartFlybyActive && state.restartSmashT >= RESTART_SMASH_LEAD) {
+        state.restartFlybyActive = true;
+        state.restartFlybyT = 0;
+        state.restartFlybyResetDone = false;
+      }
+      if (state.restartSmashT >= SMASH_VISIBLE) {
+        state.restartSmashActive = false;
+        state.restartSmashT = 0;
+      }
+    }
 
     if (state.restartFlybyActive) {
       state.restartFlybyT = (state.restartFlybyT || 0) + dt;
@@ -307,9 +326,10 @@ export function createGame() {
       // Start/restart flow: Spacebar or click/tap triggers zoom-out.
       if (jumpPressed && !state.menuZooming && state.startDelay <= 0) {
         if (state.gameOver) {
-          state.restartFlybyActive = true;
-          state.restartFlybyT = 0;
-          state.restartFlybyResetDone = false;
+          state.restartSmashActive = true;
+          state.restartSmashBroken = true;
+          state.restartSmashRed = state.restartHover === true;
+          state.restartSmashT = 0;
           return state;
         }
         state.menuZooming = true;
@@ -318,6 +338,7 @@ export function createGame() {
         state.menuSmashActive = false;
         state.menuSmashArmed = false; // collision will trigger smash
         state.menuSmashBroken = false;
+        state.menuSmashRed = false;
 
         // Let Bob move immediately during the zoom-out.
         state.running = true;
