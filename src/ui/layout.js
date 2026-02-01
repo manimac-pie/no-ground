@@ -6,13 +6,11 @@ function clamp(v, lo, hi) {
 }
 
 export function getControlsButtonRect(W = 800, H = 450) {
-  const hudY = 12;
-  const hudH = 74;
-  const gap = 8;
   const btnW = 176;
   const btnH = 30;
-  const x = clamp(W - btnW - 14, 8, Math.max(8, W - btnW - 8));
-  const y = clamp(hudY + gap, 8, Math.max(8, H - btnH - 8));
+  const margin = 12;
+  const x = clamp(W - btnW - margin, margin, Math.max(margin, W - btnW - margin));
+  const y = clamp(H - btnH - margin, margin, Math.max(margin, H - btnH - margin));
   return { x, y, w: btnW, h: btnH };
 }
 
@@ -20,8 +18,16 @@ export function getControlsPanelRect(W = 800, H = 450) {
   const btn = getControlsButtonRect(W, H);
   const panelW = Math.min(360, Math.max(300, W * 0.42));
   const panelH = 222;
-  const x = clamp(btn.x, 8, Math.max(8, W - panelW - 8));
-  const y = clamp(btn.y + btn.h + 10, 8, Math.max(8, H - panelH - 8));
+  const x = clamp(
+    btn.x + btn.w - panelW,
+    8,
+    Math.max(8, W - panelW - 8)
+  );
+  const y = clamp(
+    btn.y - panelH - 10,
+    8,
+    Math.max(8, H - panelH - 8)
+  );
   return { x, y, w: panelW, h: panelH };
 }
 
