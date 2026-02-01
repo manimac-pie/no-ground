@@ -138,10 +138,10 @@ export function spawnNextPlatform(state) {
   // This is distinct from roof stress collapse (standing too long).
   const breakChance = (breakable && motionKind === "crumble") ? (0.16 + 0.22 * d) : 0;
   const prevBreakArmed = !!(prev && prev.breakArmed);
-  const breakArmed = breakable && !prevBreakArmed && Math.random() < breakChance;
+  let breakArmed = breakable && !prevBreakArmed && Math.random() < breakChance;
 
   // How quickly the break triggers once the platform starts crumbling (seconds-ish)
-  const breakDelay = breakArmed ? (0.22 + 0.32 * Math.random()) : 0;
+  let breakDelay = breakArmed ? (0.22 + 0.32 * Math.random()) : 0;
 
   // Amplitude in px
   const amp = hasMotion ? (18 + 44 * (0.35 + 0.65 * d) * Math.random()) : 0;
@@ -152,7 +152,7 @@ export function spawnNextPlatform(state) {
   // For fairness, platforms never go too close to lethal ground.
   const yMin = 160;
   const yMax = GROUND_Y - 40;
-  const lowSpawnBreakY = GROUND_Y - 50;
+  let lowSpawnBreakY = GROUND_Y - 50;
 
   // Motion path:
   // - "rise": start lower (closer to ground), move up to the resting baseY
@@ -201,6 +201,13 @@ export function spawnNextPlatform(state) {
       breakT: 0,
       breakSpawned: false,
     };
+
+    if (breakable) {
+      // Billboards shouldn't auto-trigger roof breaking; only stress from standing should.
+      breakArmed = false;
+      breakDelay = 0;
+      lowSpawnBreakY = Number.POSITIVE_INFINITY;
+    }
   }
 
   state.platforms.push({
@@ -401,11 +408,13 @@ export function updatePlatforms(state, dt) {
     const px = p ? p.x : 0;
     const ahead = plat.x - px;
     const inWindow = ahead > 40 && ahead < 520;
+    const billboardedBreakable = !!(plat.billboard && plat.breakable);
     const lowSpawnBreakY = GROUND_Y - 50;
 
     // If a platform spawns too low (danger zone), break it once it comes into view.
     if (
       plat.breakable &&
+      !billboardedBreakable &&
       plat.lowSpawnBreak &&
       inWindow &&
       !plat.breaking &&
@@ -500,6 +509,7 @@ export function updatePlatforms(state, dt) {
           plat.motion === "crumble" &&
           plat.motionStarted &&
           plat.breakable &&
+          !billboardedBreakable &&
           !plat.breaking &&
           !plat.collapsing &&
           !prevJustBroke &&
@@ -524,6 +534,7 @@ export function updatePlatforms(state, dt) {
           plat.motion === "crumble" &&
           plat.motionStarted &&
           plat.breakable &&
+          !billboardedBreakable &&
           !plat.breakTriggered &&
           !prevJustBroke &&
           plat.breakArmed

@@ -303,6 +303,7 @@ export function integratePlayer(state, dt, endGame) {
           p.breakJumpEligible = false;
           p.vy = Math.max(p.vy || 0, BILLBOARD_BOUNCE_VY);
           p.y = Math.max(p.y, by + bh + 2);
+          if (!state.heavyLandT) state.heavyLandT = 0.12;
         }
         billboardHit = true;
         break;

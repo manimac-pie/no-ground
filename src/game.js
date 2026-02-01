@@ -36,7 +36,7 @@ const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
 const SMASH_APPROACH = 0.90;    // delay before smash to let Bob reach the text
 const SMASH_VISIBLE = 1.4;      // how long shards stay visible after impact
-const RESTART_SMASH_LEAD = 0.28; // delay before restart flyby after reset breaks
+const RESTART_SMASH_LEAD = 0; // no delay before restart flyby after reset breaks
 const HUD_SLIDE_SEC = 0.55;
 
 export function createGame() {

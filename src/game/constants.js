@@ -113,6 +113,7 @@ export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash strea
 export const FLOAT_SCORE_MULT = 1.2;     // score multiplier while floating (blue halo)
 export const DIVE_SCORE_BONUS = 40;     // score bonus per dive
 export const BREAK_JIT_SCORE_BONUS = 30; // Just-in-time bonus after break jump
+export const BILLBOARD_BOUNCE_VY = 900; // downward kick when bouncing off a billboard
 
 // Input grace
 export const COYOTE_TIME_SEC = 0.5;
