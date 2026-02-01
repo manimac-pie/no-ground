@@ -428,7 +428,7 @@ export function drawControlsPanel(ctx, rect, COLORS) {
   const gap = 12;
   const rowWidth = wW + aW + sW + dW + gap * 3;
   let rowX = x + (w - rowWidth) / 2;
-  drawKeyChip(ctx, "W", "Float", rowX, rowY, COLORS);
+  drawKeyChip(ctx, "W", "Drift", rowX, rowY, COLORS);
   rowX += wW + gap;
   drawKeyChip(ctx, "A", "Backflip", rowX, rowY, COLORS);
   rowX += aW + gap;
