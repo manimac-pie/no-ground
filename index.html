@@ -12,6 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap"
     />
     <title>No Ground</title>
+
     <style>
       html, body {
         margin: 0;
@@ -83,6 +84,12 @@
       }
 
       /* Optional: used later for a rotate-to-landscape prompt */
+      #game-shell {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+
       #overlay {
         position: fixed;
         inset: 0;
@@ -95,11 +102,132 @@
         font: 600 18px/1.3 Orbitron, Share Tech Mono, system-ui, -apple-system, Segoe UI, Arial, sans-serif;
         background: rgba(0, 0, 0, 0.65);
       }
+      #leaderboard-prompt {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(4, 8, 16, 0.85);
+        backdrop-filter: blur(16px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.35s ease;
+        z-index: 1200;
+      }
+      #leaderboard-prompt.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #leaderboard-prompt .prompt-panel {
+        width: min(420px, 90vw);
+        background: rgba(8, 12, 20, 0.98);
+        border: 1px solid rgba(120, 205, 255, 0.65);
+        border-radius: 20px;
+        padding: 32px 36px;
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.75),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        text-align: center;
+        color: #cfe4ff;
+        font-family: "Share Tech Mono", "Orbitron", system-ui, sans-serif;
+      }
+      #leaderboard-prompt .prompt-title {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #8df3ff;
+      }
+      #leaderboard-prompt .prompt-copy {
+        margin: 0;
+        font-size: 12px;
+        color: rgba(206, 228, 255, 0.8);
+      }
+      #leaderboard-prompt input {
+        width: 100%;
+        padding: 14px 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(120, 205, 255, 0.5);
+        background: rgba(6, 10, 18, 0.85);
+        color: #f6fbff;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-align: center;
+      }
+      #leaderboard-prompt input:focus {
+        outline: none;
+        border-color: rgba(120, 205, 255, 0.9);
+        box-shadow: 0 0 18px rgba(120, 205, 255, 0.7);
+      }
+      #leaderboard-prompt .leaderboard-prompt-error {
+        min-height: 18px;
+        font-size: 12px;
+        color: #ff9b9b;
+      }
+      #leaderboard-prompt .prompt-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
+      #leaderboard-prompt button {
+        flex: 1;
+        padding: 12px 0;
+        border-radius: 18px;
+        border: 1px solid transparent;
+        font: 700 13px "Orbitron", "Share Tech Mono", sans-serif;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      }
+      #leaderboard-prompt button[data-action="submit"] {
+        background: linear-gradient(120deg, rgba(139, 242, 255, 0.95), rgba(48, 115, 255, 0.95));
+        color: #031026;
+        box-shadow: 0 0 16px rgba(120, 205, 255, 0.75);
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+      #leaderboard-prompt button[data-action="cancel"] {
+        background: rgba(10, 10, 16, 0.9);
+        border: 1px solid rgba(120, 205, 255, 0.45);
+        color: #cfe4ff;
+        box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.6);
+      }
+      #leaderboard-prompt button:hover {
+        transform: translateY(-1px) scale(1.01);
+        box-shadow: 0 0 22px rgba(120, 205, 255, 0.65);
+      }
     </style>
   </head>
   <body>
-    <canvas id="game" aria-label="No Ground game canvas" role="img"></canvas>
-    <div id="overlay">Rotate your device to landscape.</div>
+    <div id="game-shell">
+      <canvas id="game" aria-label="No Ground game canvas" role="img"></canvas>
+      <div id="overlay">Rotate your device to landscape.</div>
+      <div id="leaderboard-prompt" role="dialog" aria-modal="true">
+        <div class="prompt-panel">
+          <div class="prompt-title">Claim Top 10</div>
+          <p class="prompt-copy">
+            Enter a display name (1–10 characters; letters, numbers, space, _ - .)
+          </p>
+          <input
+            id="leaderboard-name-input"
+            type="text"
+            maxlength="10"
+            autocomplete="off"
+            aria-label="Leaderboard name"
+          />
+          <div class="leaderboard-prompt-error" aria-live="polite"></div>
+          <div class="prompt-actions">
+            <button type="button" data-action="submit">Submit</button>
+            <button type="button" data-action="cancel">Skip</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- No build step: load the entrypoint directly -->
     <script type="module" src="./src/main.js"></script>

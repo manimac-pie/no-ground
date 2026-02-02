@@ -28,16 +28,22 @@ import {
   drawHUD,
   drawRestartFlyby,
   drawCenterScore,
+  drawLeaderboardPanel,
   drawControlsButton,
   drawControlsPanel,
 } from "./ui.js";
-import { drawStartPrompt, drawRestartPrompt } from "./menu.js";
+import { drawStartPrompt } from "./menu.js";
 import {
   getControlsButtonRect,
   getControlsPanelRect,
   pointInRect,
 } from "../ui/layout.js";
 import { clamp } from "./playerKit.js";
+import {
+  getLeaderboardState,
+  LEADERBOARD_MAX_ENTRIES,
+} from "../ui/leaderboardState.js";
+import { maybePromptForPendingClaim } from "../ui/leaderboardClaimFlow.js";
 
 export const COLORS = {
   bgTop: "#0f1116",
@@ -811,7 +817,6 @@ export function render(ctx, state) {
     pointer: pointerWorld,
   });
 
-  const restartCenterX = focusX + (W / 2 - focusX) / Math.max(0.001, zoom);
   const restartPromptReady =
     state.scoreTallyDone && (state.scoreTallyDoneT || 0) >= 0.5;
 
@@ -835,7 +840,6 @@ export function render(ctx, state) {
 
   const onRestartScreen =
     state.gameOver && state.deathCinematicDone && !deathActive && !state.restartFlybyActive;
-
   // Suppress HUD during start zoom; allow slide-out on death.
   const showHUD =
     !state.restartFlybyActive &&
@@ -849,22 +853,13 @@ export function render(ctx, state) {
   }
 
   if (onRestartScreen) {
+    maybePromptForPendingClaim({ allowPrompt: restartPromptReady });
     resetCtx(ctx);
-    drawCenterScore(ctx, state, W, H);
-    if (restartPromptReady) {
-      ctx.save();
-      ctx.translate(focusX, focusY);
-      ctx.scale(zoom, zoom);
-      ctx.translate(-focusX, -focusY);
-      const restartHover = drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, {
-        centerX: restartCenterX,
-        pointer: pointerWorld,
-      });
-      state.restartHover = restartHover === true;
-      ctx.restore();
-    } else {
-      state.restartHover = false;
-    }
+    const pointerUi =
+      state.pointerInViewport === true
+        ? { x: state.pointerUiX, y: state.pointerUiY }
+        : null;
+    drawCenterScore(ctx, state, W, H, pointerUi, restartPromptReady);
   } else {
     state.restartHover = false;
   }
@@ -881,6 +876,50 @@ export function render(ctx, state) {
     const hover =
       state.pointerInViewport === true
       && pointInRect(state.pointerUiX, state.pointerUiY, btnRect);
+    const leaderboardState = getLeaderboardState();
+    const entriesLen = Array.isArray(leaderboardState.entries)
+      ? leaderboardState.entries.length
+      : 0;
+    const collapsedRows = 3;
+    const expandedRows = LEADERBOARD_MAX_ENTRIES;
+    const rowHeight = 22;
+    const rowCount = state.leaderboardExpanded ? expandedRows : collapsedRows;
+    const headerHeight = 36;
+    const footerHeight = 70;
+    const extraGap = 28;
+    const collapsedHeight = headerHeight + footerHeight + collapsedRows * rowHeight + extraGap;
+    const expandedHeight = headerHeight + footerHeight + expandedRows * rowHeight + extraGap;
+    const desiredHeight = state.leaderboardExpanded ? expandedHeight : collapsedHeight;
+    const minHeight = collapsedHeight;
+    const boardH = Math.min(H * 0.8, Math.max(desiredHeight, minHeight, 180));
+    const boardW = Math.min(300, W * 0.32);
+    const boardX = W - boardW - 16;
+    const boardY = 18;
+
+    const showArrow = entriesLen > collapsedRows;
+    if (!showArrow && state.leaderboardExpanded) {
+      state.leaderboardExpanded = false;
+    }
+    const meta = drawLeaderboardPanel(
+      ctx,
+      leaderboardState.entries,
+      leaderboardState.myBest,
+      boardX,
+      boardY,
+      boardW,
+      boardH,
+      1,
+      {
+        glow: true,
+        arrow: showArrow,
+        arrowDirection: state.leaderboardExpanded ? "up" : "down",
+        rowCount,
+        rowHeight,
+        bestLabel: "Best Score",
+      }
+    );
+
+    state.leaderboardArrowRect = meta?.arrowRect ?? null;
     drawControlsButton(ctx, btnRect, state.controlsPanelOpen === true, hover);
     if (state.controlsPanelOpen) {
       drawControlsPanel(ctx, panelRect, COLORS);

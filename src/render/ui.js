@@ -7,6 +7,10 @@ import {
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
 } from "../game/constants.js";
+import {
+  getLeaderboardState,
+  LEADERBOARD_MAX_ENTRIES,
+} from "../ui/leaderboardState.js";
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
@@ -197,6 +201,195 @@ function drawPortal(ctx, cx, cy, r, COLORS, pulseT = 0) {
 function formatNumber(n) {
   if (!Number.isFinite(n)) return "0";
   return Math.floor(n).toLocaleString("en-US");
+}
+
+export function drawLeaderboardPanel(
+  ctx,
+  entries,
+  myBest,
+  x,
+  y,
+  w,
+  h,
+  alpha = 1,
+  opts = {}
+) {
+  if (alpha <= 0 || !Number.isFinite(w) || !Number.isFinite(h)) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const {
+    glow = false,
+    arrow = false,
+    arrowDirection = "down",
+    rowCount = 3,
+    rowHeight = 24,
+    bestLabel = "Best Score",
+    collapsedLayout = false,
+  } = opts;
+
+  // Base panel (dark with soft bevel like run summary)
+  ctx.fillStyle = "rgba(4,8,20,0.96)";
+  roundRect(ctx, x, y, w, h, 18);
+
+  if (glow) {
+    ctx.shadowColor = "rgba(120,205,255,0.45)";
+    ctx.shadowBlur = 20;
+  }
+  const panelBorder = ctx.createLinearGradient(x, y, x, y + h);
+  panelBorder.addColorStop(0, "rgba(120,205,255,0.25)");
+  panelBorder.addColorStop(0.6, "rgba(15,25,38,0.1)");
+  panelBorder.addColorStop(1, "rgba(8,12,18,0.6)");
+  ctx.strokeStyle = panelBorder;
+  ctx.lineWidth = 4;
+  roundedRectPath(ctx, x + 2, y + 2, w - 4, h - 4, 14);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
+  ctx.strokeStyle = "rgba(120,205,255,0.12)";
+  ctx.lineWidth = 1.5;
+  roundedRectPath(ctx, x + 8, y + 8, w - 16, h - 16, 10);
+  ctx.stroke();
+
+  const headerHeight = 36;
+  const headerY = y + 10;
+  const headerLeft = x + 10;
+  const headerWidth = w - 20;
+  ctx.fillStyle = "rgba(8,14,28,0.72)";
+  roundRect(ctx, headerLeft, headerY, headerWidth, headerHeight, 10);
+
+  ctx.fillStyle = "rgba(160,245,255,0.95)";
+  ctx.font = "700 14px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("LEADERBOARD", x + w / 2, headerY + 24);
+
+  const entryYStart = headerY + headerHeight + 6;
+  const rowHeightVal = Number.isFinite(rowHeight) ? rowHeight : 24;
+  const maxRows = Math.max(
+    Math.ceil(rowCount),
+    Math.max(3, Math.floor((h - entryYStart - 70) / rowHeightVal))
+  );
+  const desiredRows = Math.max(1, Math.min(Math.floor(rowCount), maxRows));
+  const visibleRows = Math.min(LEADERBOARD_MAX_ENTRIES, desiredRows);
+  const sourceEntries = Array.isArray(entries) ? entries : [];
+  const fetchedRows = sourceEntries.slice(0, visibleRows);
+  const rows = [];
+  for (let i = 0; i < visibleRows; i += 1) {
+    if (i < fetchedRows.length) {
+      rows.push(fetchedRows[i]);
+    } else {
+      rows.push(null);
+    }
+  }
+
+  const labelX = x + 16;
+  const scoreX = x + w - 12;
+  ctx.font = "600 14px Share Tech Mono, Orbitron, Menlo, monospace";
+
+  rows.forEach((entry, idx) => {
+    const rowY = entryYStart + idx * rowHeightVal;
+    const name = entry && typeof entry.name === "string" ? entry.name : "—";
+    const hasScore = entry && Number.isFinite(entry.score);
+    const scoreText = hasScore ? formatNumber(entry.score) : "—";
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = idx === 0 ? "rgba(255,235,220,0.95)" : "rgba(220,240,255,0.82)";
+    ctx.fillText(`${idx + 1}. ${name}`, labelX, rowY);
+
+    ctx.textAlign = "right";
+    ctx.fillText(scoreText, scoreX, rowY);
+  });
+
+  const baseRowsBottom = entryYStart + rows.length * rowHeightVal;
+  const buttonSpacing = collapsedLayout ? 8 : 4;
+  const dividerSpacing = collapsedLayout ? 12 : 6;
+  let arrowRect = null;
+  let buttonY = 0;
+  const buttonHeight = arrow ? 20 : 0;
+  if (arrow) {
+    const buttonWidth = Math.min(220, w - 24);
+    buttonY = baseRowsBottom + buttonSpacing;
+    arrowRect = {
+      x: x + (w - buttonWidth) / 2,
+      y: buttonY,
+      w: buttonWidth,
+      h: buttonHeight,
+    };
+
+    ctx.fillStyle = "rgba(8,12,20,0.95)";
+    roundRect(ctx, arrowRect.x, arrowRect.y, arrowRect.w, arrowRect.h, arrowRect.h / 2);
+    ctx.strokeStyle = "rgba(120,205,255,0.6)";
+    ctx.lineWidth = 1.5;
+    roundedRectPath(
+      ctx,
+      arrowRect.x + 0.5,
+      arrowRect.y + 0.5,
+      arrowRect.w - 1,
+      arrowRect.h - 1,
+      arrowRect.h / 2
+    );
+    ctx.stroke();
+
+    ctx.font = "600 10px Orbitron, Share Tech Mono, monospace";
+    ctx.fillStyle = "rgba(170,210,230,0.85)";
+    const label = arrowDirection === "down" ? "Top 10" : "Collapse";
+    const labelWidth = ctx.measureText(label).width;
+    const arrowSize = 10;
+    const spacing = 8;
+    const totalWidth = labelWidth + spacing + arrowSize;
+    const textX = arrowRect.x + (arrowRect.w - totalWidth) / 2;
+    const textY = arrowRect.y + arrowRect.h / 2 + 4;
+    ctx.textAlign = "left";
+    ctx.fillText(label, textX, textY);
+
+    const arrowX = textX + labelWidth + spacing;
+    const arrowCenterY = arrowRect.y + arrowRect.h / 2 + 1;
+    ctx.fillStyle = "rgba(120,205,255,0.95)";
+    ctx.beginPath();
+    if (arrowDirection === "down") {
+      ctx.moveTo(arrowX, arrowCenterY - arrowSize / 4);
+      ctx.lineTo(arrowX + arrowSize, arrowCenterY - arrowSize / 4);
+      ctx.lineTo(arrowX + arrowSize / 2, arrowCenterY + arrowSize / 3);
+    } else {
+      ctx.moveTo(arrowX, arrowCenterY + arrowSize / 4);
+      ctx.lineTo(arrowX + arrowSize, arrowCenterY + arrowSize / 4);
+      ctx.lineTo(arrowX + arrowSize / 2, arrowCenterY - arrowSize / 3);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  const dividerY = arrow
+    ? buttonY + buttonHeight + dividerSpacing
+    : baseRowsBottom + dividerSpacing;
+
+  ctx.strokeStyle = "rgba(120,205,255,0.2)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const linePad = 24;
+  ctx.moveTo(x + linePad, dividerY);
+  ctx.lineTo(x + w - linePad, dividerY);
+  ctx.stroke();
+
+  const bestLabelY = dividerY + (collapsedLayout ? 14 : 16);
+  const bestScoreY = Math.min(
+    bestLabelY + (collapsedLayout ? 28 : 20),
+    y + h - 10
+  );
+  ctx.font = "600 10px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillStyle = "rgba(150,210,230,0.7)";
+  ctx.textAlign = "left";
+  ctx.fillText(bestLabel, labelX, bestLabelY);
+
+  ctx.font = "800 28px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.textAlign = "right";
+  ctx.fillStyle = "rgba(240,255,255,0.9)";
+  ctx.fillText(formatNumber(myBest), scoreX, bestScoreY);
+
+  ctx.restore();
+
+  return { arrowRect };
 }
 
 function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
@@ -705,7 +898,7 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   ctx.restore();
 }
 
-export function drawCenterScore(ctx, state, W, H) {
+export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady = false) {
   const w = Number.isFinite(W) ? W : 800;
   const h = Number.isFinite(H) ? H : 450;
   const baseScore = Number.isFinite(state.score) ? state.score : (state.distance || 0);
@@ -720,6 +913,38 @@ export function drawCenterScore(ctx, state, W, H) {
   const boardT = Number.isFinite(state.scoreBoardT) ? state.scoreBoardT : 0;
   const boardK = Math.max(0, Math.min(1, boardT / boardIntro));
   const uiT = Number.isFinite(state.uiTime) ? state.uiTime : 0;
+  const leaderboardExpanded = state.leaderboardExpanded === true;
+  const collapsedRows = 3;
+  const rowHeightVal = 18;
+  const headerHeight = 36;
+  const leaderboardButtonHeight = 20;
+  const leaderboardButtonSpacing = 8;
+  const leaderboardDividerSpacing = 12;
+  const leaderboardBestSpacing = 18;
+  const leaderboardBottomPadding = 24;
+  const collapsedExtras =
+    6 + // gap after header
+    collapsedRows * rowHeightVal +
+    leaderboardButtonSpacing +
+    leaderboardButtonHeight +
+    leaderboardDividerSpacing +
+    leaderboardBestSpacing +
+    30 +
+    leaderboardBottomPadding;
+  const collapsedHeight = headerHeight + collapsedExtras;
+  const expandedRows = LEADERBOARD_MAX_ENTRIES;
+  const footerHeight = 70;
+  const extraGap = 28;
+  const expandedHeight =
+    headerHeight +
+    footerHeight +
+    expandedRows * rowHeightVal +
+    extraGap +
+    leaderboardBottomPadding;
+  const desiredLeaderboardHeight = leaderboardExpanded ? expandedHeight : collapsedHeight;
+  const leaderboardMinHeight = 180;
+  const leaderboardH = Math.min(H * 0.8, Math.max(desiredLeaderboardHeight, leaderboardMinHeight));
+  const leaderboardRowCount = leaderboardExpanded ? expandedRows : collapsedRows;
 
   ctx.save();
   ctx.textAlign = "center";
@@ -729,11 +954,19 @@ export function drawCenterScore(ctx, state, W, H) {
   const cy = h * 0.5;
 
   const panelW = Math.min(460, w * 0.74);
-  const panelH = 256;
-  const panelX = cx - panelW / 2;
+  const panelH = 300;
+  const leaderboardW = Math.min(220, w * 0.24);
+  const spacing = Math.min(32, w * 0.04);
+  const totalBlockW = panelW + spacing + leaderboardW;
+  const blockX = cx - totalBlockW / 2;
+  const panelX = blockX;
   const finalPanelY = cy - panelH / 2 - 6;
   const startPanelY = -panelH - 40;
   const panelY = startPanelY + (finalPanelY - startPanelY) * boardK;
+  const leaderboardFinalX = panelX + panelW + spacing;
+  const leaderboardOffsetX = (1 - boardK) * (leaderboardW + 40);
+  const leaderboardX = leaderboardFinalX + leaderboardOffsetX;
+  const panelCenterX = panelX + panelW * 0.5;
 
   const sway = 0;
   const stringTop = -200;
@@ -877,7 +1110,7 @@ export function drawCenterScore(ctx, state, W, H) {
   ctx.globalAlpha = boardK;
   ctx.fillStyle = "rgba(160,245,255,0.9)";
   ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("RUN SUMMARY", cx, panelY + 35);
+  ctx.fillText("RUN SUMMARY", panelCenterX, panelY + 35);
 
   ctx.textAlign = "left";
   const left = panelX + 26;
@@ -995,7 +1228,115 @@ export function drawCenterScore(ctx, state, W, H) {
   ctx.shadowBlur = 16;
   ctx.fillStyle = "rgba(240,255,255,0.98)";
   ctx.textAlign = "center";
-  ctx.fillText(scoreText, cx, pillY + 40 + (40 - scoreFontSize) * 0.3);
+  ctx.fillText(scoreText, panelCenterX, pillY + 40 + (40 - scoreFontSize) * 0.3);
+
+  const buttonEnabled = Boolean(buttonReady);
+  const resetButtonText = "RESET";
+  const resetButtonWidth = Math.min(pillW2, panelW - 90);
+  const resetButtonHeight = 44;
+  const resetButtonX = panelCenterX - resetButtonWidth / 2;
+  const resetButtonY = pillY + pillH2 + 24;
+  let resetHover = false;
+
+  if (buttonEnabled && pointerUi) {
+    resetHover =
+      pointerUi.x >= resetButtonX &&
+      pointerUi.x <= resetButtonX + resetButtonWidth &&
+      pointerUi.y >= resetButtonY &&
+      pointerUi.y <= resetButtonY + resetButtonHeight;
+  }
+  state.restartHover = buttonEnabled ? resetHover : false;
+
+  if (buttonEnabled) {
+    const baseGradient = ctx.createLinearGradient(
+      resetButtonX,
+      resetButtonY,
+      resetButtonX,
+      resetButtonY + resetButtonHeight
+    );
+    if (resetHover) {
+      baseGradient.addColorStop(0, "rgba(255,120,120,0.98)");
+      baseGradient.addColorStop(1, "rgba(240,60,60,0.96)");
+    } else {
+      baseGradient.addColorStop(0, "rgba(255,255,255,0.98)");
+      baseGradient.addColorStop(0.6, "rgba(228,236,248,0.96)");
+      baseGradient.addColorStop(1, "rgba(210,230,250,0.92)");
+    }
+
+    ctx.save();
+    ctx.shadowColor = resetHover ? "rgba(255,80,80,0.8)" : "rgba(120,205,255,0.45)";
+    ctx.shadowBlur = resetHover ? 28 : 18;
+    ctx.fillStyle = baseGradient;
+    roundRect(ctx, resetButtonX, resetButtonY, resetButtonWidth, resetButtonHeight, 18);
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = resetHover ? "rgba(255,210,210,0.7)" : "rgba(12,16,22,0.4)";
+    ctx.lineWidth = 1.5;
+    roundedRectPath(
+      ctx,
+      resetButtonX + 0.7,
+      resetButtonY + 0.7,
+      resetButtonWidth - 1.4,
+      resetButtonHeight - 1.4,
+      16
+    );
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    const highlight = ctx.createLinearGradient(
+      resetButtonX,
+      resetButtonY,
+      resetButtonX,
+      resetButtonY + resetButtonHeight * 0.35
+    );
+    highlight.addColorStop(0, "rgba(255,255,255,0.9)");
+    highlight.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = highlight;
+    ctx.beginPath();
+    ctx.moveTo(resetButtonX + 6, resetButtonY + 4);
+    ctx.lineTo(resetButtonX + resetButtonWidth - 6, resetButtonY + 4);
+    ctx.lineTo(resetButtonX + resetButtonWidth - 8, resetButtonY + 12);
+    ctx.lineTo(resetButtonX + 8, resetButtonY + 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "800 24px Share Tech Mono, Orbitron, Menlo, monospace";
+    ctx.fillStyle = resetHover ? "rgba(24,18,18,0.98)" : "rgba(24,26,32,0.94)";
+    ctx.fillText(resetButtonText, panelCenterX, resetButtonY + resetButtonHeight / 2 + 2);
+    ctx.restore();
+  }
+
+  const leaderboardState = getLeaderboardState();
+  const entriesLen = Array.isArray(leaderboardState.entries)
+    ? leaderboardState.entries.length
+    : 0;
+  const collapsedEnough = entriesLen > collapsedRows;
+  drawLeaderboardPanel(
+    ctx,
+    leaderboardState.entries,
+    leaderboardState.myBest,
+    leaderboardX,
+    finalPanelY,
+    leaderboardW,
+    leaderboardH,
+    Math.max(0, Math.min(1, boardK)),
+    {
+      rowCount: leaderboardRowCount,
+      rowHeight: rowHeightVal,
+      glow: true,
+      arrow: collapsedEnough,
+      arrowDirection: leaderboardExpanded ? "up" : "down",
+      bestLabel: "Best Score",
+      collapsedLayout: !leaderboardExpanded,
+    }
+  );
 
   ctx.restore();
 }

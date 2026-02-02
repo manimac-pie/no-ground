@@ -8,9 +8,19 @@ import { createGame } from "./game.js";
 import { setInternalSizeFromViewport } from "./game/constants.js";
 import { render } from "./render/index.js";
 
+//Leaderboard API udpate
+import { refreshLeaderboard } from "./ui/leaderboardView.js";
+import {
+  initLeaderboardPromptOverlay,
+  onLeaderboardPromptStateChange,
+} from "./ui/leaderboardClaimFlow.js";
+initLeaderboardPromptOverlay();
+refreshLeaderboard().catch(console.error);
+
 const canvas = document.getElementById("game");
-if (!canvas) {
-  throw new Error("Canvas element '#game' not found.");
+const shell = document.getElementById("game-shell");
+if (!canvas || !shell) {
+  throw new Error("Canvas '#game' or shell '#game-shell' not found.");
 }
 
 // Make canvas focusable so keyboard input is reliable after a click/tap.
@@ -29,6 +39,10 @@ if (!ctx) {
 }
 
 const input = createInput(canvas);
+onLeaderboardPromptStateChange((open) => {
+  if (open) input.blockInput();
+  else input.unblockInput();
+});
 setInternalSizeFromViewport(window.innerWidth, window.innerHeight);
 const game = createGame();
 let cursorRunning = false;
@@ -64,7 +78,7 @@ const focusCanvas = () => {
 
 function tryEnterFullscreen() {
   if (document.fullscreenElement) return;
-  const el = canvas;
+  const el = shell || canvas;
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
   if (typeof req === "function") {
     try { req.call(el); } catch {}

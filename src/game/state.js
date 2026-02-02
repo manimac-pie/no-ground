@@ -85,6 +85,8 @@ export function createInitialState() {
     pointerUiY: 0,
     pointerInViewport: false,
     controlsPanelOpen: false,
+    leaderboardExpanded: false,
+    leaderboardArrowRect: null,
 
     player: {
       x: PLAYER_X,
@@ -126,6 +128,7 @@ export function createInitialState() {
     platforms: [],
 
     heavyLandT: 0,
+    leaderboardReported: false,
   };
 }
 
@@ -194,8 +197,11 @@ export function resetRunState(state) {
   state.pointerUiY = 0;
   state.pointerInViewport = false;
   state.controlsPanelOpen = false;
+  state.leaderboardExpanded = false;
+  state.leaderboardArrowRect = null;
 
   state.heavyLandT = 0;
+  state.leaderboardReported = false;
 
   const p = state.player;
   p.x = PLAYER_X;

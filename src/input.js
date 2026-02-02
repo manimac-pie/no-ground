@@ -12,6 +12,7 @@ import { INTERNAL_WIDTH, INTERNAL_HEIGHT } from "./game/constants.js";
 export function createInput(canvas) {
   if (!canvas) throw new Error("createInput(canvas): canvas is required.");
 
+  let blocked = false;
   const state = {
     // One-frame pulses
     jumpPressed: false,
@@ -61,6 +62,7 @@ export function createInput(canvas) {
   }
 
   function onKeyDown(e) {
+    if (blocked) return;
     const key = e.code;
 
     const isJumpKey = key === "Space" || key === "ArrowUp";
@@ -112,6 +114,7 @@ export function createInput(canvas) {
   }
 
   function onKeyUp(e) {
+    if (blocked) return;
     const key = e.code;
 
     const isJumpKey = key === "Space" || key === "ArrowUp";
@@ -157,6 +160,7 @@ export function createInput(canvas) {
   }
 
   function onPointerDown(e) {
+    if (blocked) return;
     // Mouse: primary button only.
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
@@ -178,6 +182,7 @@ export function createInput(canvas) {
   }
 
   function onPointerMove(e) {
+    if (blocked) return;
     state.pointerX = e.clientX ?? 0;
     state.pointerY = e.clientY ?? 0;
     state.pointerInside = isEventInsideCanvas(e);
@@ -185,6 +190,7 @@ export function createInput(canvas) {
   }
 
   function onPointerUp(e) {
+    if (blocked) return;
     const wasActive = state._activePointer;
     const downAt = state._pointerDownAt;
 
@@ -342,6 +348,14 @@ export function createInput(canvas) {
       state.lastJumpSource = null;
       state.jumpHeld = false;
       state._pointerJumpSuppressed = true;
+    },
+
+    blockInput() {
+      blocked = true;
+    },
+
+    unblockInput() {
+      blocked = false;
     },
 
     destroy() {

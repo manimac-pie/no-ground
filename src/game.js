@@ -31,6 +31,7 @@ import {
 } from "./game/player.js";
 import { startSpin, updateTricks } from "./game/tricks.js";
 import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "./ui/layout.js";
+import { onGameFinished } from "./ui/leaderboardView.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
@@ -45,6 +46,14 @@ export function createGame() {
   function reset() {
     resetRunState(state);
     resetPlatforms(state);
+  }
+
+  function reportRunEnd(runScore) {
+    if (state.leaderboardReported) return;
+    state.leaderboardReported = true;
+    onGameFinished(runScore).catch((error) => {
+      console.error("Submitting final score failed:", error);
+    });
   }
 
   function updateScoreTally(dt) {
@@ -92,6 +101,9 @@ export function createGame() {
   }
 
   function endGame() {
+    const finalScore = Number.isFinite(state.score)
+      ? state.score
+      : (state.distance || 0);
     if (!state.gameOver) {
       const p = state.player;
       if (p) {
@@ -140,7 +152,10 @@ export function createGame() {
     state.running = false;
     state.gameOver = true;
     state.menuSmashActive = false;
+    reportRunEnd(finalScore);
   }
+
+  
 
   function update(dt, input) {
     state.uiTime += dt;
@@ -305,42 +320,53 @@ export function createGame() {
 
     let startPromptPressed = false;
     if (pointerPressed && onStartScreen && state.pointerInViewport) {
-      const btnRect = getControlsButtonRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
-      const panelRect = getControlsPanelRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
-      const hitButton = pointInRect(state.pointerUiX, state.pointerUiY, btnRect);
-      const hitPanel = state.controlsPanelOpen
-        && pointInRect(state.pointerUiX, state.pointerUiY, panelRect);
-
-      if (hitButton) {
-        state.controlsPanelOpen = !state.controlsPanelOpen;
+      const arrowRect = state.leaderboardArrowRect;
+      if (
+        arrowRect &&
+        pointInRect(state.pointerUiX, state.pointerUiY, arrowRect)
+      ) {
+        state.leaderboardExpanded = !state.leaderboardExpanded;
         jumpPressed = false;
         state.jumpBuffer = 0;
         input?.suppressPointerJump?.();
-      } else if (hitPanel) {
-        jumpPressed = false;
-        state.jumpBuffer = 0;
-        input?.suppressPointerJump?.();
-      } else if (state.startPromptBounds) {
-        const player = state.player || {};
-        const focusX = (player.x ?? 0) + (player.w ?? 0) / 2;
-        const focusY = (player.y ?? 0) + (player.h ?? 0) / 2;
-        const zoomK = clamp(state.menuZoomK ?? 0, 0, 1);
-        const zoom = MENU_START_ZOOM - (MENU_START_ZOOM - 1) * zoomK;
-        const invZoom = 1 / Math.max(0.001, zoom);
-        const pointerWorldX = focusX + (state.pointerUiX - focusX) * invZoom;
-        const pointerWorldY = focusY + (state.pointerUiY - focusY) * invZoom;
-        const bounds = state.startPromptBounds;
-        const hitStart =
-          pointerWorldX >= bounds.x &&
-          pointerWorldX <= bounds.x + bounds.w &&
-          pointerWorldY >= bounds.y &&
-          pointerWorldY <= bounds.y + bounds.h;
+      } else {
+        const btnRect = getControlsButtonRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
+        const panelRect = getControlsPanelRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
+        const hitButton = pointInRect(state.pointerUiX, state.pointerUiY, btnRect);
+        const hitPanel = state.controlsPanelOpen
+          && pointInRect(state.pointerUiX, state.pointerUiY, panelRect);
 
-        if (hitStart) {
-          startPromptPressed = true;
+        if (hitButton) {
+          state.controlsPanelOpen = !state.controlsPanelOpen;
           jumpPressed = false;
           state.jumpBuffer = 0;
           input?.suppressPointerJump?.();
+        } else if (hitPanel) {
+          jumpPressed = false;
+          state.jumpBuffer = 0;
+          input?.suppressPointerJump?.();
+        } else if (state.startPromptBounds) {
+          const player = state.player || {};
+          const focusX = (player.x ?? 0) + (player.w ?? 0) / 2;
+          const focusY = (player.y ?? 0) + (player.h ?? 0) / 2;
+          const zoomK = clamp(state.menuZoomK ?? 0, 0, 1);
+          const zoom = MENU_START_ZOOM - (MENU_START_ZOOM - 1) * zoomK;
+          const invZoom = 1 / Math.max(0.001, zoom);
+          const pointerWorldX = focusX + (state.pointerUiX - focusX) * invZoom;
+          const pointerWorldY = focusY + (state.pointerUiY - focusY) * invZoom;
+          const bounds = state.startPromptBounds;
+          const hitStart =
+            pointerWorldX >= bounds.x &&
+            pointerWorldX <= bounds.x + bounds.w &&
+            pointerWorldY >= bounds.y &&
+            pointerWorldY <= bounds.y + bounds.h;
+
+          if (hitStart) {
+            startPromptPressed = true;
+            jumpPressed = false;
+            state.jumpBuffer = 0;
+            input?.suppressPointerJump?.();
+          }
         }
       }
     }

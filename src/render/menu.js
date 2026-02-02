@@ -28,23 +28,6 @@ function centerText(ctx, text, x, y) {
   ctx.fillText(text, x - m.width / 2, y);
 }
 
-function easeOutBounce(t) {
-  const x = Math.max(0, Math.min(1, t));
-  const n1 = 7.5625;
-  const d1 = 2.75;
-  if (x < 1 / d1) return n1 * x * x;
-  if (x < 2 / d1) {
-    const y = x - 1.5 / d1;
-    return n1 * y * y + 0.75;
-  }
-  if (x < 2.5 / d1) {
-    const y = x - 2.25 / d1;
-    return n1 * y * y + 0.9375;
-  }
-  const y = x - 2.625 / d1;
-  return n1 * y * y + 0.984375;
-}
-
 function hash01(n) {
   const x = Math.sin(n * 999.123) * 43758.5453;
   return x - Math.floor(x);
@@ -319,76 +302,4 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
 
   ctx.restore();
   return hover;
-}
-
-export function drawRestartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
-  if (!state.gameOver || !state.deathCinematicDone || state.restartFlybyActive) return false;
-
-  // Use logical internal size.
-  const w = Number.isFinite(W) ? W : 800;
-
-  ctx.save();
-
-  const smashActive = state.restartSmashActive === true;
-  const smashT = smashActive ? Math.max(0, state.restartSmashT || 0) : 0;
-  if (state.restartSmashBroken && !smashActive) {
-    ctx.restore();
-    return false;
-  }
-
-  const tileSize = 2;
-  const headingSize = 34;
-  const font = `800 ${headingSize}px "Inter Tight", "Inter", "Segoe UI", "Helvetica Neue", system-ui, sans-serif`;
-  const letterSpacing = 2;
-  const cache = getTextTiles("RESET", font, tileSize, letterSpacing);
-
-  const centerX = Number.isFinite(opts.centerX) ? opts.centerX : w * 0.5;
-  const baseX = centerX - cache.width / 2;
-  const totalHeight = cache.height;
-  const groundY = world.GROUND_Y - 2;
-  const endY = groundY - totalHeight;
-  const startY = -totalHeight - 140;
-
-  const dropT = Math.max(0, state.deathRestartT || 0);
-  const dropK = Math.min(1, dropT / 1.0);
-  const bounce = easeOutBounce(dropK);
-  const baseY = startY + (endY - startY) * bounce;
-  const pointer = opts.pointer || null;
-  const isHover = Boolean(
-    pointer &&
-    pointer.x >= baseX &&
-    pointer.x <= baseX + cache.width &&
-    pointer.y >= baseY &&
-    pointer.y <= baseY + totalHeight
-  );
-  const useRed = isHover || (smashActive && state.restartSmashRed === true);
-  const fillMain = useRed ? "rgba(255,68,68,0.96)" : "rgba(230,234,240,0.94)";
-
-  const gravity = 720;
-  const smashDuration = 1.4;
-
-  cache.tiles.forEach((t, i) => {
-    const h1 = hash01(i * 13.7);
-    const h2 = hash01(i * 97.3);
-    let px = baseX + t.x;
-    let py = baseY + t.y;
-    let fade = 1;
-    if (smashActive) {
-      const tSec = Math.min(smashDuration, smashT);
-      const vx = 80 + 220 * h1;
-      const vy = -(90 + 160 * h2);
-      px += vx * tSec;
-      py += vy * tSec + 0.5 * gravity * tSec * tSec;
-      fade = Math.max(0, 1 - tSec / smashDuration);
-    }
-    ctx.fillStyle = fillMain;
-    ctx.fillRect(px, py, t.w, t.h);
-    ctx.fillStyle = useRed
-      ? `rgba(90,20,24,${0.45 * fade})`
-      : `rgba(20,22,28,${0.45 * fade})`;
-    ctx.fillRect(px, py + t.h - 1, t.w, 1);
-  });
-
-  ctx.restore();
-  return isHover;
 }
