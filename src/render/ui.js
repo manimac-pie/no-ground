@@ -913,38 +913,8 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const boardT = Number.isFinite(state.scoreBoardT) ? state.scoreBoardT : 0;
   const boardK = Math.max(0, Math.min(1, boardT / boardIntro));
   const uiT = Number.isFinite(state.uiTime) ? state.uiTime : 0;
-  const leaderboardExpanded = state.leaderboardExpanded === true;
-  const collapsedRows = 3;
   const rowHeightVal = 18;
-  const headerHeight = 36;
-  const leaderboardButtonHeight = 20;
-  const leaderboardButtonSpacing = 8;
-  const leaderboardDividerSpacing = 12;
-  const leaderboardBestSpacing = 18;
-  const leaderboardBottomPadding = 24;
-  const collapsedExtras =
-    6 + // gap after header
-    collapsedRows * rowHeightVal +
-    leaderboardButtonSpacing +
-    leaderboardButtonHeight +
-    leaderboardDividerSpacing +
-    leaderboardBestSpacing +
-    30 +
-    leaderboardBottomPadding;
-  const collapsedHeight = headerHeight + collapsedExtras;
-  const expandedRows = LEADERBOARD_MAX_ENTRIES;
-  const footerHeight = 70;
-  const extraGap = 28;
-  const expandedHeight =
-    headerHeight +
-    footerHeight +
-    expandedRows * rowHeightVal +
-    extraGap +
-    leaderboardBottomPadding;
-  const desiredLeaderboardHeight = leaderboardExpanded ? expandedHeight : collapsedHeight;
-  const leaderboardMinHeight = 180;
-  const leaderboardH = Math.min(H * 0.8, Math.max(desiredLeaderboardHeight, leaderboardMinHeight));
-  const leaderboardRowCount = leaderboardExpanded ? expandedRows : collapsedRows;
+  const leaderboardRowCount = LEADERBOARD_MAX_ENTRIES;
 
   ctx.save();
   ctx.textAlign = "center";
@@ -967,6 +937,8 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const leaderboardOffsetX = (1 - boardK) * (leaderboardW + 40);
   const leaderboardX = leaderboardFinalX + leaderboardOffsetX;
   const panelCenterX = panelX + panelW * 0.5;
+  const leaderboardH = panelH;
+  const leaderboardY = panelY;
 
   const sway = 0;
   const stringTop = -200;
@@ -1314,16 +1286,12 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   }
 
   const leaderboardState = getLeaderboardState();
-  const entriesLen = Array.isArray(leaderboardState.entries)
-    ? leaderboardState.entries.length
-    : 0;
-  const collapsedEnough = entriesLen > collapsedRows;
   drawLeaderboardPanel(
     ctx,
     leaderboardState.entries,
     leaderboardState.myBest,
     leaderboardX,
-    finalPanelY,
+    leaderboardY,
     leaderboardW,
     leaderboardH,
     Math.max(0, Math.min(1, boardK)),
@@ -1331,10 +1299,8 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
       rowCount: leaderboardRowCount,
       rowHeight: rowHeightVal,
       glow: true,
-      arrow: collapsedEnough,
-      arrowDirection: leaderboardExpanded ? "up" : "down",
+      arrow: false,
       bestLabel: "Best Score",
-      collapsedLayout: !leaderboardExpanded,
     }
   );
 

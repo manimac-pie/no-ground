@@ -22,6 +22,10 @@ export function setInternalSizeFromViewport(cssW, cssH) {
     const targetW = Math.round(BASE_INTERNAL_HEIGHT * aspect);
     INTERNAL_WIDTH = Math.min(MAX_INTERNAL_WIDTH, Math.max(BASE_INTERNAL_WIDTH, targetW));
     INTERNAL_HEIGHT = BASE_INTERNAL_HEIGHT;
+  } else if (aspect < BASE_ASPECT) {
+    const targetH = Math.round(BASE_INTERNAL_WIDTH / aspect);
+    INTERNAL_WIDTH = BASE_INTERNAL_WIDTH;
+    INTERNAL_HEIGHT = Math.max(BASE_INTERNAL_HEIGHT, targetH);
   } else {
     INTERNAL_WIDTH = BASE_INTERNAL_WIDTH;
     INTERNAL_HEIGHT = BASE_INTERNAL_HEIGHT;
