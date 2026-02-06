@@ -154,6 +154,11 @@
         align-items: center;
       }
 
+      #mobile-controls .control-spacer {
+        width: min(68px, 14vw);
+        height: min(68px, 14vw);
+      }
+
       #mobile-controls .control-cluster.right {
         right: max(48px, env(safe-area-inset-right));
         bottom: max(40px, env(safe-area-inset-bottom));
@@ -441,8 +446,6 @@
                   <rect x="44" y="28" width="4" height="4" />
                 </svg>
               </button>
-            </div>
-            <div class="control-row">
               <button class="control-btn control-btn--left" type="button" data-control="dash" aria-label="Dash">
                 <svg viewBox="0 0 80 80" aria-hidden="true">
                   <!-- Dash pictogram: long forward arrow + streaks -->
@@ -468,6 +471,9 @@
                   <rect x="12" y="50" width="4" height="4" />
                 </svg>
               </button>
+            </div>
+            <div class="control-row">
+              <div class="control-spacer" aria-hidden="true"></div>
               <button class="control-btn control-btn--left control-btn--mini" type="button" data-control="backflip" aria-label="Backflip">
                 <svg viewBox="0 0 80 80" aria-hidden="true">
                   <!-- Backflip pictogram: minimal arc -->
