@@ -156,10 +156,10 @@
 
       #mobile-controls .control-cluster.right {
         right: max(48px, env(safe-area-inset-right));
-        bottom: max(86px, env(safe-area-inset-bottom));
-        flex-direction: row;
-        align-items: center;
-        gap: 14px;
+        bottom: max(40px, env(safe-area-inset-bottom));
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
       }
 
       #mobile-controls .control-cluster.right .control-btn--jump {
@@ -184,11 +184,28 @@
         place-items: center;
       }
 
+      .control-btn--kinetic {
+        border-color: rgba(160, 210, 235, 0.55);
+        background:
+          linear-gradient(135deg, rgba(120, 180, 220, 0.18), rgba(12, 18, 26, 0) 45%),
+          linear-gradient(165deg, rgba(10, 16, 28, 0.92), rgba(6, 10, 18, 0.78));
+        border-radius: 18px;
+        box-shadow:
+          0 10px 26px rgba(0, 0, 0, 0.5),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+          inset 0 0 18px rgba(120, 180, 220, 0.12);
+        animation: kinetic-float 3s ease-in-out infinite;
+      }
+
       .control-btn:active {
         transform: translateY(1px) scale(0.99);
         box-shadow:
           0 6px 16px rgba(0, 0, 0, 0.45),
           inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      }
+
+      .control-btn--kinetic:active {
+        animation-play-state: paused;
       }
 
       .control-btn--left {
@@ -206,15 +223,82 @@
         height: min(62px, 13vw);
       }
 
+      .control-btn--mini {
+        width: min(46px, 10vw);
+        height: min(46px, 10vw);
+      }
+
       .control-btn svg {
-        width: 46%;
-        height: 46%;
-        stroke: #cfe4ff;
-        stroke-width: 5;
+        width: 70%;
+        height: 70%;
+        fill: #cfe4ff;
+        stroke: none;
+        shape-rendering: crispEdges;
+        filter: drop-shadow(0 0 6px rgba(120, 205, 255, 0.35));
+      }
+
+      .control-btn[data-control="drift"] svg {
+        width: 200%;
+        height: 200%;
+      }
+
+      .control-btn[data-control="dash"] svg {
+        width: 86%;
+        height: 86%;
+      }
+
+      .control-btn[data-control="backflip"] svg {
+        width: 120%;
+        height: 120%;
+      }
+
+      .control-btn--kinetic svg {
         fill: none;
+        stroke: #cfe9ff;
+        stroke-width: 2.5;
         stroke-linecap: round;
         stroke-linejoin: round;
-        filter: drop-shadow(0 0 8px rgba(120, 205, 255, 0.4));
+        shape-rendering: auto;
+        filter: drop-shadow(0 0 10px rgba(120, 205, 255, 0.35));
+        transition: transform 180ms ease, filter 180ms ease;
+      }
+
+      .control-btn--kinetic:hover svg {
+        transform: translate(2px, -1px);
+        filter: drop-shadow(0 0 14px rgba(140, 220, 255, 0.5));
+      }
+
+      .control-btn--kinetic svg .trail,
+      .control-btn--kinetic svg .ghost {
+        opacity: 0.3;
+      }
+
+      .control-btn--kinetic svg .solid {
+        fill: #cfe9ff;
+        stroke: none;
+      }
+
+      .control-btn--kinetic:active svg .trail,
+      .control-btn--kinetic:active svg .ghost {
+        opacity: 0.7;
+      }
+
+      @keyframes kinetic-float {
+        0% {
+          transform: translateY(-1px);
+        }
+        50% {
+          transform: translateY(1px);
+        }
+        100% {
+          transform: translateY(-1px);
+        }
+      }
+
+      .control-btn--jump svg,
+      .control-btn[data-control="dive"] svg {
+        width: 90%;
+        height: 90%;
       }
 
       .control-btn[data-control="dash"] {
@@ -225,6 +309,10 @@
         #mobile-controls {
           display: block;
         }
+      }
+
+      body.hide-controls #mobile-controls {
+        display: none !important;
       }
       #leaderboard-prompt {
         position: fixed;
@@ -337,38 +425,141 @@
             <div class="control-row">
               <button class="control-btn control-btn--left" type="button" data-control="drift" aria-label="Drift">
                 <svg viewBox="0 0 80 80" aria-hidden="true">
-                  <path d="M14 30c12-10 26-10 38 0s26 10 38 0" />
-                  <path d="M10 50c14-10 30-10 44 0s30 10 44 0" />
-                </svg>
-              </button>
-              <button class="control-btn control-btn--left" type="button" data-control="dash" aria-label="Dash">
-                <svg viewBox="0 0 80 80" aria-hidden="true">
-                  <path d="M16 40h40" />
-                  <path d="M40 24l16 16-16 16" />
-                  <path d="M10 40h6" />
+                  <!-- Drift pictogram: float ring + lift -->
+                  <rect x="28" y="44" width="4" height="4" />
+                  <rect x="32" y="40" width="4" height="4" />
+                  <rect x="36" y="36" width="4" height="4" />
+                  <rect x="40" y="36" width="4" height="4" />
+                  <rect x="44" y="40" width="4" height="4" />
+                  <rect x="48" y="44" width="4" height="4" />
+                  <rect x="44" y="48" width="4" height="4" />
+                  <rect x="40" y="48" width="4" height="4" />
+                  <rect x="36" y="48" width="4" height="4" />
+                  <rect x="32" y="48" width="4" height="4" />
+                  <rect x="36" y="28" width="4" height="4" />
+                  <rect x="40" y="24" width="4" height="4" />
+                  <rect x="44" y="28" width="4" height="4" />
                 </svg>
               </button>
             </div>
-            <button class="control-btn control-btn--left" type="button" data-control="backflip" aria-label="Backflip">
-              <svg viewBox="0 0 80 80" aria-hidden="true">
-                <path d="M20 46c6 10 18 16 30 16" />
-                <path d="M46 20c10 6 16 18 16 30" />
-                <path d="M28 26l18-6-6 18" />
-              </svg>
-            </button>
+            <div class="control-row">
+              <button class="control-btn control-btn--left" type="button" data-control="dash" aria-label="Dash">
+                <svg viewBox="0 0 80 80" aria-hidden="true">
+                  <!-- Dash pictogram: long forward arrow + streaks -->
+                  <rect x="44" y="28" width="4" height="4" />
+                  <rect x="48" y="32" width="4" height="4" />
+                  <rect x="52" y="36" width="4" height="4" />
+                  <rect x="56" y="40" width="4" height="4" />
+                  <rect x="52" y="44" width="4" height="4" />
+                  <rect x="48" y="48" width="4" height="4" />
+                  <rect x="44" y="52" width="4" height="4" />
+                  <rect x="36" y="40" width="4" height="4" />
+                  <rect x="32" y="40" width="4" height="4" />
+                  <rect x="28" y="40" width="4" height="4" />
+                  <rect x="20" y="30" width="4" height="4" />
+                  <rect x="16" y="30" width="4" height="4" />
+                  <rect x="12" y="30" width="4" height="4" />
+                  <rect x="24" y="40" width="4" height="4" />
+                  <rect x="20" y="40" width="4" height="4" />
+                  <rect x="16" y="40" width="4" height="4" />
+                  <rect x="24" y="50" width="4" height="4" />
+                  <rect x="20" y="50" width="4" height="4" />
+                  <rect x="16" y="50" width="4" height="4" />
+                  <rect x="12" y="50" width="4" height="4" />
+                </svg>
+              </button>
+              <button class="control-btn control-btn--left control-btn--mini" type="button" data-control="backflip" aria-label="Backflip">
+                <svg viewBox="0 0 80 80" aria-hidden="true">
+                  <!-- Backflip pictogram: minimal arc -->
+                  <rect x="16" y="52" width="4" height="4" />
+                  <rect x="28" y="44" width="4" height="4" />
+                  <rect x="40" y="38" width="4" height="4" />
+                  <rect x="52" y="44" width="4" height="4" />
+                  <rect x="64" y="52" width="4" height="4" />
+                  <rect x="40" y="24" width="4" height="4" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
         <div class="control-cluster right">
-          <button class="control-btn control-btn--left control-btn--small" type="button" data-control="dive" aria-label="Dive">
-            <svg viewBox="0 0 80 80" aria-hidden="true">
-              <path d="M40 18v36" />
-              <path d="M24 42l16 16 16-16" />
-            </svg>
-          </button>
           <button class="control-btn control-btn--jump" type="button" data-control="jump" aria-label="Jump">
             <svg viewBox="0 0 80 80" aria-hidden="true">
-              <path d="M40 62V26" />
-              <path d="M24 38l16-16 16 16" />
+              <rect x="38" y="26" width="4" height="4" />
+              <rect x="34" y="30" width="4" height="4" />
+              <rect x="38" y="30" width="4" height="4" />
+              <rect x="42" y="30" width="4" height="4" />
+              <rect x="30" y="34" width="4" height="4" />
+              <rect x="34" y="34" width="4" height="4" />
+              <rect x="38" y="34" width="4" height="4" />
+              <rect x="42" y="34" width="4" height="4" />
+              <rect x="46" y="34" width="4" height="4" />
+              <rect x="26" y="38" width="4" height="4" />
+              <rect x="30" y="38" width="4" height="4" />
+              <rect x="34" y="38" width="4" height="4" />
+              <rect x="38" y="38" width="4" height="4" />
+              <rect x="42" y="38" width="4" height="4" />
+              <rect x="46" y="38" width="4" height="4" />
+              <rect x="50" y="38" width="4" height="4" />
+              <rect x="22" y="42" width="4" height="4" />
+              <rect x="26" y="42" width="4" height="4" />
+              <rect x="30" y="42" width="4" height="4" />
+              <rect x="34" y="42" width="4" height="4" />
+              <rect x="38" y="42" width="4" height="4" />
+              <rect x="42" y="42" width="4" height="4" />
+              <rect x="46" y="42" width="4" height="4" />
+              <rect x="50" y="42" width="4" height="4" />
+              <rect x="54" y="42" width="4" height="4" />
+              <rect x="18" y="46" width="4" height="4" />
+              <rect x="22" y="46" width="4" height="4" />
+              <rect x="26" y="46" width="4" height="4" />
+              <rect x="30" y="46" width="4" height="4" />
+              <rect x="34" y="46" width="4" height="4" />
+              <rect x="38" y="46" width="4" height="4" />
+              <rect x="42" y="46" width="4" height="4" />
+              <rect x="46" y="46" width="4" height="4" />
+              <rect x="50" y="46" width="4" height="4" />
+              <rect x="54" y="46" width="4" height="4" />
+              <rect x="58" y="46" width="4" height="4" />
+            </svg>
+          </button>
+          <button class="control-btn control-btn--left control-btn--small" type="button" data-control="dive" aria-label="Dive">
+            <svg viewBox="0 0 80 80" aria-hidden="true">
+              <rect x="18" y="30" width="4" height="4" />
+              <rect x="22" y="30" width="4" height="4" />
+              <rect x="26" y="30" width="4" height="4" />
+              <rect x="30" y="30" width="4" height="4" />
+              <rect x="34" y="30" width="4" height="4" />
+              <rect x="38" y="30" width="4" height="4" />
+              <rect x="42" y="30" width="4" height="4" />
+              <rect x="46" y="30" width="4" height="4" />
+              <rect x="50" y="30" width="4" height="4" />
+              <rect x="54" y="30" width="4" height="4" />
+              <rect x="58" y="30" width="4" height="4" />
+              <rect x="22" y="34" width="4" height="4" />
+              <rect x="26" y="34" width="4" height="4" />
+              <rect x="30" y="34" width="4" height="4" />
+              <rect x="34" y="34" width="4" height="4" />
+              <rect x="38" y="34" width="4" height="4" />
+              <rect x="42" y="34" width="4" height="4" />
+              <rect x="46" y="34" width="4" height="4" />
+              <rect x="50" y="34" width="4" height="4" />
+              <rect x="54" y="34" width="4" height="4" />
+              <rect x="26" y="38" width="4" height="4" />
+              <rect x="30" y="38" width="4" height="4" />
+              <rect x="34" y="38" width="4" height="4" />
+              <rect x="38" y="38" width="4" height="4" />
+              <rect x="42" y="38" width="4" height="4" />
+              <rect x="46" y="38" width="4" height="4" />
+              <rect x="50" y="38" width="4" height="4" />
+              <rect x="30" y="42" width="4" height="4" />
+              <rect x="34" y="42" width="4" height="4" />
+              <rect x="38" y="42" width="4" height="4" />
+              <rect x="42" y="42" width="4" height="4" />
+              <rect x="46" y="42" width="4" height="4" />
+              <rect x="34" y="46" width="4" height="4" />
+              <rect x="38" y="46" width="4" height="4" />
+              <rect x="42" y="46" width="4" height="4" />
             </svg>
           </button>
         </div>

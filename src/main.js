@@ -169,6 +169,9 @@ function tick(now) {
     document.body.classList.toggle("is-running", running);
   }
 
+  const hideControls = Boolean(game.state?.gameOver);
+  document.body.classList.toggle("hide-controls", hideControls);
+
   render(ctx, game.state);
 
   requestAnimationFrame(tick);
