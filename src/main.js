@@ -38,7 +38,14 @@ if (!ctx) {
   throw new Error("2D canvas context not available.");
 }
 
-const input = createInput(canvas);
+const input = createInput(canvas, {
+  buttons: {
+    jump: document.querySelector('[data-control="jump"]'),
+    drift: document.querySelector('[data-control="drift"]'),
+    dive: document.querySelector('[data-control="dive"]'),
+    dash: document.querySelector('[data-control="dash"]'),
+  },
+});
 onLeaderboardPromptStateChange((open) => {
   if (open) input.blockInput();
   else input.unblockInput();

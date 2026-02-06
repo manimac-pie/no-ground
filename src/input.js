@@ -9,10 +9,22 @@
 
 import { INTERNAL_WIDTH, INTERNAL_HEIGHT } from "./game/constants.js";
 
-export function createInput(canvas) {
+export function createInput(canvas, options = {}) {
   if (!canvas) throw new Error("createInput(canvas): canvas is required.");
 
   let blocked = false;
+  const buttons = options?.buttons ?? {};
+  const buttonPointers = new Map();
+  const buttonHeld = {
+    jump: 0,
+    float: 0,
+    dive: 0,
+  };
+  const held = {
+    jump: { keyboard: false, pointer: false },
+    float: { keyboard: false },
+    dive: { keyboard: false },
+  };
   const state = {
     // One-frame pulses
     jumpPressed: false,
@@ -42,6 +54,12 @@ export function createInput(canvas) {
     pointerPressed: false,
     _pointerJumpSuppressed: false,
   };
+
+  function syncHolds() {
+    state.jumpHeld = held.jump.keyboard || held.jump.pointer || buttonHeld.jump > 0;
+    state.floatHeld = held.float.keyboard || buttonHeld.float > 0;
+    state.diveHeld = held.dive.keyboard || buttonHeld.dive > 0;
+  }
 
   function pressJump(source = null) {
     state.jumpPressed = true;
@@ -79,25 +97,29 @@ export function createInput(canvas) {
     // Avoid repeat pulses when holding a key.
     if (e.repeat) {
       // Still allow held flags to remain true; we just don't pulse.
-      if (isJumpKey) state.jumpHeld = true;
-      if (isFloatKey) state.floatHeld = true;
-      if (isDiveKey) state.diveHeld = true;
+      if (isJumpKey) held.jump.keyboard = true;
+      if (isFloatKey) held.float.keyboard = true;
+      if (isDiveKey) held.dive.keyboard = true;
+      syncHolds();
       return;
     }
 
     if (isJumpKey) {
-      state.jumpHeld = true;
+      held.jump.keyboard = true;
+      syncHolds();
       pressJump(key);
       return;
     }
 
     if (isFloatKey) {
-      state.floatHeld = true;
+      held.float.keyboard = true;
+      syncHolds();
       return;
     }
 
     if (isDiveKey) {
-      state.diveHeld = true;
+      held.dive.keyboard = true;
+      syncHolds();
       pressDive();
       return;
     }
@@ -124,9 +146,10 @@ export function createInput(canvas) {
     if (!isJumpKey && !isFloatKey && !isDiveKey) return;
     e.preventDefault();
 
-    if (isJumpKey) state.jumpHeld = false;
-    if (isFloatKey) state.floatHeld = false;
-    if (isDiveKey) state.diveHeld = false;
+    if (isJumpKey) held.jump.keyboard = false;
+    if (isFloatKey) held.float.keyboard = false;
+    if (isDiveKey) held.dive.keyboard = false;
+    syncHolds();
   }
 
   function isEventInsideCanvas(ev) {
@@ -176,7 +199,8 @@ export function createInput(canvas) {
 
     if (state._activePointer && !state._pointerJumpSuppressed) {
       state._pointerDownAt = performance.now();
-      state.jumpHeld = true;
+      held.jump.pointer = true;
+      syncHolds();
       pressJump("pointer");
     }
   }
@@ -194,7 +218,8 @@ export function createInput(canvas) {
     const wasActive = state._activePointer;
     const downAt = state._pointerDownAt;
 
-    state.jumpHeld = false;
+    held.jump.pointer = false;
+    syncHolds();
     state.pointerDown = false;
     state._activePointer = false;
     state._pointerDownAt = 0;
@@ -207,9 +232,15 @@ export function createInput(canvas) {
   }
 
   function onPointerCancel() {
-    state.jumpHeld = false;
-    state.floatHeld = false;
-    state.diveHeld = false;
+    held.jump.pointer = false;
+    held.jump.keyboard = false;
+    held.float.keyboard = false;
+    held.dive.keyboard = false;
+    buttonHeld.jump = 0;
+    buttonHeld.float = 0;
+    buttonHeld.dive = 0;
+    buttonPointers.clear();
+    syncHolds();
     state.pointerDown = false;
     state._activePointer = false;
     state._pointerDownAt = 0;
@@ -221,6 +252,59 @@ export function createInput(canvas) {
 
   function onPointerLeave() {
     state.pointerInside = false;
+  }
+
+  function attachControlButton(el, action, { hold = false, press = false } = {}) {
+    if (!el) return;
+    const onDown = (e) => {
+      if (blocked) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      e.preventDefault();
+      if (typeof el.setPointerCapture === "function") {
+        try { el.setPointerCapture(e.pointerId); } catch {}
+      }
+      if (hold) {
+        buttonHeld[action] = (buttonHeld[action] || 0) + 1;
+        buttonPointers.set(e.pointerId, action);
+        syncHolds();
+      }
+      if (press) {
+        if (action === "jump") pressJump("button");
+        if (action === "dive") pressDive();
+        if (action === "dash") pressDash();
+      }
+    };
+    const onUp = (e) => {
+      if (e) e.preventDefault();
+      if (typeof el.releasePointerCapture === "function") {
+        try { el.releasePointerCapture(e.pointerId); } catch {}
+      }
+      const actionKey = buttonPointers.get(e.pointerId);
+      if (actionKey) {
+        buttonPointers.delete(e.pointerId);
+        buttonHeld[actionKey] = Math.max(0, (buttonHeld[actionKey] || 0) - 1);
+        syncHolds();
+      }
+    };
+    const onCancel = (e) => {
+      if (e) e.preventDefault();
+      const actionKey = buttonPointers.get(e.pointerId);
+      if (actionKey) {
+        buttonPointers.delete(e.pointerId);
+        buttonHeld[actionKey] = Math.max(0, (buttonHeld[actionKey] || 0) - 1);
+        syncHolds();
+      }
+    };
+    el.addEventListener("pointerdown", onDown, { passive: false });
+    el.addEventListener("pointerup", onUp, { passive: false });
+    el.addEventListener("pointercancel", onCancel, { passive: false });
+    el.addEventListener("pointerleave", onCancel, { passive: false });
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onCancel);
+      el.removeEventListener("pointerleave", onCancel);
+    };
   }
 
   function resetInputs() {
@@ -240,6 +324,15 @@ export function createInput(canvas) {
     state.pointerInViewport = false;
     state.pointerPressed = false;
     state._pointerJumpSuppressed = false;
+    held.jump.keyboard = false;
+    held.jump.pointer = false;
+    held.float.keyboard = false;
+    held.dive.keyboard = false;
+    buttonHeld.jump = 0;
+    buttonHeld.float = 0;
+    buttonHeld.dive = 0;
+    buttonPointers.clear();
+    syncHolds();
   }
 
   function onVisibilityChange() {
@@ -257,6 +350,13 @@ export function createInput(canvas) {
   window.addEventListener("pointerup", onPointerUp, { passive: false });
   window.addEventListener("pointercancel", onPointerCancel, { passive: true });
   canvas.addEventListener("pointerleave", onPointerLeave, { passive: true });
+
+  const detachButtons = [
+    attachControlButton(buttons.jump, "jump", { hold: true, press: true }),
+    attachControlButton(buttons.drift || buttons.float, "float", { hold: true }),
+    attachControlButton(buttons.dive, "dive", { press: true }),
+    attachControlButton(buttons.dash, "dash", { press: true }),
+  ].filter(Boolean);
 
   return {
     consumeJumpPress() {
@@ -346,7 +446,8 @@ export function createInput(canvas) {
     suppressPointerJump() {
       state.jumpPressed = false;
       state.lastJumpSource = null;
-      state.jumpHeld = false;
+      held.jump.pointer = false;
+      syncHolds();
       state._pointerJumpSuppressed = true;
     },
 
@@ -368,6 +469,7 @@ export function createInput(canvas) {
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);
       canvas.removeEventListener("pointerleave", onPointerLeave);
+      detachButtons.forEach((detach) => detach());
     },
   };
 }
