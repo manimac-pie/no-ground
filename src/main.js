@@ -53,30 +53,6 @@ onLeaderboardPromptStateChange((open) => {
 setInternalSizeFromViewport(window.innerWidth, window.innerHeight);
 const game = createGame();
 let cursorRunning = false;
-const sparkLayer = document.createElement("div");
-sparkLayer.id = "cursor-sparks";
-document.body.appendChild(sparkLayer);
-let lastSparkAt = 0;
-
-function spawnSparks(x, y) {
-  const count = 3 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < count; i++) {
-    const spark = document.createElement("div");
-    spark.className = "spark";
-    const angle = (-Math.PI / 3) + Math.random() * (Math.PI / 1.5);
-    const speed = 12 + Math.random() * 22;
-    const dx = Math.cos(angle) * speed;
-    const dy = Math.sin(angle) * speed + 6;
-    const rot = (Math.random() * 120 - 60).toFixed(1);
-    spark.style.left = `${x}px`;
-    spark.style.top = `${y}px`;
-    spark.style.setProperty("--dx", `${dx.toFixed(1)}px`);
-    spark.style.setProperty("--dy", `${dy.toFixed(1)}px`);
-    spark.style.setProperty("--rot", `${rot}deg`);
-    sparkLayer.appendChild(spark);
-    spark.addEventListener("animationend", () => spark.remove(), { once: true });
-  }
-}
 
 // Focus canvas on first interaction (helps desktop keyboard + some mobile browsers).
 const focusCanvas = () => {
@@ -111,14 +87,6 @@ document.addEventListener("keydown", (e) => {
 
 // Prevent context menu on right click / long press.
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-
-document.addEventListener("pointermove", (e) => {
-  if (cursorRunning) return;
-  const now = performance.now();
-  if (now - lastSparkAt < 24) return;
-  lastSparkAt = now;
-  spawnSparks(e.clientX, e.clientY);
-}, { passive: true });
 
 function getViewportSize() {
   const vv = window.visualViewport;
