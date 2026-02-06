@@ -485,6 +485,14 @@ let dragTrailEmitT = 0;
 let _prevFrameT = 0;
 let _camX = 0;
 
+function isTouchViewport() {
+  if (typeof window === "undefined") return false;
+  const touchLike = (navigator.maxTouchPoints || 0) > 0
+    || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  const phoneish = Math.min(window.innerWidth || 0, window.innerHeight || 0) < 900;
+  return touchLike && phoneish;
+}
+
 function ensureCanvasSize(ctx, W, H) {
   // Renderer owns backing store sizing; main.js only sets CSS size.
   const canvas = ctx.canvas;
@@ -618,6 +626,10 @@ export function render(ctx, state) {
     camLag = 0;
   }
 
+  const safeOffsetX = isTouchViewport() ? Math.min(W * 0.12, 140) : 0;
+  // Subtract to push the player further right on screen for mobile-safe UI space.
+  const camShift = camLag - safeOffsetX;
+
   // Hard reset paint state
   resetCtx(ctx);
 
@@ -645,8 +657,8 @@ export function render(ctx, state) {
   const focusX = deathActive && Number.isFinite(deathFocusX)
     ? deathFocusX
     : freezeSnap
-      ? (freezeSnap.x + freezeSnap.w / 2) - camLag
-      : ((player?.x ?? W * 0.35) + (player?.w ?? PLAYER_W) / 2 + focusBobOffset) - camLag;
+      ? (freezeSnap.x + freezeSnap.w / 2) - camShift
+      : ((player?.x ?? W * 0.35) + (player?.w ?? PLAYER_W) / 2 + focusBobOffset) - camShift;
   const focusY = deathActive && Number.isFinite(deathFocusY)
     ? deathFocusY
     : freezeSnap
@@ -660,7 +672,7 @@ export function render(ctx, state) {
     const pyCss = (state.pointerY ?? 0) - rect.top;
     const sx = cssW / W;
     const sy = cssH / H;
-    const s = Math.min(sx, sy);
+    const s = Math.max(sx, sy);
     const oxCss = (cssW - W * s) * 0.5;
     const oyCss = (cssH - H * s) * 0.5;
     const insideViewport =
@@ -692,7 +704,7 @@ export function render(ctx, state) {
 
   // Parallax layer tracks a reduced camera offset to avoid forward drift.
   ctx.save();
-  ctx.translate(-camLag * DASH_PARALLAX_CAM_FACTOR, 0);
+  ctx.translate(-camShift * DASH_PARALLAX_CAM_FACTOR, 0);
   resetCtx(ctx);
   drawParallax(ctx, W, H, state.distance || 0);
   ctx.restore();
@@ -705,7 +717,7 @@ export function render(ctx, state) {
 
   // ---- WORLD ----
   ctx.save();
-  ctx.translate(-camLag, 0);
+  ctx.translate(-camShift, 0);
   resetCtx(ctx);
   drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, undefined, dt);
 
