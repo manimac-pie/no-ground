@@ -272,6 +272,7 @@ export function createInput(canvas, options = {}) {
         if (action === "jump") pressJump("button");
         if (action === "dive") pressDive();
         if (action === "dash") pressDash();
+        if (action === "trick") pressTrick("backflip");
       }
     };
     const onUp = (e) => {
@@ -356,6 +357,7 @@ export function createInput(canvas, options = {}) {
     attachControlButton(buttons.drift || buttons.float, "float", { hold: true }),
     attachControlButton(buttons.dive, "dive", { press: true }),
     attachControlButton(buttons.dash, "dash", { press: true }),
+    attachControlButton(buttons.backflip || buttons.trick, "trick", { press: true }),
   ].filter(Boolean);
 
   return {

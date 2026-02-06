@@ -44,6 +44,7 @@ const input = createInput(canvas, {
     drift: document.querySelector('[data-control="drift"]'),
     dive: document.querySelector('[data-control="dive"]'),
     dash: document.querySelector('[data-control="dash"]'),
+    backflip: document.querySelector('[data-control="backflip"]'),
   },
 });
 onLeaderboardPromptStateChange((open) => {

@@ -126,7 +126,7 @@
 
       #mobile-controls .control-cluster.left {
         left: max(26px, env(safe-area-inset-left));
-        bottom: 16%;
+        bottom: 8%;
         transform: none;
         flex-direction: row;
         align-items: center;
@@ -140,11 +140,26 @@
         align-items: flex-start;
       }
 
+      #mobile-controls .control-column {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      #mobile-controls .control-row {
+        display: flex;
+        flex-direction: row;
+        gap: 12px;
+        align-items: center;
+      }
+
       #mobile-controls .control-cluster.right {
         right: max(48px, env(safe-area-inset-right));
         bottom: max(86px, env(safe-area-inset-bottom));
-        flex-direction: column;
-        align-items: flex-end;
+        flex-direction: row;
+        align-items: center;
+        gap: 14px;
       }
 
       #mobile-controls .control-cluster.right .control-btn--jump {
@@ -184,6 +199,11 @@
       .control-btn--jump {
         width: min(96px, 16vw);
         height: min(80px, 16vw);
+      }
+
+      .control-btn--small {
+        width: min(62px, 13vw);
+        height: min(62px, 13vw);
       }
 
       .control-btn svg {
@@ -313,29 +333,38 @@
       <div id="overlay">Rotate your device to landscape.</div>
       <div id="mobile-controls" aria-hidden="true">
         <div class="control-cluster left">
-          <div class="control-stack">
-            <button class="control-btn control-btn--left" type="button" data-control="drift" aria-label="Drift">
+          <div class="control-column">
+            <div class="control-row">
+              <button class="control-btn control-btn--left" type="button" data-control="drift" aria-label="Drift">
+                <svg viewBox="0 0 80 80" aria-hidden="true">
+                  <path d="M14 30c12-10 26-10 38 0s26 10 38 0" />
+                  <path d="M10 50c14-10 30-10 44 0s30 10 44 0" />
+                </svg>
+              </button>
+              <button class="control-btn control-btn--left" type="button" data-control="dash" aria-label="Dash">
+                <svg viewBox="0 0 80 80" aria-hidden="true">
+                  <path d="M16 40h40" />
+                  <path d="M40 24l16 16-16 16" />
+                  <path d="M10 40h6" />
+                </svg>
+              </button>
+            </div>
+            <button class="control-btn control-btn--left" type="button" data-control="backflip" aria-label="Backflip">
               <svg viewBox="0 0 80 80" aria-hidden="true">
-                <path d="M14 30c12-10 26-10 38 0s26 10 38 0" />
-                <path d="M10 50c14-10 30-10 44 0s30 10 44 0" />
-              </svg>
-            </button>
-            <button class="control-btn control-btn--left" type="button" data-control="dive" aria-label="Dive">
-              <svg viewBox="0 0 80 80" aria-hidden="true">
-                <path d="M40 18v36" />
-                <path d="M24 42l16 16 16-16" />
+                <path d="M20 46c6 10 18 16 30 16" />
+                <path d="M46 20c10 6 16 18 16 30" />
+                <path d="M28 26l18-6-6 18" />
               </svg>
             </button>
           </div>
-          <button class="control-btn control-btn--left" type="button" data-control="dash" aria-label="Dash">
-            <svg viewBox="0 0 80 80" aria-hidden="true">
-              <path d="M16 40h40" />
-              <path d="M40 24l16 16-16 16" />
-              <path d="M10 40h6" />
-            </svg>
-          </button>
         </div>
         <div class="control-cluster right">
+          <button class="control-btn control-btn--left control-btn--small" type="button" data-control="dive" aria-label="Dive">
+            <svg viewBox="0 0 80 80" aria-hidden="true">
+              <path d="M40 18v36" />
+              <path d="M24 42l16 16 16-16" />
+            </svg>
+          </button>
           <button class="control-btn control-btn--jump" type="button" data-control="jump" aria-label="Jump">
             <svg viewBox="0 0 80 80" aria-hidden="true">
               <path d="M40 62V26" />
