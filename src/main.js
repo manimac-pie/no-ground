@@ -120,10 +120,19 @@ document.addEventListener("pointermove", (e) => {
   spawnSparks(e.clientX, e.clientY);
 }, { passive: true });
 
+function getViewportSize() {
+  const vv = window.visualViewport;
+  if (vv && Number.isFinite(vv.width) && Number.isFinite(vv.height)) {
+    return { w: Math.floor(vv.width), h: Math.floor(vv.height) };
+  }
+  return { w: Math.floor(window.innerWidth), h: Math.floor(window.innerHeight) };
+}
+
 function setCanvasSize() {
   // CSS sizing only; renderer owns backing store sizing + transforms.
-  const displayW = Math.max(1, Math.floor(window.innerWidth));
-  const displayH = Math.max(1, Math.floor(window.innerHeight));
+  const { w, h } = getViewportSize();
+  const displayW = Math.max(1, w);
+  const displayH = Math.max(1, h);
   canvas.style.width = `${displayW}px`;
   canvas.style.height = `${displayH}px`;
   setInternalSizeFromViewport(displayW, displayH);
@@ -152,6 +161,9 @@ function onResize() {
 window.addEventListener("resize", onResize, { passive: true });
 window.addEventListener("orientationchange", onResize, { passive: true });
 document.addEventListener("fullscreenchange", onResize, { passive: true });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", onResize, { passive: true });
+}
 
 // Initial layout
 onResize();

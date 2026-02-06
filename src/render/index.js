@@ -509,10 +509,11 @@ function ensureCanvasSize(ctx, W, H) {
 }
 
 function applyViewportTransform(ctx, W, H, cssW, cssH, dpr) {
-  // Draw in INTERNAL coords (W/H) and scale to fit the canvas while preserving aspect.
+  // Draw in INTERNAL coords (W/H) and scale to cover the canvas while preserving aspect.
+  // This fills the screen on mobile and crops offscreen edges instead of letterboxing.
   const sx = cssW / W;
   const sy = cssH / H;
-  const s = Math.min(sx, sy);
+  const s = Math.max(sx, sy);
 
   const oxCss = (cssW - W * s) * 0.5;
   const oyCss = (cssH - H * s) * 0.5;
