@@ -6,6 +6,9 @@ import {
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
+  RUN_SUMMARY_DROP_SEC,
+  LEADERBOARD_SLIDE_DELAY_SEC,
+  LEADERBOARD_SLIDE_SEC,
 } from "../game/constants.js";
 import {
   getLeaderboardState,
@@ -14,6 +17,16 @@ import {
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
+}
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+// Ease out with a small overshoot, so a dropped panel settles into place.
+function easeOutBack(t, overshoot = 1.2) {
+  const u = t - 1;
+  return 1 + (overshoot + 1) * u * u * u + overshoot * u * u;
 }
 
 function roundedRectPath(ctx, x, y, w, h, r) {
@@ -203,7 +216,96 @@ function formatNumber(n) {
   return Math.floor(n).toLocaleString("en-US");
 }
 
-export function drawLeaderboardPanel(
+// ---------------- cached panels ----------------
+// Static UI pieces are painted once into an offscreen canvas at the exact device
+// scale and stamped with drawImage each frame. A piece is repainted only when its
+// content key, the scale, or its device-pixel offset changes (resize, hover, new data).
+const PANEL_PAD_DEVICE = 40; // device px around the box, for shadows and glows
+const panelCache = new Map(); // slot -> { key, canvas, result }
+
+// Paint state a piece may inherit from the caller (e.g. a shadow left on by earlier
+// drawing). Fill and stroke styles aren't included: every cached piece sets its own.
+const INHERITED_PROPS = [
+  "lineWidth", "lineCap", "lineJoin", "miterLimit", "font", "textAlign", "textBaseline",
+  "shadowColor", "shadowBlur", "shadowOffsetX", "shadowOffsetY",
+];
+
+// box: the piece's bounds in UI units. draw(ctx) paints it at its normal coordinates.
+// Returns whatever draw returned when the piece was last painted.
+function drawCachedPanel(ctx, slot, contentKey, box, draw) {
+  const m = ctx.getTransform();
+  // A cached image can't reproduce per-shape alpha, blend modes or filters: draw directly.
+  const plain =
+    ctx.globalAlpha === 1 &&
+    ctx.globalCompositeOperation === "source-over" &&
+    (ctx.filter === undefined || ctx.filter === "none");
+  if (!plain || m.b !== 0 || m.c !== 0 || m.a <= 0 || m.d <= 0) return draw(ctx);
+
+  // Device-pixel bounds of the piece plus padding, clipped to the canvas.
+  const canvasW = ctx.canvas.width;
+  const canvasH = ctx.canvas.height;
+  const intX = Math.max(0, Math.floor(m.a * box.x + m.e) - PANEL_PAD_DEVICE);
+  const intY = Math.max(0, Math.floor(m.d * box.y + m.f) - PANEL_PAD_DEVICE);
+  const right = Math.min(canvasW, Math.ceil(m.a * (box.x + box.w) + m.e) + PANEL_PAD_DEVICE);
+  const bottom = Math.min(canvasH, Math.ceil(m.d * (box.y + box.h) + m.f) + PANEL_PAD_DEVICE);
+  const width = right - intX;
+  const height = bottom - intY;
+  if (width <= 0 || height <= 0) return draw(ctx);
+  const tx = m.e - intX;
+  const ty = m.f - intY;
+  const inherited = INHERITED_PROPS.map((prop) => ctx[prop]);
+  const key = `${contentKey}|${m.a}|${m.d}|${tx}|${ty}|${width}|${height}|${inherited.join("|")}`;
+
+  let entry = panelCache.get(slot);
+  if (!entry) {
+    entry = { key: "", canvas: document.createElement("canvas"), result: undefined };
+    panelCache.set(slot, entry);
+  }
+  if (entry.key !== key) {
+    const canvas = entry.canvas;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    const pctx = canvas.getContext("2d");
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, width, height);
+    pctx.save();
+    INHERITED_PROPS.forEach((prop, i) => {
+      pctx[prop] = inherited[i];
+    });
+    pctx.setTransform(m.a, 0, 0, m.d, tx, ty);
+    entry.result = draw(pctx);
+    pctx.restore();
+    entry.key = key;
+  }
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.shadowColor = "transparent"; // any inherited shadow is already baked in
+  ctx.shadowBlur = 0;
+  ctx.drawImage(entry.canvas, intX, intY);
+  ctx.restore();
+  return entry.result;
+}
+
+export function drawLeaderboardPanel(ctx, entries, myBest, x, y, w, h, alpha = 1, opts = {}) {
+  if (alpha <= 0 || !Number.isFinite(w) || !Number.isFinite(h)) return;
+  // Fading in: draw directly (group alpha on a cached image would blend differently).
+  if (alpha < 1) return drawLeaderboardPanelDirect(ctx, entries, myBest, x, y, w, h, alpha, opts);
+
+  const list = Array.isArray(entries) ? entries : [];
+  const key = [
+    x, y, w, h, myBest,
+    opts.glow, opts.arrow, opts.arrowDirection, opts.rowCount, opts.rowHeight, opts.bestLabel, opts.collapsedLayout,
+    ...list.map((e) => `${e?.name}:${e?.score}`),
+  ].join("|");
+  return drawCachedPanel(ctx, "leaderboard", key, { x, y, w, h }, (pctx) =>
+    drawLeaderboardPanelDirect(pctx, entries, myBest, x, y, w, h, 1, opts)
+  );
+}
+
+function drawLeaderboardPanelDirect(
   ctx,
   entries,
   myBest,
@@ -214,7 +316,6 @@ export function drawLeaderboardPanel(
   alpha = 1,
   opts = {}
 ) {
-  if (alpha <= 0 || !Number.isFinite(w) || !Number.isFinite(h)) return;
 
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -480,6 +581,13 @@ function drawHudPanelBezel(ctx, x, y, w, h) {
 
 export function drawControlsButton(ctx, rect, active = false, hot = false) {
   if (!rect) return;
+  const key = `${rect.x}|${rect.y}|${rect.w}|${rect.h}|${active}|${hot}`;
+  drawCachedPanel(ctx, "controlsButton", key, rect, (pctx) =>
+    drawControlsButtonDirect(pctx, rect, active, hot)
+  );
+}
+
+function drawControlsButtonDirect(ctx, rect, active, hot) {
   const { x, y, w, h } = rect;
   ctx.save();
   const glow = active ? "rgba(0,255,225,0.28)" : "rgba(120,205,255,0.18)";
@@ -546,6 +654,13 @@ export function drawControlsButton(ctx, rect, active = false, hot = false) {
 
 export function drawControlsPanel(ctx, rect, COLORS) {
   if (!rect) return;
+  const key = `${rect.x}|${rect.y}|${rect.w}|${rect.h}`;
+  drawCachedPanel(ctx, "controlsPanel", key, rect, (pctx) =>
+    drawControlsPanelDirect(pctx, rect, COLORS)
+  );
+}
+
+function drawControlsPanelDirect(ctx, rect, COLORS) {
   const { x, y, w, h } = rect;
   ctx.save();
   // Neon sci-fi glass panel
@@ -764,7 +879,6 @@ export function drawRestartFlyby(ctx, state, COLORS, W, H) {
 
 export function drawHUD(ctx, state, danger01, COLORS) {
   const player = state.player;
-  const uiT = state.uiTime || 0;
   const introT = state.hudIntroT || 0;
   const introK = clamp(introT / 0.55, 0, 1);
   const introEase = 1 - Math.pow(1 - introK, 3);
@@ -775,12 +889,59 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   const y = 12;
   const w = 272;
   const h = 74;
+  const statX = x + w - 88;
+  const statW = 74;
+  const barY1 = y + 34;
+  const barY2 = y + 50;
   const slideX = -(w + x + 24) * (1 - introEase);
-  if (slideX) ctx.translate(slideX, 0);
-  const pulse = 0.55 + 0.45 * Math.sin(uiT * 2.4);
-  const neon = `rgba(0,255,208,${0.55 + 0.25 * pulse})`;
-  const neonSoft = "rgba(0,255,208,0.18)";
 
+  // Static frame: cached, except while sliding in/out.
+  if (slideX) {
+    ctx.translate(slideX, 0);
+    drawHudFrame(ctx, x, y, w, h, statX, statW, barY1, barY2);
+  } else {
+    drawCachedPanel(ctx, "hud", "hud", { x, y, w, h }, (pctx) =>
+      drawHudFrame(pctx, x, y, w, h, statX, statW, barY1, barY2)
+    );
+  }
+
+  // Live values
+  ctx.globalAlpha = 0.95;
+  const baseScore = Number.isFinite(state.score) ? state.score : (state.distance || 0);
+  const hudScore = Math.floor(baseScore);
+  const scoreText = String(hudScore).padStart(6, "0");
+  ctx.fillStyle = "rgba(220,255,255,0.98)";
+  ctx.font = "800 28px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillText(scoreText, x + 14, y + 52);
+
+  // Distance line
+  const hudDistance = Math.floor(state.distance || 0);
+  ctx.fillStyle = "rgba(120,220,255,0.75)";
+  ctx.font = "600 10px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillText(`DIST ${hudDistance}`, x + 14, y + 66);
+
+  ctx.fillStyle = "rgba(240,255,255,0.95)";
+  ctx.font = "800 12px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillText(`${player.jumpsRemaining}`, statX + 32, y + 24);
+
+  const fuelMax = Number.isFinite(player.floatFuelMax) ? player.floatFuelMax : 0.38;
+  const fuel01 = Number.isFinite(player.floatFuel)
+    ? clamp(fuelMax > 0 ? player.floatFuel / fuelMax : 0, 0, 1)
+    : 0;
+  const dashCd = Number.isFinite(player.dashCooldown) ? player.dashCooldown : 0;
+  const dash01 = clamp(1 - (dashCd / Math.max(0.001, DASH_COOLDOWN)), 0, 1);
+
+  ctx.fillStyle = "rgba(0,255,208,0.85)";
+  ctx.fillRect(statX, barY1, Math.floor(statW * fuel01), 6);
+  ctx.fillStyle = dash01 >= 1 ? "rgba(255,110,180,0.9)" : "rgba(120,120,255,0.75)";
+  ctx.fillRect(statX, barY2, Math.floor(statW * dash01), 6);
+
+  ctx.restore();
+}
+
+// Everything in the HUD that doesn't change during a run: bezel, labels, bar tracks.
+function drawHudFrame(ctx, x, y, w, h, statX, statW, barY1, barY2) {
+  ctx.save();
   // Chunky arcade bezel
   ctx.globalAlpha = 0.95;
   ctx.fillStyle = "rgba(10,12,18,0.92)";
@@ -841,60 +1002,26 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   }
   ctx.restore();
 
-  // Score
-  const baseScore = Number.isFinite(state.score) ? state.score : (state.distance || 0);
-  const hudScore = Math.floor(baseScore);
-  const scoreText = String(hudScore).padStart(6, "0");
   ctx.fillStyle = "rgba(150,245,255,0.75)";
   ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText("SCORE", x + 14, y + 22);
 
-  ctx.fillStyle = "rgba(220,255,255,0.98)";
-  ctx.font = "800 28px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText(scoreText, x + 14, y + 52);
-
-  // Distance line
-  const hudDistance = Math.floor(state.distance || 0);
-  ctx.fillStyle = "rgba(120,220,255,0.75)";
-  ctx.font = "600 10px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText(`DIST ${hudDistance}`, x + 14, y + 66);
-
   // Right-side status strip
-  const statX = x + w - 88;
-  const statW = 74;
   ctx.fillStyle = "rgba(8,12,20,0.65)";
   roundRect(ctx, statX - 6, y + 10, statW + 10, 52, 8);
 
   ctx.fillStyle = "rgba(180,250,255,0.8)";
   ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText("JMP", statX, y + 24);
-  ctx.fillStyle = "rgba(240,255,255,0.95)";
-  ctx.font = "800 12px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText(`${player.jumpsRemaining}`, statX + 32, y + 24);
 
-  const fuelMax = Number.isFinite(player.floatFuelMax) ? player.floatFuelMax : 0.38;
-  const fuel01 = Number.isFinite(player.floatFuel)
-    ? clamp(fuelMax > 0 ? player.floatFuel / fuelMax : 0, 0, 1)
-    : 0;
-  const dashCd = Number.isFinite(player.dashCooldown) ? player.dashCooldown : 0;
-  const dash01 = clamp(1 - (dashCd / Math.max(0.001, DASH_COOLDOWN)), 0, 1);
-
-  const barY1 = y + 34;
-  const barY2 = y + 50;
   ctx.fillStyle = "rgba(16,22,34,0.9)";
   ctx.fillRect(statX, barY1, statW, 6);
   ctx.fillRect(statX, barY2, statW, 6);
-
-  ctx.fillStyle = "rgba(0,255,208,0.85)";
-  ctx.fillRect(statX, barY1, Math.floor(statW * fuel01), 6);
-  ctx.fillStyle = dash01 >= 1 ? "rgba(255,110,180,0.9)" : "rgba(120,120,255,0.75)";
-  ctx.fillRect(statX, barY2, Math.floor(statW * dash01), 6);
 
   ctx.fillStyle = "rgba(160,230,255,0.65)";
   ctx.font = "700 8px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText("FUEL", statX, barY1 - 2);
   ctx.fillText("DASH", statX, barY2 - 2);
-
   ctx.restore();
 }
 
@@ -909,9 +1036,10 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const backflips = Math.floor(state.backflipCount || 0);
   const billboardsDashed = Math.floor(state.billboardDashCount || 0);
   const dist = Math.floor(state.distance || 0);
-  const boardIntro = 0.25;
   const boardT = Number.isFinite(state.scoreBoardT) ? state.scoreBoardT : 0;
-  const boardK = Math.max(0, Math.min(1, boardT / boardIntro));
+  // Intro progress: summary drop, then leaderboard slide (each 0..1).
+  const dropK = clamp(boardT / RUN_SUMMARY_DROP_SEC, 0, 1);
+  const slideK = clamp((boardT - LEADERBOARD_SLIDE_DELAY_SEC) / LEADERBOARD_SLIDE_SEC, 0, 1);
   const uiT = Number.isFinite(state.uiTime) ? state.uiTime : 0;
   const rowHeightVal = 18;
   const leaderboardRowCount = LEADERBOARD_MAX_ENTRIES;
@@ -932,21 +1060,122 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const panelX = blockX;
   const finalPanelY = cy - panelH / 2 - 6;
   const startPanelY = -panelH - 40;
-  const panelY = startPanelY + (finalPanelY - startPanelY) * boardK;
+  const panelY = startPanelY + (finalPanelY - startPanelY) * easeOutBack(dropK);
+  // Leaderboard: straight in from off-screen right, at its final height.
   const leaderboardFinalX = panelX + panelW + spacing;
-  const leaderboardOffsetX = (1 - boardK) * (leaderboardW + 40);
-  const leaderboardX = leaderboardFinalX + leaderboardOffsetX;
+  const leaderboardStartX = w + 24;
+  const leaderboardX = leaderboardStartX + (leaderboardFinalX - leaderboardStartX) * easeOutCubic(slideK);
   const panelCenterX = panelX + panelW * 0.5;
   const leaderboardH = panelH;
-  const leaderboardY = panelY;
+  const leaderboardY = finalPanelY;
 
   const sway = 0;
   const stringTop = -200;
   const stringLeftX = panelX + panelW * 0.26 + sway;
   const stringRightX = panelX + panelW * 0.74 + sway;
 
+  const rows = [
+    { label: "DRIFT DISTANCE", value: formatNumber(drift) },
+    { label: "BACKFLIPS", value: formatNumber(backflips) },
+    { label: "BILLBOARDS BROKEN", value: formatNumber(billboardsDashed) },
+    { label: "TOTAL DISTANCE", value: formatNumber(dist) },
+  ];
+  const summary = {
+    panelX, panelY, panelW, panelH, panelCenterX, stringTop, stringLeftX, stringRightX, rows,
+  };
+
+  // Rig, panel and stat rows: drawn directly while dropping in, cached once landed.
+  if (dropK < 1) {
+    drawRunSummaryFrame(ctx, summary);
+  } else {
+    const key = [panelX, panelY, panelW, panelH, ...rows.map((r) => r.value)].join("|");
+    const top = stringTop - 22;
+    const box = { x: panelX - 30, y: top, w: panelW + 60, h: panelY + panelH - top + 4 };
+    drawCachedPanel(ctx, "runSummary", key, box, (pctx) => drawRunSummaryFrame(pctx, summary));
+  }
+
+  ctx.textAlign = "center";
+  const dividerY = panelY + 64 + 24 * rows.length + 6;
+
+  // Total score capsule: cached once the tally has finished counting.
+  const pillX = panelX + 40;
+  const pillY = dividerY + 16;
+  const pillW2 = panelW - 80;
+  const pillH2 = 54;
+  const capsule = { pillX, pillY, pillW2, pillH2, panelCenterX, scoreText };
+  if (state.scoreTallyDone === true && dropK >= 1) {
+    const key = [pillX, pillY, pillW2, scoreText].join("|");
+    drawCachedPanel(ctx, "runScore", key, { x: pillX, y: pillY, w: pillW2, h: pillH2 }, (pctx) =>
+      drawScoreCapsule(pctx, capsule)
+    );
+  } else {
+    drawScoreCapsule(ctx, capsule);
+  }
+  // The score glow stays on for what follows (RESET and the leaderboard pick it up).
+  ctx.shadowColor = "rgba(80,255,220,0.7)";
+  ctx.shadowBlur = 16;
+
+  const buttonEnabled = Boolean(buttonReady);
+  const resetButtonWidth = Math.min(pillW2, panelW - 90);
+  const resetButtonHeight = 44;
+  const resetButtonX = panelCenterX - resetButtonWidth / 2;
+  const resetButtonY = pillY + pillH2 + 24;
+  let resetHover = false;
+
+  if (buttonEnabled && pointerUi) {
+    resetHover =
+      pointerUi.x >= resetButtonX &&
+      pointerUi.x <= resetButtonX + resetButtonWidth &&
+      pointerUi.y >= resetButtonY &&
+      pointerUi.y <= resetButtonY + resetButtonHeight;
+  }
+  state.restartHover = buttonEnabled ? resetHover : false;
+
+  if (buttonEnabled) {
+    const button = { x: resetButtonX, y: resetButtonY, w: resetButtonWidth, h: resetButtonHeight, panelCenterX };
+    const key = [resetButtonX, resetButtonY, resetButtonWidth, resetHover].join("|");
+    if (dropK >= 1) {
+      drawCachedPanel(ctx, "resetButton", key, button, (pctx) => drawResetButton(pctx, button, resetHover));
+    } else {
+      drawResetButton(ctx, button, resetHover);
+    }
+  }
+
+  // Leaderboard: drawn directly while sliding, cached once in place.
+  if (slideK > 0) {
+    const leaderboardState = getLeaderboardState();
+    const draw = slideK < 1 ? drawLeaderboardPanelDirect : drawLeaderboardPanel;
+    draw(
+      ctx,
+      leaderboardState.entries,
+      leaderboardState.myBest,
+      leaderboardX,
+      leaderboardY,
+      leaderboardW,
+      leaderboardH,
+      1,
+      {
+        rowCount: leaderboardRowCount,
+        rowHeight: rowHeightVal,
+        glow: true,
+        arrow: false,
+        bestLabel: "Best Score",
+      }
+    );
+  }
+
+  ctx.restore();
+}
+
+// Run summary pieces that are fixed once the run has ended: hanging rig, panel,
+// header and the four stat rows.
+function drawRunSummaryFrame(ctx, summary) {
+  const { panelX, panelY, panelW, panelH, panelCenterX, stringTop, stringLeftX, stringRightX, rows } = summary;
   ctx.save();
-  ctx.globalAlpha = 0.98 * boardK;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.save();
+  ctx.globalAlpha = 0.98;
   // Cyberpunk hanging rig: top rail, chains, clamps.
   // Heavy steel rail
   const railGrad = ctx.createLinearGradient(panelX, stringTop - 6, panelX, stringTop + 6);
@@ -1079,7 +1308,6 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   ctx.stroke();
   ctx.restore();
 
-  ctx.globalAlpha = boardK;
   ctx.fillStyle = "rgba(160,245,255,0.9)";
   ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText("RUN SUMMARY", panelCenterX, panelY + 35);
@@ -1091,12 +1319,6 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const rowH = 24;
   const pillH = 20;
   const pillW = 160;
-  const rows = [
-    { label: "DRIFT DISTANCE", value: formatNumber(drift) },
-    { label: "BACKFLIPS", value: formatNumber(backflips) },
-    { label: "BILLBOARDS BROKEN", value: formatNumber(billboardsDashed) },
-    { label: "TOTAL DISTANCE", value: formatNumber(dist) },
-  ];
 
   // Row backgrounds
   ctx.fillStyle = "rgba(8,12,18,0.78)";
@@ -1162,11 +1384,12 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   ctx.lineTo(panelX + panelW - 20, dividerY);
   ctx.stroke();
 
-  // Total score capsule
-  const pillX = panelX + 40;
-  const pillY = dividerY + 16;
-  const pillW2 = panelW - 80;
-  const pillH2 = 54;
+  ctx.restore();
+}
+
+// Total score pill + score. Leaves the score glow (shadow) set on ctx, as callers expect.
+function drawScoreCapsule(ctx, capsule) {
+  const { pillX, pillY, pillW2, pillH2, panelCenterX, scoreText } = capsule;
   ctx.fillStyle = "rgba(8,12,18,0.8)";
   roundRect(ctx, pillX, pillY, pillW2, pillH2, 14);
   ctx.save();
@@ -1189,11 +1412,10 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const maxScoreWidth = pillW2 - 34;
   let scoreFontSize = 40;
   ctx.font = `800 ${scoreFontSize}px Share Tech Mono, Orbitron, Menlo, monospace`;
-  let scoreWidth = ctx.measureText(scoreText).width;
+  const scoreWidth = ctx.measureText(scoreText).width;
   if (scoreWidth > maxScoreWidth) {
     scoreFontSize = Math.max(28, Math.floor(scoreFontSize * (maxScoreWidth / scoreWidth)));
     ctx.font = `800 ${scoreFontSize}px Share Tech Mono, Orbitron, Menlo, monospace`;
-    scoreWidth = ctx.measureText(scoreText).width;
   }
 
   ctx.shadowColor = "rgba(80,255,220,0.7)";
@@ -1201,109 +1423,72 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   ctx.fillStyle = "rgba(240,255,255,0.98)";
   ctx.textAlign = "center";
   ctx.fillText(scoreText, panelCenterX, pillY + 40 + (40 - scoreFontSize) * 0.3);
+}
 
-  const buttonEnabled = Boolean(buttonReady);
-  const resetButtonText = "RESET";
-  const resetButtonWidth = Math.min(pillW2, panelW - 90);
-  const resetButtonHeight = 44;
-  const resetButtonX = panelCenterX - resetButtonWidth / 2;
-  const resetButtonY = pillY + pillH2 + 24;
-  let resetHover = false;
-
-  if (buttonEnabled && pointerUi) {
-    resetHover =
-      pointerUi.x >= resetButtonX &&
-      pointerUi.x <= resetButtonX + resetButtonWidth &&
-      pointerUi.y >= resetButtonY &&
-      pointerUi.y <= resetButtonY + resetButtonHeight;
-  }
-  state.restartHover = buttonEnabled ? resetHover : false;
-
-  if (buttonEnabled) {
-    const baseGradient = ctx.createLinearGradient(
-      resetButtonX,
-      resetButtonY,
-      resetButtonX,
-      resetButtonY + resetButtonHeight
-    );
-    if (resetHover) {
-      baseGradient.addColorStop(0, "rgba(255,120,120,0.98)");
-      baseGradient.addColorStop(1, "rgba(240,60,60,0.96)");
-    } else {
-      baseGradient.addColorStop(0, "rgba(255,255,255,0.98)");
-      baseGradient.addColorStop(0.6, "rgba(228,236,248,0.96)");
-      baseGradient.addColorStop(1, "rgba(210,230,250,0.92)");
-    }
-
-    ctx.save();
-    ctx.shadowColor = resetHover ? "rgba(255,80,80,0.8)" : "rgba(120,205,255,0.45)";
-    ctx.shadowBlur = resetHover ? 28 : 18;
-    ctx.fillStyle = baseGradient;
-    roundRect(ctx, resetButtonX, resetButtonY, resetButtonWidth, resetButtonHeight, 18);
-    ctx.restore();
-
-    ctx.save();
-    ctx.strokeStyle = resetHover ? "rgba(255,210,210,0.7)" : "rgba(12,16,22,0.4)";
-    ctx.lineWidth = 1.5;
-    roundedRectPath(
-      ctx,
-      resetButtonX + 0.7,
-      resetButtonY + 0.7,
-      resetButtonWidth - 1.4,
-      resetButtonHeight - 1.4,
-      16
-    );
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.globalAlpha = 0.25;
-    const highlight = ctx.createLinearGradient(
-      resetButtonX,
-      resetButtonY,
-      resetButtonX,
-      resetButtonY + resetButtonHeight * 0.35
-    );
-    highlight.addColorStop(0, "rgba(255,255,255,0.9)");
-    highlight.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = highlight;
-    ctx.beginPath();
-    ctx.moveTo(resetButtonX + 6, resetButtonY + 4);
-    ctx.lineTo(resetButtonX + resetButtonWidth - 6, resetButtonY + 4);
-    ctx.lineTo(resetButtonX + resetButtonWidth - 8, resetButtonY + 12);
-    ctx.lineTo(resetButtonX + 8, resetButtonY + 12);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = "800 24px Share Tech Mono, Orbitron, Menlo, monospace";
-    ctx.fillStyle = resetHover ? "rgba(24,18,18,0.98)" : "rgba(24,26,32,0.94)";
-    ctx.fillText(resetButtonText, panelCenterX, resetButtonY + resetButtonHeight / 2 + 2);
-    ctx.restore();
-  }
-
-  const leaderboardState = getLeaderboardState();
-  drawLeaderboardPanel(
-    ctx,
-    leaderboardState.entries,
-    leaderboardState.myBest,
-    leaderboardX,
-    leaderboardY,
-    leaderboardW,
-    leaderboardH,
-    Math.max(0, Math.min(1, boardK)),
-    {
-      rowCount: leaderboardRowCount,
-      rowHeight: rowHeightVal,
-      glow: true,
-      arrow: false,
-      bestLabel: "Best Score",
-    }
+function drawResetButton(ctx, button, resetHover) {
+  const { x: resetButtonX, y: resetButtonY, w: resetButtonWidth, h: resetButtonHeight, panelCenterX } = button;
+  const baseGradient = ctx.createLinearGradient(
+    resetButtonX,
+    resetButtonY,
+    resetButtonX,
+    resetButtonY + resetButtonHeight
   );
+  if (resetHover) {
+    baseGradient.addColorStop(0, "rgba(255,120,120,0.98)");
+    baseGradient.addColorStop(1, "rgba(240,60,60,0.96)");
+  } else {
+    baseGradient.addColorStop(0, "rgba(255,255,255,0.98)");
+    baseGradient.addColorStop(0.6, "rgba(228,236,248,0.96)");
+    baseGradient.addColorStop(1, "rgba(210,230,250,0.92)");
+  }
 
+  ctx.save();
+  ctx.shadowColor = resetHover ? "rgba(255,80,80,0.8)" : "rgba(120,205,255,0.45)";
+  ctx.shadowBlur = resetHover ? 28 : 18;
+  ctx.fillStyle = baseGradient;
+  roundRect(ctx, resetButtonX, resetButtonY, resetButtonWidth, resetButtonHeight, 18);
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = resetHover ? "rgba(255,210,210,0.7)" : "rgba(12,16,22,0.4)";
+  ctx.lineWidth = 1.5;
+  roundedRectPath(
+    ctx,
+    resetButtonX + 0.7,
+    resetButtonY + 0.7,
+    resetButtonWidth - 1.4,
+    resetButtonHeight - 1.4,
+    16
+  );
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+  const highlight = ctx.createLinearGradient(
+    resetButtonX,
+    resetButtonY,
+    resetButtonX,
+    resetButtonY + resetButtonHeight * 0.35
+  );
+  highlight.addColorStop(0, "rgba(255,255,255,0.9)");
+  highlight.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = highlight;
+  ctx.beginPath();
+  ctx.moveTo(resetButtonX + 6, resetButtonY + 4);
+  ctx.lineTo(resetButtonX + resetButtonWidth - 6, resetButtonY + 4);
+  ctx.lineTo(resetButtonX + resetButtonWidth - 8, resetButtonY + 12);
+  ctx.lineTo(resetButtonX + 8, resetButtonY + 12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "800 24px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.fillStyle = resetHover ? "rgba(24,18,18,0.98)" : "rgba(24,26,32,0.94)";
+  ctx.fillText("RESET", panelCenterX, resetButtonY + resetButtonHeight / 2 + 2);
   ctx.restore();
 }
 

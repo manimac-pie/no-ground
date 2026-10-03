@@ -88,6 +88,79 @@ function getTextTiles(text, font, tileSize, letterSpacing = 0) {
   return _tileCache;
 }
 
+// Paint styles for the neon tiles. Built once per frame (or per sprite), not per tile.
+function neonTileStyle(useRed, glow, fade) {
+  const alpha = 0.92 * fade;
+  return {
+    shadowColor: useRed ? `rgba(255,120,120,${0.75 * glow})` : `rgba(120,205,255,${0.65 * glow})`,
+    shadowBlur: 10 + 12 * glow,
+    fill: useRed ? `rgba(255,90,90,${alpha})` : `rgba(140,220,255,${alpha})`,
+    base: `rgba(30,40,52,${0.4 * fade})`,
+    core: useRed ? `rgba(255,190,190,${0.7 * alpha})` : `rgba(230,250,255,${0.7 * alpha})`,
+  };
+}
+
+// One neon tile: glowing body, dark base line, hot core line. Leaves shadows off.
+function drawNeonTile(ctx, px, py, t, style) {
+  ctx.shadowColor = style.shadowColor;
+  ctx.shadowBlur = style.shadowBlur;
+  ctx.fillStyle = style.fill;
+  ctx.fillRect(px, py, t.w, t.h);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
+  ctx.fillStyle = style.base;
+  ctx.fillRect(px, py + t.h - 1, t.w, 1);
+
+  ctx.fillStyle = style.core;
+  ctx.fillRect(px, py, t.w, 1);
+}
+
+// While the text is at rest, every tile is static and shares one style, so the whole
+// word is painted once into a device-resolution sprite and stamped with drawImage.
+// The pulsing glow is quantized so the sprite is only rebuilt when the level changes.
+const GLOW_MIN = 0.55;
+const GLOW_RANGE = 0.45;
+const GLOW_LEVELS = 16;
+const SPRITE_MARGIN = 40; // device px; covers the widest shadow (blur 22)
+const _textSprites = new Map(); // "red" | "blue" -> { key, canvas }
+
+function quantizeGlow(glow) {
+  const level = Math.round(((glow - GLOW_MIN) / GLOW_RANGE) * GLOW_LEVELS);
+  return GLOW_MIN + (GLOW_RANGE * level) / GLOW_LEVELS;
+}
+
+// fracX/fracY: sub-pixel part of the text's device position, baked in so edges
+// antialias exactly as when the tiles are drawn directly.
+function getTextSprite(cache, useRed, glow, scaleX, scaleY, fracX, fracY) {
+  const slot = useRed ? "red" : "blue";
+  const key = `${cache.key}|${glow}|${scaleX}|${scaleY}|${fracX}|${fracY}`;
+  let entry = _textSprites.get(slot);
+  if (entry && entry.key === key) return entry.canvas;
+
+  const width = Math.ceil(cache.width * scaleX) + SPRITE_MARGIN * 2 + 1;
+  const height = Math.ceil(cache.height * scaleY) + SPRITE_MARGIN * 2 + 1;
+  if (!entry) {
+    entry = { key: "", canvas: document.createElement("canvas") };
+    _textSprites.set(slot, entry);
+  }
+  const canvas = entry.canvas;
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  const sctx = canvas.getContext("2d");
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.clearRect(0, 0, width, height);
+  sctx.setTransform(scaleX, 0, 0, scaleY, SPRITE_MARGIN + fracX, SPRITE_MARGIN + fracY);
+
+  const style = neonTileStyle(useRed, glow, 1);
+  for (const t of cache.tiles) drawNeonTile(sctx, t.x, t.y, t, style);
+
+  entry.key = key;
+  return canvas;
+}
+
 function drawKeyChip(ctx, label, caption, x, y, COLORS, opts = {}) {
   const active = opts.active === true;
   const padX = 14;
@@ -239,51 +312,55 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
     pointer.y >= baseY &&
     pointer.y <= baseY + totalHeight;
   const useRed = hover || (smashActive && state.menuSmashRed === true);
-  caches.forEach((c, idx) => {
-    const lineY = baseY + accY;
-    c.tiles.forEach((t, i) => {
-      const globalIndex = idx * 10000 + i; // stable-ish hash index
-      const h1 = hash01(globalIndex * 13.7);
-      const h2 = hash01(globalIndex * 97.3);
+  const glow = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin((uiTime || 0) * 1.2));
 
-      let px = baseX + (maxWidth - c.width) * 0.0 + t.x; // left aligned
-      let py = lineY + t.y;
-      let fade = 1;
+  // At rest: stamp the cached sprite. Needs an axis-aligned transform to map
+  // the sprite 1:1 onto device pixels, and a steady zoom (the zoom-out changes
+  // scale every frame); otherwise fall back to per-tile drawing.
+  const m = ctx.getTransform();
+  const useSprite =
+    !smashActive && !state.menuZooming && m.b === 0 && m.c === 0 && m.a > 0 && m.d > 0;
 
-      if (smashActive) {
-        const tSec = Math.min(smashDuration, smashT);
-        const vx = 80 + 220 * h1;
-        const vy = -(90 + 160 * h2);
-        px += vx * tSec;
-        py += vy * tSec + 0.5 * gravity * tSec * tSec;
-        fade = Math.max(0, 1 - tSec / smashDuration);
-      }
-
-      const alpha = 0.92 * fade * pulse;
-      const glow = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin((uiTime || 0) * 1.2));
-
-      ctx.save();
-      ctx.shadowColor = useRed
-        ? `rgba(255,120,120,${0.75 * glow})`
-        : `rgba(120,205,255,${0.65 * glow})`;
-      ctx.shadowBlur = 10 + 12 * glow;
-      ctx.fillStyle = useRed
-        ? `rgba(255,90,90,${alpha})`
-        : `rgba(140,220,255,${alpha})`;
-      ctx.fillRect(px, py, t.w, t.h);
-      ctx.restore();
-
-      ctx.fillStyle = `rgba(30,40,52,${0.4 * fade})`;
-      ctx.fillRect(px, py + t.h - 1, t.w, 1);
-
-      // Hot core line to sell neon tubing.
-      ctx.fillStyle = useRed
-        ? `rgba(255,190,190,${0.7 * alpha})`
-        : `rgba(230,250,255,${0.7 * alpha})`;
-      ctx.fillRect(px, py, t.w, 1);
+  if (useSprite) {
+    const glowLevel = quantizeGlow(glow);
+    caches.forEach((c) => {
+      const lineY = baseY + accY;
+      const devX = m.a * baseX + m.e;
+      const devY = m.d * lineY + m.f;
+      const intX = Math.floor(devX);
+      const intY = Math.floor(devY);
+      const sprite = getTextSprite(c, useRed, glowLevel, m.a, m.d, devX - intX, devY - intY);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(sprite, intX - SPRITE_MARGIN, intY - SPRITE_MARGIN);
+      ctx.setTransform(m);
+      accY += c.height + lineGap;
     });
-    accY += c.height + lineGap;
-  });
+  } else {
+    // Smashing: each tile flies on its own path. Style is shared by all tiles this frame.
+    const tSec = smashActive ? Math.min(smashDuration, smashT) : 0;
+    const fade = smashActive ? Math.max(0, 1 - tSec / smashDuration) : 1;
+    const style = neonTileStyle(useRed, glow, fade * pulse);
+    style.base = `rgba(30,40,52,${0.4 * fade})`;
+
+    caches.forEach((c, idx) => {
+      const lineY = baseY + accY;
+      c.tiles.forEach((t, i) => {
+        let px = baseX + t.x; // left aligned
+        let py = lineY + t.y;
+
+        if (smashActive) {
+          const globalIndex = idx * 10000 + i; // stable-ish hash index
+          const vx = 80 + 220 * hash01(globalIndex * 13.7);
+          const vy = -(90 + 160 * hash01(globalIndex * 97.3));
+          px += vx * tSec;
+          py += vy * tSec + 0.5 * gravity * tSec * tSec;
+        }
+
+        drawNeonTile(ctx, px, py, t, style);
+      });
+      accY += c.height + lineGap;
+    });
+  }
 
   // Trigger smash when Bob overlaps the combined text box.
   if (onSmashTrigger && !smashActive) {

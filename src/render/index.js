@@ -493,6 +493,19 @@ function isTouchViewport() {
   return touchLike && phoneish;
 }
 
+// Canvas CSS box. main.js measures it on resize and passes it in, because
+// calling getBoundingClientRect every frame can force a layout.
+let canvasRect = null;
+
+export function setCanvasRect(rect) {
+  canvasRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+}
+
+function getCanvasRect(canvas) {
+  if (!canvasRect) setCanvasRect(canvas.getBoundingClientRect());
+  return canvasRect;
+}
+
 function ensureCanvasSize(ctx, W, H) {
   // Renderer owns backing store sizing; main.js only sets CSS size.
   const canvas = ctx.canvas;
@@ -500,7 +513,7 @@ function ensureCanvasSize(ctx, W, H) {
     return { dpr: 1, cw: W, ch: H, cssW: W, cssH: H };
   }
 
-  const rect = canvas.getBoundingClientRect();
+  const rect = getCanvasRect(canvas);
   const cssW = Math.max(1, Math.floor(rect.width));
   const cssH = Math.max(1, Math.floor(rect.height));
 
@@ -667,7 +680,7 @@ export function render(ctx, state) {
 
   let pointerWorld = null;
   if (state.pointerInside && ctx.canvas) {
-    const rect = ctx.canvas.getBoundingClientRect();
+    const rect = getCanvasRect(ctx.canvas);
     const pxCss = (state.pointerX ?? 0) - rect.left;
     const pyCss = (state.pointerY ?? 0) - rect.top;
     const sx = cssW / W;

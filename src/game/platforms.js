@@ -276,6 +276,8 @@ export function resetPlatforms(state) {
     motionRate: 0,
     motionFromY: startY,
     motionToY: startY,
+    lowSpawnBreak: false,
+    breakable: false,
 
     // Break state
     breakArmed: false,
@@ -354,24 +356,8 @@ export function updatePlatforms(state, dt) {
       continue;
     }
 
-    // Ensure defaults (older platforms won’t crash if they lack new fields)
-    if (typeof plat.breakArmed !== "boolean") plat.breakArmed = false;
-    if (!Number.isFinite(plat.breakDelay)) plat.breakDelay = 0;
-    if (!Number.isFinite(plat.breakT)) plat.breakT = 0;
-    if (typeof plat.breakTriggered !== "boolean") plat.breakTriggered = false;
-    if (typeof plat.breaking !== "boolean") plat.breaking = false;
-    if (!Number.isFinite(plat.break01)) plat.break01 = 0;
-    if (typeof plat.lowSpawnBreak !== "boolean") plat.lowSpawnBreak = false;
-    if (typeof plat.invulnerable !== "boolean") plat.invulnerable = false;
-    if (typeof plat.breakable !== "boolean") plat.breakable = true;
-    if (plat.billboard && typeof plat.billboard !== "object") plat.billboard = null;
     if (plat.billboard) {
       const b = plat.billboard;
-      if (!Number.isFinite(b.breakT)) b.breakT = 0;
-      if (typeof b.breaking !== "boolean") b.breaking = false;
-      if (typeof b.broken !== "boolean") b.broken = false;
-      if (typeof b.resolved !== "boolean") b.resolved = false;
-      if (typeof b.breakSpawned !== "boolean") b.breakSpawned = false;
       if (b.breaking && !b.broken) {
         b.breakT += dt;
         if (b.breakT >= 0.28) {
@@ -394,7 +380,6 @@ export function updatePlatforms(state, dt) {
       plat.motionStarted = false;
       plat.motionT = 0;
       plat.motionRate = 0;
-      plat.baseY = Number.isFinite(plat.baseY) ? plat.baseY : plat.y;
       plat.motionFromY = plat.baseY;
       plat.motionToY = plat.baseY;
       plat.y = plat.baseY;
@@ -405,8 +390,7 @@ export function updatePlatforms(state, dt) {
       continue;
     }
 
-    const px = p ? p.x : 0;
-    const ahead = plat.x - px;
+    const ahead = plat.x - p.x;
     const inWindow = ahead > 40 && ahead < 520;
     const billboardedBreakable = !!(plat.billboard && plat.breakable);
     const lowSpawnBreakY = GROUND_Y - 50;
@@ -427,16 +411,16 @@ export function updatePlatforms(state, dt) {
       plat.breaking = true;
       plat.break01 = 0;
       plat.breakT = 0;
-      plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65);
+      plat.crack01 = Math.max(plat.crack01, 0.65);
       plat.motion = "none";
       plat.motionArmed = false;
       plat.motionStarted = false;
       plat.motionT = 0;
 
-      if (p && p.groundPlat === plat) {
+      if (p.groundPlat === plat) {
         p.onGround = false;
         p.groundPlat = null;
-        p.coyote = Math.max(p.coyote ?? 0, 0.08);
+        p.coyote = Math.max(p.coyote, 0.08);
       }
     }
 
@@ -447,18 +431,9 @@ export function updatePlatforms(state, dt) {
       const yMax = GROUND_Y - 40;
       const lowBreakY = GROUND_Y - 160;
 
-      // Ensure defaults (older platforms won’t crash if they lack new fields)
-      if (!Number.isFinite(plat.baseY)) plat.baseY = plat.y;
-      if (!Number.isFinite(plat.motionFromY)) plat.motionFromY = plat.y;
-      if (!Number.isFinite(plat.motionToY)) plat.motionToY = plat.baseY;
-      if (typeof plat.motionArmed !== "boolean") plat.motionArmed = false;
-      if (typeof plat.motionStarted !== "boolean") plat.motionStarted = plat.motionT > 0;
-      if (!Number.isFinite(plat.motionT)) plat.motionT = plat.motionStarted ? plat.motionT : 0;
-
       // Start condition: player is in the air AND the platform is in the near-ahead window.
       // (Avoid surprising movement far away off-screen.)
-      const airborne = !(p && p.onGround);
-      const inWindow = ahead > 40 && ahead < 520; // tune window as desired
+      const airborne = !p.onGround;
 
       if (plat.motionArmed && !plat.motionStarted && airborne && inWindow) {
         plat.motionStarted = true;
@@ -519,7 +494,7 @@ export function updatePlatforms(state, dt) {
           plat.breaking = true;
           plat.break01 = 0;
           plat.breakT = 0;
-          plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65);
+          plat.crack01 = Math.max(plat.crack01, 0.65);
         }
 
         // When motion completes, lock the resting baseY to the final position.
@@ -539,11 +514,11 @@ export function updatePlatforms(state, dt) {
           !prevJustBroke &&
           plat.breakArmed
         ) {
-          const airborneNow = !(p && p.onGround);
+          const airborneNow = !p.onGround;
           if (airborneNow) {
             // Delay break if the player is still close enough to plausibly land on it.
-            const playerLeft = p ? p.x : 0;
-            const playerRight = p ? p.x + p.w : 0;
+            const playerLeft = p.x;
+            const playerRight = p.x + p.w;
             const aheadEdge = plat.x - playerRight;
             const passed = playerLeft > plat.x + plat.w;
             const safeToBreak = passed || aheadEdge > 90;
@@ -559,7 +534,7 @@ export function updatePlatforms(state, dt) {
                 plat.breaking = true;
                 plat.break01 = 0;
                 plat.breakT = 0; // reuse as breaking timer
-                plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65);
+                plat.crack01 = Math.max(plat.crack01, 0.65);
               }
             }
           }
@@ -573,7 +548,7 @@ export function updatePlatforms(state, dt) {
       plat.breakT += dt;
       const BREAK_ANIM_SEC = 0.22;
       plat.break01 = clamp(plat.breakT / BREAK_ANIM_SEC, 0, 1);
-      plat.crack01 = Math.max(plat.crack01 ?? 0, 0.65 + 0.35 * plat.break01);
+      plat.crack01 = Math.max(plat.crack01, 0.65 + 0.35 * plat.break01);
 
       if (plat.break01 >= 1) {
         plat.collapsing = true;
@@ -593,11 +568,11 @@ export function updatePlatforms(state, dt) {
         plat.breaking = false;
 
         // If somehow the player is on it, drop them with a small grace.
-        if (p && p.groundPlat === plat) {
+        if (p.groundPlat === plat) {
           p.onGround = false;
           p.groundPlat = null;
-          p.coyote = Math.max(p.coyote ?? 0, 0.08);
-          p.breakGrace = Math.max(p.breakGrace ?? 0, BREAK_JUMP_GRACE_SEC);
+          p.coyote = Math.max(p.coyote, 0.08);
+          p.breakGrace = Math.max(p.breakGrace, BREAK_JUMP_GRACE_SEC);
           p.breakJumpEligible = true;
         }
       }
@@ -658,7 +633,7 @@ export function updatePlatforms(state, dt) {
         p.onGround = false;
         p.groundPlat = null;
         p.coyote = Math.max(p.coyote, 0.06);
-        p.breakGrace = Math.max(p.breakGrace ?? 0, BREAK_JUMP_GRACE_SEC);
+        p.breakGrace = Math.max(p.breakGrace, BREAK_JUMP_GRACE_SEC);
         p.breakJumpEligible = true;
       }
     }

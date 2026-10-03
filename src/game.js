@@ -19,6 +19,7 @@ import {
   RESTART_FLYBY_FADE_SEC,
   START_PUSH_TOTAL,
   MENU_START_ZOOM,
+  RUN_SUMMARY_DROP_SEC,
 } from "./game/constants.js";
 
 import { clamp } from "./game/utils.js";
@@ -70,8 +71,7 @@ export function createGame() {
     }
 
     state.scoreBoardT = (state.scoreBoardT || 0) + dt;
-    const boardIntro = 0.25;
-    if ((state.scoreBoardT || 0) < boardIntro) return;
+    if ((state.scoreBoardT || 0) < RUN_SUMMARY_DROP_SEC) return;
 
     if (!state.scoreTallyActive) {
       state.scoreTallyActive = true;

@@ -68,6 +68,7 @@ export function createInitialState() {
     scoreBoardT: 0,
 
   speed: SPEED_START,
+    speedImpulse: 0,
   // Start prompt world position (moves with scroll)
     startPromptX: PLAYER_X + PLAYER_W + 24,
     // Y will be derived each frame to sit on the starter roof.
@@ -114,6 +115,10 @@ export function createInitialState() {
 
       trickKind: "spin",
       trickIntent: "neutral",
+
+      diving: false,
+      divePhase: "",
+      divePhaseT: 0,
 
       dashCooldown: 0,
       dashOffset: 0,
@@ -185,6 +190,7 @@ export function resetRunState(state) {
   state.scoreBoardT = 0;
 
   state.speed = SPEED_START;
+  state.speedImpulse = 0;
   state.startPromptX = PLAYER_X + PLAYER_W + 24;
   state.startPromptY = null;
   state.startPromptBounds = null;
@@ -224,6 +230,9 @@ export function resetRunState(state) {
   p.trickLandWindow = 0;
   p.trickKind = "spin";
   p.trickIntent = "neutral";
+  p.diving = false;
+  p.divePhase = "";
+  p.divePhaseT = 0;
   p.floatFuel = FLOAT_FUEL_MAX;
   p.floatFuelMax = FLOAT_FUEL_MAX;
   p.dashCooldown = 0;

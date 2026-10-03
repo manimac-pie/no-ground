@@ -319,19 +319,72 @@ function drawBrutalistFacade(ctx, x, y, w, h, seed, COLORS, crack01, animTime) {
   ctx.restore();
 }
 
+// ---------------- particle pools ----------------
+// Particles are reused instead of allocated per burst. Live particles sit at
+// the front of `items`; a dead one is swapped with the last live one, so
+// nothing is spliced mid-array and breaks don't create garbage.
+function createParticlePool() {
+  return { items: [], count: 0 };
+}
+
+function allocParticle(pool) {
+  if (pool.count === pool.items.length) {
+    pool.items.push({ x: 0, y: 0, vx: 0, vy: 0, life: 1, age: 0, w: 0, h: 0, c: "" });
+  }
+  return pool.items[pool.count++];
+}
+
+function freeParticle(pool, i) {
+  const last = --pool.count;
+  if (i !== last) {
+    const dead = pool.items[i];
+    pool.items[i] = pool.items[last];
+    pool.items[last] = dead;
+  }
+}
+
+// Iterates backwards, so the particle swapped into slot i has already been stepped.
+function stepParticles(pool, dt, gravity, drag, maxY) {
+  for (let i = pool.count - 1; i >= 0; i--) {
+    const d = pool.items[i];
+    d.age += dt;
+    if (d.age >= d.life) {
+      freeParticle(pool, i);
+      continue;
+    }
+    d.vy += gravity * dt;
+    d.vx *= drag;
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+    if (d.y > maxY) freeParticle(pool, i);
+  }
+}
+
+function drawParticles(ctx, pool, alphaBase, alphaFade) {
+  if (pool.count === 0) return;
+  ctx.save();
+  for (let i = 0; i < pool.count; i++) {
+    const d = pool.items[i];
+    ctx.globalAlpha = alphaBase + alphaFade * (1 - d.age / d.life);
+    ctx.fillStyle = d.c;
+    ctx.fillRect(d.x, d.y, d.w, d.h);
+  }
+  ctx.restore();
+}
+
 // ---------------- rubble (roof impacts) ----------------
-const rubble = [];
+const rubble = createParticlePool();
 let prevHeavyLandT = 0;
 let prevRoofJumpT = 0;
 
 // ---------------- debris (whole-building breaks) ----------------
-const debris = [];
+const debris = createParticlePool();
 
 // ---------------- billboard debris ----------------
-const billboardDebris = [];
+const billboardDebris = createParticlePool();
 
 // ---------------- crumble chunks (whole-building break) ----------------
-const buildingChunks = [];
+const buildingChunks = createParticlePool();
 
 function spawnBuildingChunks(plat, COLORS) {
   if (!plat) return;
@@ -359,17 +412,16 @@ function spawnBuildingChunks(plat, COLORS) {
       const h = sizeBase * (0.75 + 0.4 * hash01(seed * 7.9 + cell * 4.1));
       const cx = x + (hash01(seed * 11.7 + cell * 5.9) * step * 0.45);
       const cy = y + (hash01(seed * 13.3 + cell * 6.7) * step * 0.45);
-      buildingChunks.push({
-        x: cx,
-        y: cy,
-        w,
-        h,
-        vx: (hash01(seed * 23.1 + cell * 7.1) * 2 - 1) * (60 + 140 * hash01(seed * 29.7 + cell * 2.1)),
-        vy: -(60 + 220 * hash01(seed * 31.9 + cell * 3.3)),
-        life: 0.9 + 0.7 * hash01(seed * 37.7 + cell * 4.7),
-        age: 0,
-        c: hash01(seed * 9.7 + count * 1.7) < 0.5 ? baseColor : altColor,
-      });
+      const d = allocParticle(buildingChunks);
+      d.x = cx;
+      d.y = cy;
+      d.w = w;
+      d.h = h;
+      d.vx = (hash01(seed * 23.1 + cell * 7.1) * 2 - 1) * (60 + 140 * hash01(seed * 29.7 + cell * 2.1));
+      d.vy = -(60 + 220 * hash01(seed * 31.9 + cell * 3.3));
+      d.life = 0.9 + 0.7 * hash01(seed * 37.7 + cell * 4.7);
+      d.age = 0;
+      d.c = hash01(seed * 9.7 + count * 1.7) < 0.5 ? baseColor : altColor;
       count++;
     }
   }
@@ -380,48 +432,25 @@ function spawnBuildingChunks(plat, COLORS) {
   for (let i = 0; i < roofCount; i++) {
     const w = 6 + 10 * hash01(seed * 41.3 + i * 3.9);
     const h = 3 + 4 * hash01(seed * 43.7 + i * 5.1);
-    buildingChunks.push({
-      x: bodyX + hash01(seed * 47.9 + i * 2.7) * bodyW,
-      y: plat.y + hash01(seed * 53.1 + i * 3.1) * Math.max(1, plat.h),
-      w,
-      h,
-      vx: (hash01(seed * 59.9 + i * 4.3) * 2 - 1) * (70 + 130 * hash01(seed * 61.7 + i * 2.9)),
-      vy: -(80 + 200 * hash01(seed * 67.3 + i * 3.7)),
-      life: 0.7 + 0.6 * hash01(seed * 71.9 + i * 5.3),
-      age: 0,
-      c: roofColor,
-    });
+    const d = allocParticle(buildingChunks);
+    d.x = bodyX + hash01(seed * 47.9 + i * 2.7) * bodyW;
+    d.y = plat.y + hash01(seed * 53.1 + i * 3.1) * Math.max(1, plat.h);
+    d.w = w;
+    d.h = h;
+    d.vx = (hash01(seed * 59.9 + i * 4.3) * 2 - 1) * (70 + 130 * hash01(seed * 61.7 + i * 2.9));
+    d.vy = -(80 + 200 * hash01(seed * 67.3 + i * 3.7));
+    d.life = 0.7 + 0.6 * hash01(seed * 71.9 + i * 5.3);
+    d.age = 0;
+    d.c = roofColor;
   }
 }
 
 function stepBuildingChunks(dt) {
-  const G = 1900;
-  const DRAG = 0.988;
-
-  for (let i = buildingChunks.length - 1; i >= 0; i--) {
-    const c = buildingChunks[i];
-    c.age += dt;
-    if (c.age >= c.life) {
-      buildingChunks.splice(i, 1);
-      continue;
-    }
-    c.vy += G * dt;
-    c.vx *= DRAG;
-    c.x += c.vx * dt;
-    c.y += c.vy * dt;
-    if (c.y > world.GROUND_Y + 140) buildingChunks.splice(i, 1);
-  }
+  stepParticles(buildingChunks, dt, 1900, 0.988, world.GROUND_Y + 140);
 }
 
 function drawBuildingChunks(ctx) {
-  for (const c of buildingChunks) {
-    const a = 1 - c.age / c.life;
-    ctx.save();
-    ctx.globalAlpha = 0.18 + 0.50 * a;
-    ctx.fillStyle = c.c;
-    ctx.fillRect(c.x, c.y, c.w, c.h);
-    ctx.restore();
-  }
+  drawParticles(ctx, buildingChunks, 0.18, 0.50);
 }
 
 // ---------------- per-platform seed ----------------
@@ -630,16 +659,15 @@ function spawnBuildingDebrisBurst(plat, COLORS) {
     const sp = 220 + 360 * Math.random();
     const dir = Math.random() < 0.5 ? -1 : 1;
 
-    debris.push({
-      x: px,
-      y: py,
-      vx: Math.cos(a) * sp * dir,
-      vy: -Math.sin(a) * sp,
-      life: 0.7 + Math.random() * 0.4,
-      age: 0,
-      s: 2 + Math.random() * 3,
-      c: hash01(seed * 19.7 + i * 7.1) < 0.5 ? cA : cB,
-    });
+    const d = allocParticle(debris);
+    d.x = px;
+    d.y = py;
+    d.vx = Math.cos(a) * sp * dir;
+    d.vy = -Math.sin(a) * sp;
+    d.life = 0.7 + Math.random() * 0.4;
+    d.age = 0;
+    d.w = d.h = 2 + Math.random() * 3;
+    d.c = hash01(seed * 19.7 + i * 7.1) < 0.5 ? cA : cB;
   }
 }
 
@@ -664,77 +692,33 @@ function spawnBillboardDebrisBurst(plat, billboard, COLORS) {
     const sp = 180 + 260 * Math.random();
     const dir = Math.random() < 0.5 ? -1 : 1;
 
-    billboardDebris.push({
-      x: px,
-      y: py,
-      vx: Math.cos(a) * sp * dir,
-      vy: -Math.sin(a) * sp,
-      life: 0.55 + Math.random() * 0.35,
-      age: 0,
-      w: 3 + Math.random() * 6,
-      h: 2 + Math.random() * 4,
-      c: Math.random() < 0.5 ? panel : frame,
-    });
+    const d = allocParticle(billboardDebris);
+    d.x = px;
+    d.y = py;
+    d.vx = Math.cos(a) * sp * dir;
+    d.vy = -Math.sin(a) * sp;
+    d.life = 0.55 + Math.random() * 0.35;
+    d.age = 0;
+    d.w = 3 + Math.random() * 6;
+    d.h = 2 + Math.random() * 4;
+    d.c = Math.random() < 0.5 ? panel : frame;
   }
 }
 
 function stepDebris(dt) {
-  const G = 1700;
-  const DRAG = 0.985;
-
-  for (let i = debris.length - 1; i >= 0; i--) {
-    const d = debris[i];
-    d.age += dt;
-    if (d.age >= d.life) {
-      debris.splice(i, 1);
-      continue;
-    }
-    d.vy += G * dt;
-    d.vx *= DRAG;
-    d.x += d.vx * dt;
-    d.y += d.vy * dt;
-    if (d.y > world.GROUND_Y + 120) debris.splice(i, 1);
-  }
+  stepParticles(debris, dt, 1700, 0.985, world.GROUND_Y + 120);
 }
 
 function stepBillboardDebris(dt) {
-  const G = 1900;
-  const DRAG = 0.985;
-  for (let i = billboardDebris.length - 1; i >= 0; i--) {
-    const d = billboardDebris[i];
-    d.age += dt;
-    if (d.age >= d.life) {
-      billboardDebris.splice(i, 1);
-      continue;
-    }
-    d.vy += G * dt;
-    d.vx *= DRAG;
-    d.x += d.vx * dt;
-    d.y += d.vy * dt;
-    if (d.y > world.GROUND_Y + 120) billboardDebris.splice(i, 1);
-  }
+  stepParticles(billboardDebris, dt, 1900, 0.985, world.GROUND_Y + 120);
 }
 
 function drawDebris(ctx) {
-  for (const d of debris) {
-    const a = 1 - d.age / d.life;
-    ctx.save();
-    ctx.globalAlpha = 0.18 + 0.32 * a;
-    ctx.fillStyle = d.c;
-    ctx.fillRect(d.x, d.y, d.s, d.s);
-    ctx.restore();
-  }
+  drawParticles(ctx, debris, 0.18, 0.32);
 }
 
 function drawBillboardDebris(ctx) {
-  for (const d of billboardDebris) {
-    const a = 1 - d.age / d.life;
-    ctx.save();
-    ctx.globalAlpha = 0.25 + 0.45 * a;
-    ctx.fillStyle = d.c;
-    ctx.fillRect(d.x, d.y, d.w, d.h);
-    ctx.restore();
-  }
+  drawParticles(ctx, billboardDebris, 0.25, 0.45);
 }
 
 // ---------------- rubble helpers ----------------
@@ -752,16 +736,15 @@ function spawnRubbleBurst(state, COLORS) {
     const sp = 160 + 260 * Math.random();
     const dir = Math.random() < 0.5 ? -1 : 1;
 
-    rubble.push({
-      x: baseX + (Math.random() * 10 - 5),
-      y: baseY + 1,
-      vx: Math.cos(a) * sp * dir,
-      vy: -Math.sin(a) * sp,
-      life: 0.55 + Math.random() * 0.25,
-      age: 0,
-      s: 2 + Math.random() * 2,
-      c: getColor(COLORS, "roofDetail", "rgba(242,242,242,0.12)"),
-    });
+    const d = allocParticle(rubble);
+    d.x = baseX + (Math.random() * 10 - 5);
+    d.y = baseY + 1;
+    d.vx = Math.cos(a) * sp * dir;
+    d.vy = -Math.sin(a) * sp;
+    d.life = 0.55 + Math.random() * 0.25;
+    d.age = 0;
+    d.w = d.h = 2 + Math.random() * 2;
+    d.c = getColor(COLORS, "roofDetail", "rgba(242,242,242,0.12)");
   }
 }
 
@@ -779,44 +762,25 @@ function spawnJumpRubbleBurst(state, COLORS) {
     const sp = 110 + 180 * Math.random();
     const dir = Math.random() < 0.5 ? -1 : 1;
 
-    rubble.push({
-      x: baseX + (Math.random() * 10 - 5),
-      y: baseY + 1,
-      vx: Math.cos(a) * sp * dir,
-      vy: -Math.sin(a) * sp,
-      life: 0.35 + Math.random() * 0.25,
-      age: 0,
-      s: 2 + Math.random() * 1.5,
-      c: getColor(COLORS, "roofDetail", "rgba(242,242,242,0.12)"),
-    });
+    const d = allocParticle(rubble);
+    d.x = baseX + (Math.random() * 10 - 5);
+    d.y = baseY + 1;
+    d.vx = Math.cos(a) * sp * dir;
+    d.vy = -Math.sin(a) * sp;
+    d.life = 0.35 + Math.random() * 0.25;
+    d.age = 0;
+    d.w = d.h = 2 + Math.random() * 1.5;
+    d.c = getColor(COLORS, "roofDetail", "rgba(242,242,242,0.12)");
   }
 }
 
 function stepRubble(dt) {
-  const G = 1400;
-  for (let i = rubble.length - 1; i >= 0; i--) {
-    const r = rubble[i];
-    r.age += dt;
-    if (r.age >= r.life) {
-      rubble.splice(i, 1);
-      continue;
-    }
-    r.vy += G * dt;
-    r.x += r.vx * dt;
-    r.y += r.vy * dt;
-    if (r.y > world.GROUND_Y + 80) rubble.splice(i, 1);
-  }
+  // Rubble has no air drag.
+  stepParticles(rubble, dt, 1400, 1, world.GROUND_Y + 80);
 }
 
 function drawRubble(ctx) {
-  for (const r of rubble) {
-    const a = 1 - r.age / r.life;
-    ctx.save();
-    ctx.globalAlpha = 0.18 + 0.32 * a;
-    ctx.fillStyle = r.c;
-    ctx.fillRect(r.x, r.y, r.s, r.s);
-    ctx.restore();
-  }
+  drawParticles(ctx, rubble, 0.18, 0.32);
 }
 
 // ---------------- transition detectors ----------------

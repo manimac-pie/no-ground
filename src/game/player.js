@@ -34,7 +34,6 @@ const FLOAT_GRAVITY_MULT = getConst("FLOAT_GRAVITY_MULT", 0.30);
 const FLOAT_FUEL_REGEN_PER_SEC = getConst("FLOAT_FUEL_REGEN_PER_SEC", 0.7);
 
 const GROUND_Y = getConst("GROUND_Y", 390);
-const PLAYER_X = getConst("PLAYER_X", 160);
 const COYOTE_TIME_SEC = getConst("COYOTE_TIME_SEC", 0.13);
 const LAND_GRACE_SEC = getConst("LAND_GRACE_SEC", 0.06);
 const JUMP_BUFFER_SEC = getConst("JUMP_BUFFER_SEC", 0.13);
@@ -57,9 +56,9 @@ function canJumpNow(state) {
 
   if (p.jumpsRemaining === 2) {
     return p.onGround
-      || (p.coyote ?? 0) > 0
-      || (p.landGrace ?? 0) > 0
-      || (p.breakGrace ?? 0) > 0;
+      || p.coyote > 0
+      || p.landGrace > 0
+      || p.breakGrace > 0;
   }
   return true;
 }
@@ -80,8 +79,7 @@ export function performJump(state) {
   p.jumpsRemaining = Math.max(0, p.jumpsRemaining - 1);
   p.jumpImpulseT = JUMP_IMPULSE_FX_SEC;
 
-  if ((p.breakGrace ?? 0) > 0 && p.breakJumpEligible === true) {
-    if (!Number.isFinite(state.score)) state.score = 0;
+  if (p.breakGrace > 0 && p.breakJumpEligible === true) {
     state.score += BREAK_JIT_SCORE_BONUS;
     p.breakGrace = 0;
     p.breakJumpEligible = false;
@@ -89,7 +87,7 @@ export function performJump(state) {
 }
 
 export function tryConsumeBufferedJump(state) {
-  if (!state || (state.jumpBuffer ?? 0) <= 0) return false;
+  if (!state || state.jumpBuffer <= 0) return false;
   if (!canJumpNow(state)) return false;
 
   state.jumpBuffer = 0;
@@ -112,19 +110,13 @@ function updateDivePhase(state, dt, airborne) {
     return;
   }
 
-  if (typeof p.diving !== "boolean") p.diving = false;
-  if (typeof p.divePhase !== "string") p.divePhase = "";
-  if (!Number.isFinite(p.divePhaseT)) p.divePhaseT = 0;
-
   if (airborne && state.divePressed === true) {
     p.diving = true;
     p.divePhase = "anticipate";
     p.divePhaseT = 0;
 
-    if ((p.vy ?? 0) < 220) p.vy = 220;
-    if (!Number.isFinite(state.score)) state.score = 0;
+    if (p.vy < 220) p.vy = 220;
     state.score += DIVE_SCORE_BONUS;
-    if (!Number.isFinite(state.diveCount)) state.diveCount = 0;
     state.diveCount += 1;
   }
 
@@ -145,19 +137,6 @@ function updateDivePhase(state, dt, airborne) {
 export function integratePlayer(state, dt, endGame) {
   const p = state.player;
   if (!p) return;
-
-  if (!Number.isFinite(p.vy)) p.vy = 0;
-  if (!Number.isFinite(p.x)) p.x = PLAYER_X;
-  if (!Number.isFinite(p.coyote)) p.coyote = 0;
-  if (!Number.isFinite(p.landGrace)) p.landGrace = 0;
-  if (!Number.isFinite(p.breakGrace)) p.breakGrace = 0;
-  if (typeof p.breakJumpEligible !== "boolean") p.breakJumpEligible = false;
-  if (!Number.isFinite(state.jumpCut)) state.jumpCut = 0;
-  if (!Number.isFinite(p.dashCooldown)) p.dashCooldown = 0;
-  if (!Number.isFinite(p.jumpImpulseT)) p.jumpImpulseT = 0;
-  if (!Number.isFinite(p.floatFuel)) p.floatFuel = FLOAT_FUEL_MAX;
-  if (typeof p.billboardDeath !== "boolean") p.billboardDeath = false;
-  if (!Number.isFinite(p.billboardDeathT)) p.billboardDeathT = 0;
 
   const wasOnGround = p.onGround === true;
   const wasDiving = p.diving === true;
@@ -231,113 +210,104 @@ export function integratePlayer(state, dt, endGame) {
   const bottom = p.y + p.h;
 
   let billboardHit = false;
-  if (Array.isArray(state.platforms)) {
-    for (const plat of state.platforms) {
-      if (!plat || plat.collapsing) continue;
-      const b = plat.billboard;
-      if (!b || b.resolved || b.broken) continue;
+  for (const plat of state.platforms) {
+    if (plat.collapsing) continue;
+    const b = plat.billboard;
+    if (!b || b.resolved || b.broken) continue;
 
-      const bw = Number.isFinite(b.w) ? b.w : 0;
-      const bh = Number.isFinite(b.h) ? b.h : 0;
-      if (bw <= 0 || bh <= 0) continue;
+    const bw = b.w;
+    const bh = b.h;
+    const bx = plat.x + b.offsetX;
+    const by = plat.y - b.offsetY;
+    const overlapsX = px2 > bx && px1 < bx + bw;
+    const overlapsY = bottom > by && p.y < by + bh;
 
-      const bx = plat.x + (Number.isFinite(b.offsetX) ? b.offsetX : 0);
-      const by = plat.y - (Number.isFinite(b.offsetY) ? b.offsetY : 0);
-      const overlapsX = px2 > bx && px1 < bx + bw;
-      const overlapsY = bottom > by && p.y < by + bh;
-
-      if (overlapsX && overlapsY) {
-        const isDashing = (p.dashImpulseT || 0) > 0.01;
-        const isDiving = p.diving === true;
-        if (b.reinforced === false && (isDashing || isDiving)) {
-          if (!Number.isFinite(state.score)) state.score = 0;
-          state.score += BILLBOARD_DASH_SCORE;
-          if (!Number.isFinite(state.billboardDashCount)) state.billboardDashCount = 0;
-          state.billboardDashCount += 1;
-          b.resolved = true;
-          b.breaking = true;
-          b.breakT = 0.28;
-          b.broken = true;
-          b.breakSpawned = false;
-          b.hit = false;
-          billboardHit = true;
-          break;
-        }
-        const fromAbove = prevBottom <= by && bottom >= by && p.vy >= 0;
-        if (fromAbove) {
-          if (p.diving === true && b.reinforced === false) {
-            b.resolved = true;
-            b.breaking = true;
-            b.breakT = 0.28;
-            b.broken = true;
-            b.breakSpawned = false;
-            b.hit = false;
-            if (!Number.isFinite(state.billboardDashCount)) state.billboardDashCount = 0;
-            state.billboardDashCount += 1;
-            billboardHit = true;
-            break;
-          }
-          p.y = by - p.h;
-          p.vy = 0;
-          p.onGround = true;
-          p.onBillboard = true;
-          p.jumpsRemaining = 2;
-          p.coyote = COYOTE_TIME_SEC;
-          p.landGrace = LAND_GRACE_SEC;
-          p.breakGrace = 0;
-          p.breakJumpEligible = false;
-          p.groundPlat = null;
-          if (wasDiving && !state.heavyLandT) {
-            state.heavyLandT = 0.3;
-          }
-          p.diving = false;
-          p.divePhase = "";
-          p.divePhaseT = 0;
-          p.floatFuel = FLOAT_FUEL_MAX;
-          billboardHit = true;
-          break;
-        }
-        const leftGraceEdge = bx + bw * 0.1;
-        const rightGraceEdge = bx + bw * 0.70;
-        if (px2 <= leftGraceEdge || px1 >= rightGraceEdge) continue;
-        if (b.reinforced === false && isDashing) {
-          if (!Number.isFinite(state.score)) state.score = 0;
-          state.score += BILLBOARD_DASH_SCORE;
-          if (!Number.isFinite(state.billboardDashCount)) state.billboardDashCount = 0;
-          state.billboardDashCount += 1;
-          b.resolved = true;
-          b.breaking = true;
-          b.breakT = 0.28;
-          b.broken = true;
-          b.breakSpawned = false;
-          b.hit = false;
-        } else {
-          b.hit = true;
-          p.billboardDeath = true;
-          p.billboardDeathT = 0;
-          p.onGround = false;
-          p.groundPlat = null;
-          p.coyote = 0;
-          p.landGrace = 0;
-          p.jumpsRemaining = 0;
-          p.breakGrace = 0;
-          p.breakJumpEligible = false;
-          p.vy = Math.max(p.vy || 0, BILLBOARD_BOUNCE_VY * 0.6);
-          p.y = Math.max(p.y, by + bh + 2);
-          if (!state.heavyLandT) state.heavyLandT = 0.12;
-        }
+    if (overlapsX && overlapsY) {
+      const isDashing = p.dashImpulseT > 0.01;
+      const isDiving = p.diving === true;
+      if (b.reinforced === false && (isDashing || isDiving)) {
+        state.score += BILLBOARD_DASH_SCORE;
+        state.billboardDashCount += 1;
+        b.resolved = true;
+        b.breaking = true;
+        b.breakT = 0.28;
+        b.broken = true;
+        b.breakSpawned = false;
+        b.hit = false;
         billboardHit = true;
         break;
       }
+      const fromAbove = prevBottom <= by && bottom >= by && p.vy >= 0;
+      if (fromAbove) {
+        if (p.diving === true && b.reinforced === false) {
+          b.resolved = true;
+          b.breaking = true;
+          b.breakT = 0.28;
+          b.broken = true;
+          b.breakSpawned = false;
+          b.hit = false;
+          state.billboardDashCount += 1;
+          billboardHit = true;
+          break;
+        }
+        p.y = by - p.h;
+        p.vy = 0;
+        p.onGround = true;
+        p.onBillboard = true;
+        p.jumpsRemaining = 2;
+        p.coyote = COYOTE_TIME_SEC;
+        p.landGrace = LAND_GRACE_SEC;
+        p.breakGrace = 0;
+        p.breakJumpEligible = false;
+        p.groundPlat = null;
+        if (wasDiving && !state.heavyLandT) {
+          state.heavyLandT = 0.3;
+        }
+        p.diving = false;
+        p.divePhase = "";
+        p.divePhaseT = 0;
+        p.floatFuel = FLOAT_FUEL_MAX;
+        billboardHit = true;
+        break;
+      }
+      const leftGraceEdge = bx + bw * 0.1;
+      const rightGraceEdge = bx + bw * 0.70;
+      if (px2 <= leftGraceEdge || px1 >= rightGraceEdge) continue;
+      if (b.reinforced === false && isDashing) {
+        state.score += BILLBOARD_DASH_SCORE;
+        state.billboardDashCount += 1;
+        b.resolved = true;
+        b.breaking = true;
+        b.breakT = 0.28;
+        b.broken = true;
+        b.breakSpawned = false;
+        b.hit = false;
+      } else {
+        b.hit = true;
+        p.billboardDeath = true;
+        p.billboardDeathT = 0;
+        p.onGround = false;
+        p.groundPlat = null;
+        p.coyote = 0;
+        p.landGrace = 0;
+        p.jumpsRemaining = 0;
+        p.breakGrace = 0;
+        p.breakJumpEligible = false;
+        p.vy = Math.max(p.vy, BILLBOARD_BOUNCE_VY * 0.6);
+        p.y = Math.max(p.y, by + bh + 2);
+        if (!state.heavyLandT) state.heavyLandT = 0.12;
+      }
+      billboardHit = true;
+      break;
     }
   }
 
-  if (!deathFall && p.vy >= 0 && Array.isArray(state.platforms)) {
+  if (!deathFall && p.vy >= 0) {
     if (billboardHit) {
       // Skip roof landing this frame so billboard hit forces a drop.
     } else {
     for (const plat of state.platforms) {
-      if (!plat || plat.collapsing) continue;
+      if (plat.collapsing) continue;
 
       const overlapsX = px2 > plat.x && px1 < plat.x + plat.w;
       const crossedTop = prevBottom <= plat.y && bottom >= plat.y;
@@ -371,20 +341,17 @@ export function integratePlayer(state, dt, endGame) {
     p.coyote = COYOTE_TIME_SEC;
   }
 
-  if (!billboardHit && Array.isArray(state.platforms)) {
+  if (!billboardHit) {
     const centerX = p.x + p.w * 0.5;
     for (const plat of state.platforms) {
-      if (!plat || plat.collapsing) continue;
+      if (plat.collapsing) continue;
       const b = plat.billboard;
       if (!b || b.resolved) continue;
-      const bw = Number.isFinite(b.w) ? b.w : 0;
-      const bh = Number.isFinite(b.h) ? b.h : 0;
-      if (bw <= 0 || bh <= 0) continue;
-
-      const bx = plat.x + (Number.isFinite(b.offsetX) ? b.offsetX : 0);
-      const by = plat.y - (Number.isFinite(b.offsetY) ? b.offsetY : 0);
+      const bw = b.w;
+      const bh = b.h;
+      const bx = plat.x + b.offsetX;
+      const by = plat.y - b.offsetY;
       if (bx + bw < centerX) {
-        if (!Number.isFinite(state.score)) state.score = 0;
         if (p.y + p.h <= by) {
           state.score += BILLBOARD_OVER_SCORE;
           b.resolved = true;
@@ -416,11 +383,6 @@ export function integratePlayer(state, dt, endGame) {
 export function updateDash(state, dt) {
   const p = state.player;
   if (!p) return;
-
-  if (!Number.isFinite(p.dashCooldown)) p.dashCooldown = 0;
-  if (!Number.isFinite(p.dashImpulseT)) p.dashImpulseT = 0;
-  if (!Number.isFinite(state.speedImpulse)) state.speedImpulse = 0;
-  if (!Number.isFinite(state.score)) state.score = 0;
 
   if (p.dashCooldown > 0) {
     p.dashCooldown = Math.max(0, p.dashCooldown - dt);

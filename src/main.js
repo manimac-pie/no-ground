@@ -6,7 +6,7 @@
 import { createInput } from "./input.js";
 import { createGame } from "./game.js";
 import { setInternalSizeFromViewport } from "./game/constants.js";
-import { render } from "./render/index.js";
+import { render, setCanvasRect } from "./render/index.js";
 
 //Leaderboard API udpate
 import { refreshLeaderboard } from "./ui/leaderboardView.js";
@@ -105,6 +105,7 @@ function setCanvasSize() {
   canvas.style.width = `${displayW}px`;
   canvas.style.height = `${displayH}px`;
   setInternalSizeFromViewport(displayW, displayH);
+  setCanvasRect(canvas.getBoundingClientRect());
 }
 
 function updateOverlay() {
