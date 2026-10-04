@@ -506,6 +506,14 @@ function getCanvasRect(canvas) {
   return canvasRect;
 }
 
+// Backing-store resolution cap (device pixels per CSS pixel).
+// main.js lowers it to 1 on devices that can't keep up.
+let maxDpr = 1.5;
+
+export function setMaxDpr(value) {
+  maxDpr = value;
+}
+
 function ensureCanvasSize(ctx, W, H) {
   // Renderer owns backing store sizing; main.js only sets CSS size.
   const canvas = ctx.canvas;
@@ -517,7 +525,7 @@ function ensureCanvasSize(ctx, W, H) {
   const cssW = Math.max(1, Math.floor(rect.width));
   const cssH = Math.max(1, Math.floor(rect.height));
 
-  const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+  const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
   const targetW = Math.max(1, Math.floor(cssW * dpr));
   const targetH = Math.max(1, Math.floor(cssH * dpr));
   if (canvas.width !== targetW) canvas.width = targetW;
@@ -762,7 +770,7 @@ export function render(ctx, state) {
   let renderState = deathActive
     ? {
         ...state,
-        floatHeld: false,
+        slowfallHeld: false,
         heavyLandT: 0,
         player: {
           ...player,
@@ -770,6 +778,7 @@ export function render(ctx, state) {
           diving: false,
           divePhase: "",
           divePhaseT: 0,
+          ducking: false,
           spinning: false,
         },
       }
@@ -783,6 +792,7 @@ export function render(ctx, state) {
       onGround: true,
       groundPlat: startGroundPlat,
       dashImpulseT: 0,
+      ducking: false,
     };
     renderState = {
       ...renderState,

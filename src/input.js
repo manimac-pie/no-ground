@@ -2,8 +2,8 @@
 // Exposes:
 // - Jump: Space / ArrowUp, pointer down (click/tap)
 // - Jump hold: used for variable jump height
-// - Float: W held (mid-air control)
-// - Dive: S press (one-shot pulse), plus optional held flag
+// - Slowfall: W held (mid-air control)
+// - Duck/Dive: S press (one-shot pulse -> dive in air), S held (duck on a roof)
 // - Dash: D press (one-shot pulse)
 // - Flip: A (backflip)
 
@@ -17,12 +17,12 @@ export function createInput(canvas, options = {}) {
   const buttonPointers = new Map();
   const buttonHeld = {
     jump: 0,
-    float: 0,
+    slowfall: 0,
     dive: 0,
   };
   const held = {
     jump: { keyboard: false, pointer: false },
-    float: { keyboard: false },
+    slowfall: { keyboard: false },
     dive: { keyboard: false },
   };
   const state = {
@@ -35,8 +35,8 @@ export function createInput(canvas, options = {}) {
 
     // Holds
     jumpHeld: false,
-    floatHeld: false, // W
-    diveHeld: false,  // S (kept for UI/debug; gameplay uses divePressed -> latched)
+    slowfallHeld: false, // W
+    diveHeld: false,  // S held -> duck on a roof (air dive uses divePressed -> latched)
 
     // One-frame flip intent
     trickIntent: null, // "backflip"|"frontflip"|"neutral"|null
@@ -57,7 +57,7 @@ export function createInput(canvas, options = {}) {
 
   function syncHolds() {
     state.jumpHeld = held.jump.keyboard || held.jump.pointer || buttonHeld.jump > 0;
-    state.floatHeld = held.float.keyboard || buttonHeld.float > 0;
+    state.slowfallHeld = held.slowfall.keyboard || buttonHeld.slowfall > 0;
     state.diveHeld = held.dive.keyboard || buttonHeld.dive > 0;
   }
 
@@ -84,12 +84,12 @@ export function createInput(canvas, options = {}) {
     const key = e.code;
 
     const isJumpKey = key === "Space" || key === "ArrowUp";
-    const isFloatKey = key === "KeyW";
+    const isSlowfallKey = key === "KeyW";
     const isDiveKey = key === "KeyS";
     const isDashKey = key === "KeyD";
     const isFlipKey = key === "KeyA";
 
-    if (!isJumpKey && !isFloatKey && !isDiveKey && !isDashKey && !isFlipKey) return;
+    if (!isJumpKey && !isSlowfallKey && !isDiveKey && !isDashKey && !isFlipKey) return;
 
     // Prevent page scroll / browser shortcuts interfering.
     e.preventDefault();
@@ -98,7 +98,7 @@ export function createInput(canvas, options = {}) {
     if (e.repeat) {
       // Still allow held flags to remain true; we just don't pulse.
       if (isJumpKey) held.jump.keyboard = true;
-      if (isFloatKey) held.float.keyboard = true;
+      if (isSlowfallKey) held.slowfall.keyboard = true;
       if (isDiveKey) held.dive.keyboard = true;
       syncHolds();
       return;
@@ -111,8 +111,8 @@ export function createInput(canvas, options = {}) {
       return;
     }
 
-    if (isFloatKey) {
-      held.float.keyboard = true;
+    if (isSlowfallKey) {
+      held.slowfall.keyboard = true;
       syncHolds();
       return;
     }
@@ -140,14 +140,14 @@ export function createInput(canvas, options = {}) {
     const key = e.code;
 
     const isJumpKey = key === "Space" || key === "ArrowUp";
-    const isFloatKey = key === "KeyW";
+    const isSlowfallKey = key === "KeyW";
     const isDiveKey = key === "KeyS";
 
-    if (!isJumpKey && !isFloatKey && !isDiveKey) return;
+    if (!isJumpKey && !isSlowfallKey && !isDiveKey) return;
     e.preventDefault();
 
     if (isJumpKey) held.jump.keyboard = false;
-    if (isFloatKey) held.float.keyboard = false;
+    if (isSlowfallKey) held.slowfall.keyboard = false;
     if (isDiveKey) held.dive.keyboard = false;
     syncHolds();
   }
@@ -234,10 +234,10 @@ export function createInput(canvas, options = {}) {
   function onPointerCancel() {
     held.jump.pointer = false;
     held.jump.keyboard = false;
-    held.float.keyboard = false;
+    held.slowfall.keyboard = false;
     held.dive.keyboard = false;
     buttonHeld.jump = 0;
-    buttonHeld.float = 0;
+    buttonHeld.slowfall = 0;
     buttonHeld.dive = 0;
     buttonPointers.clear();
     syncHolds();
@@ -315,7 +315,7 @@ export function createInput(canvas, options = {}) {
     state.dashPressed = false;
     state.lastJumpSource = null;
     state.jumpHeld = false;
-    state.floatHeld = false;
+    state.slowfallHeld = false;
     state.diveHeld = false;
     state.trickIntent = null;
     state.pointerDown = false;
@@ -327,10 +327,10 @@ export function createInput(canvas, options = {}) {
     state._pointerJumpSuppressed = false;
     held.jump.keyboard = false;
     held.jump.pointer = false;
-    held.float.keyboard = false;
+    held.slowfall.keyboard = false;
     held.dive.keyboard = false;
     buttonHeld.jump = 0;
-    buttonHeld.float = 0;
+    buttonHeld.slowfall = 0;
     buttonHeld.dive = 0;
     buttonPointers.clear();
     syncHolds();
@@ -354,8 +354,8 @@ export function createInput(canvas, options = {}) {
 
   const detachButtons = [
     attachControlButton(buttons.jump, "jump", { hold: true, press: true }),
-    attachControlButton(buttons.drift || buttons.float, "float", { hold: true }),
-    attachControlButton(buttons.dive, "dive", { press: true }),
+    attachControlButton(buttons.slowfall, "slowfall", { hold: true }),
+    attachControlButton(buttons.dive, "dive", { hold: true, press: true }),
     attachControlButton(buttons.dash, "dash", { press: true }),
     attachControlButton(buttons.backflip || buttons.trick, "trick", { press: true }),
   ].filter(Boolean);
@@ -402,11 +402,11 @@ export function createInput(canvas, options = {}) {
       return state.jumpHeld;
     },
 
-    get floatHeld() {
-      return state.floatHeld;
+    get slowfallHeld() {
+      return state.slowfallHeld;
     },
 
-    // Kept for UI/debug; gameplay uses consumeDivePressed() and player.diving latch.
+    // Drives ducking on a roof; air dive uses consumeDivePressed() and the player.diving latch.
     get diveHeld() {
       return state.diveHeld;
     },

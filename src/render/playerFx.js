@@ -3,6 +3,26 @@
 
 import { clamp, roundedRectPath } from "./playerKit.js";
 
+// Soft edges without ctx.filter = "blur(...)", which is slow on most GPUs and
+// ignored by some mobile browsers. Blur radii are in device pixels, like the filter's.
+function unitsPerDevicePx(ctx) {
+  const m = ctx.getTransform();
+  return 1 / (Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) || 1);
+}
+
+// Strokes the current path as a faint wide halo under a slightly dimmer core.
+function strokeSoft(ctx, blurPx) {
+  const alpha = ctx.globalAlpha;
+  const width = ctx.lineWidth;
+  ctx.globalAlpha = alpha * 0.3;
+  ctx.lineWidth = width + 3 * blurPx * unitsPerDevicePx(ctx);
+  ctx.stroke();
+  ctx.globalAlpha = alpha * 0.75;
+  ctx.lineWidth = width;
+  ctx.stroke();
+  ctx.globalAlpha = alpha;
+}
+
 /* ------------------------------------------------------------
    FLIP RIBBON (unchanged)
 ------------------------------------------------------------ */
@@ -20,8 +40,7 @@ export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
   const start = a - d * 1.35;
   const end = a - d * 0.35;
 
-  const prevFilter = ctx.filter;
-  ctx.filter = "blur(1.1px)";
+  const blurPx = 1.1;
 
   ctx.save();
   ctx.lineCap = "round";
@@ -33,22 +52,21 @@ export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
   ctx.lineWidth = Math.max(2, bodyW * 0.10);
   ctx.beginPath();
   ctx.arc(0, 0, r1, start, end, d === -1);
-  ctx.stroke();
+  strokeSoft(ctx, blurPx);
 
   ctx.globalAlpha = 0.26;
   ctx.lineWidth = Math.max(2, bodyW * 0.07);
   ctx.beginPath();
   ctx.arc(0, 0, r0, start, end, d === -1);
-  ctx.stroke();
+  strokeSoft(ctx, blurPx);
 
   ctx.globalAlpha = 0.14;
   ctx.strokeStyle = cHi;
   ctx.lineWidth = Math.max(1, bodyW * 0.03);
   ctx.beginPath();
   ctx.arc(0, 0, r0 - bodyW * 0.10, start, end, d === -1);
-  ctx.stroke();
+  strokeSoft(ctx, blurPx);
 
-  ctx.filter = "none";
   ctx.globalAlpha = 0.22;
   ctx.fillStyle = d === 1
     ? (COLORS?.accent || "rgba(120,205,255,0.95)")
@@ -65,7 +83,6 @@ export function drawFlipRibbonTrail(ctx, bodyW, bodyH, prog, dir, t, COLORS) {
   }
 
   ctx.restore();
-  ctx.filter = prevFilter;
 }
 
 /* ------------------------------------------------------------
@@ -94,27 +111,31 @@ export function drawAfterimage(ctx, player, animTime, landed, stateRunning, spee
   const wheelR = Math.max(6, bodyW * 0.22);
   const wheelY = player.h / 2 - wheelR - 1;
 
-  function drawGhost(alpha) {
+  // grow: how far the shape is expanded (or shrunk, if negative) on every side, in local units.
+  function drawGhost(alpha, grow) {
     ctx.fillStyle = `rgba(242,242,242,${alpha})`;
-    roundedRectPath(ctx, bodyX, bodyY, bodyW, bodyH, radius);
+    roundedRectPath(ctx, bodyX - grow, bodyY - grow, bodyW + 2 * grow, bodyH + 2 * grow, Math.max(0, radius + grow));
     ctx.fill();
 
     ctx.fillStyle = `rgba(36,38,44,${alpha * 0.55})`;
     ctx.beginPath();
-    ctx.arc(0, wheelY + wheelR, wheelR, 0, Math.PI * 2);
+    ctx.arc(0, wheelY + wheelR, Math.max(0, wheelR + grow), 0, Math.PI * 2);
     ctx.fill();
   }
 
   ctx.save();
-  ctx.filter = "blur(1.4px)";
   ctx.globalCompositeOperation = "lighter";
 
+  // Soft edge (was blur(1.4px)). With additive blending, four nested copies at a quarter
+  // strength each, grown or shrunk by ±0.5 and ±1.5 sigma, ramp like the blur's falloff.
+  const sigma = 1.4 * unitsPerDevicePx(ctx);
   for (let i = 1; i <= 4; i++) {
     const k = i / 4;
+    const alpha = 0.20 * (1 - k) ** 2;
     ctx.save();
     ctx.translate(-k * 11, k * 6);
     ctx.rotate(rot * (1 - k) * 0.35);
-    drawGhost(0.20 * (1 - k) ** 2);
+    for (const step of [1.5, 0.5, -0.5, -1.5]) drawGhost(alpha * 0.25, step * sigma);
     ctx.restore();
   }
 
@@ -251,7 +272,7 @@ export function drawDiveStreaks(ctx, bodyW, bodyH, t, k) {
 }
 
 /* ------------------------------------------------------------
-   FLOAT / DIVE FX (unchanged from your tuned version)
+   SLOWFALL / DIVE FX (unchanged from your tuned version)
 ------------------------------------------------------------ */
 export function diveStrengthFromVY(vy) {
   return clamp((vy - 250) / 1350, 0, 1);
@@ -261,31 +282,29 @@ function drawHaloFX(ctx, bodyW, bodyH, t, mode, vy = 0) {
   ctx.save();
   const diving = mode === "dive";
   const k = diving ? diveStrengthFromVY(vy || 0) : 0;
-  const floating = mode === "float";
+  const slowfalling = mode === "slowfall";
 
-  ctx.globalAlpha = diving ? (0.50 + 0.10 * k) : (floating ? 0.78 : 0.55);
+  ctx.globalAlpha = diving ? (0.50 + 0.10 * k) : (slowfalling ? 0.78 : 0.55);
   ctx.strokeStyle = diving ? "rgba(255,85,110,0.30)" : "rgba(120,205,255,0.30)";
-  ctx.lineWidth = floating ? 3 : 2;
+  ctx.lineWidth = slowfalling ? 3 : 2;
 
   ctx.beginPath();
   ctx.ellipse(0, bodyH * 0.05, bodyW * 0.55, bodyH * 0.70, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  if (floating) {
-    ctx.filter = "blur(1.2px)";
+  if (slowfalling) {
     ctx.globalAlpha *= 0.55;
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.ellipse(0, bodyH * 0.05, bodyW * 0.58, bodyH * 0.74, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.filter = "none";
+    strokeSoft(ctx, 1.2);
   }
 
   ctx.restore();
 }
 
-export function drawFloatFX(ctx, bodyW, bodyH, COLORS, t) {
-  drawHaloFX(ctx, bodyW, bodyH, t, "float");
+export function drawSlowfallFX(ctx, bodyW, bodyH, COLORS, t) {
+  drawHaloFX(ctx, bodyW, bodyH, t, "slowfall");
 }
 
 export function drawDiveFX(ctx, bodyW, bodyH, COLORS, t, vy) {

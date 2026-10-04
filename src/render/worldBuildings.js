@@ -17,6 +17,46 @@ function hash01(n) {
   return x - Math.floor(x);
 }
 
+function unitsPerDevicePx(ctx) {
+  const m = ctx.getTransform();
+  return 1 / (Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) || 1);
+}
+
+function rgbaAlpha(color) {
+  const m = /rgba\([^)]*,\s*([\d.]+)\s*\)\s*$/.exec(color);
+  return m ? Number(m[1]) : 1;
+}
+
+// Half-widths (in shadow sigmas) and strengths of the bands that stand in for a shadow.
+// Each band covers one step of the Gaussian falloff; together they add up to its peak.
+const GLOW_BANDS = [
+  [1.8, 0.37],
+  [1.1, 0.36],
+  [0.5, 0.23],
+];
+
+// Strokes the current path with a glow in the stroke colour, then the core. Stands in
+// for shadowBlur = blurPx with shadowColor = the stroke colour, which is very slow on
+// mobile GPUs. The bands follow that shadow's falloff (sigma = blurPx / 2 device px).
+function strokeWithGlow(ctx, blurPx, unitsPerPx) {
+  const sigmaPx = blurPx / 2;
+  const alpha = ctx.globalAlpha;
+  const width = ctx.lineWidth;
+  const join = ctx.lineJoin;
+  // A blurred thin line's peak is roughly its width over sigma·√(2π), capped at full strength.
+  const peak = rgbaAlpha(ctx.strokeStyle) * Math.min(1, width / unitsPerPx / (sigmaPx * 2.5066));
+  ctx.lineJoin = "round";
+  for (const [k, strength] of GLOW_BANDS) {
+    ctx.globalAlpha = alpha * peak * strength;
+    ctx.lineWidth = width * 0.5 + 2 * k * sigmaPx * unitsPerPx;
+    ctx.stroke();
+  }
+  ctx.lineJoin = join;
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+
 function shadeRect(ctx, x, y, w, h, topColor, bottomColor) {
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   g.addColorStop(0, topColor);
@@ -102,6 +142,30 @@ function drawBillboard(ctx, plat, billboard, animTime, COLORS) {
   ctx.fillStyle = glow;
   ctx.fillRect(bx + 6, by + 4, bw - 12, 3);
   ctx.fillRect(bx + 6, by + bh - 7, bw - 12, 2);
+
+  // Low billboards: hazard stripes on the underside read as "duck".
+  if (billboard.low === true) {
+    const stripeH = 6;
+    const sy = by + bh - stripeH;
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.rect(bx, sy, bw, stripeH);
+    ctx.clip();
+    ctx.fillStyle = frame;
+    ctx.fillRect(bx, sy, bw, stripeH);
+    ctx.fillStyle = getColor(COLORS, "warning", "rgba(255,180,70,0.65)");
+    for (let x = bx - stripeH; x < bx + bw; x += 12) {
+      ctx.beginPath();
+      ctx.moveTo(x, sy + stripeH);
+      ctx.lineTo(x + stripeH, sy);
+      ctx.lineTo(x + stripeH + 6, sy);
+      ctx.lineTo(x + 6, sy + stripeH);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
 
   if (breaking) {
     const shardCount = 6;
@@ -486,6 +550,7 @@ function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, animTime, COLORS, im
   const baseAlpha = clamp(crack01 * 0.95 * boost, 0, 1) * danger;
   const crackCore = getColor(COLORS, "crackHi", "rgba(255,85,110,0.55)");
   ctx.strokeStyle = crackCore;
+  const unitsPerPx = crack01 > 0.65 ? unitsPerDevicePx(ctx) : 1;
 
   for (let i = 0; i < count; i++) {
     const a = hash01(seed * 17.3 + i * 9.7);
@@ -518,13 +583,7 @@ function drawBuildingCracks(ctx, x, y, w, h, seed, crack01, animTime, COLORS, im
       const jy = (hash01(seed * 21.9 + i * 19.7 + s * 3.7) - 0.5) * (2 + 6 * crack01);
       ctx.lineTo(x0 + jx, y0 + len * tt + jy);
     }
-    if (crack01 > 0.65) {
-      ctx.save();
-      ctx.shadowColor = crackCore;
-      ctx.shadowBlur = 6 + 12 * crack01;
-      ctx.stroke();
-      ctx.restore();
-    }
+    if (crack01 > 0.65) strokeWithGlow(ctx, 6 + 12 * crack01, unitsPerPx);
     ctx.stroke();
 
   }
@@ -568,6 +627,7 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, crack01, hasBody, impact01 
     const baseAlpha = clamp(crack01 * 0.98 * boost, 0, 1) * pulse;
     const crackCore = getColor(COLORS, "crackHi", "rgba(255,85,110,0.55)");
     ctx.strokeStyle = crackCore;
+    const unitsPerPx = crack01 > 0.6 ? unitsPerDevicePx(ctx) : 1;
 
     for (let i = 0; i < count; i++) {
       const a = hash01(seed * 21.3 + i * 11.7);
@@ -605,13 +665,7 @@ function drawRoof(ctx, plat, seed, animTime, COLORS, crack01, hasBody, impact01 
         const slant = tilt * (tt - 0.5) * w;
         ctx.lineTo(x0 + slant + dx + jx, y0 + len * tt + jy);
       }
-      if (crack01 > 0.6) {
-        ctx.save();
-        ctx.shadowColor = crackCore;
-        ctx.shadowBlur = 5 + 10 * crack01;
-        ctx.stroke();
-        ctx.restore();
-      }
+      if (crack01 > 0.6) strokeWithGlow(ctx, 5 + 10 * crack01, unitsPerPx);
       ctx.stroke();
 
       // Occasional short branch for a more natural fracture.

@@ -184,14 +184,7 @@ function drawDistantRidges(ctx, W, H) {
   ctx.restore();
 }
 
-export function drawBackground(ctx, W, H, COLORS) {
-  ctx.save();
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "source-over";
-  ctx.filter = "none";
-  ctx.shadowBlur = 0;
-  ctx.shadowColor = "transparent";
-
+function drawBackgroundDirect(ctx, W, H, COLORS) {
   drawSkyGradient(ctx, W, H, COLORS);
   drawAuroraRibbons(ctx, W, H);
   drawLowSun(ctx, W, H);
@@ -200,9 +193,338 @@ export function drawBackground(ctx, W, H, COLORS) {
 
   ctx.fillStyle = COLORS.fog;
   ctx.fillRect(0, world.GROUND_Y - 130, W, 130);
+}
+
+// ---------------- cached layers ----------------
+// The background and skyline tiles never change for a given size, so they're painted
+// once into offscreen canvases at the current device scale and stamped with drawImage.
+// While the zoom animates (menu zoom-in, death cinematic) the scale changes every frame,
+// so those frames draw directly instead of repainting a cache each time.
+const canCache = typeof document !== "undefined";
+
+function createCanvas() {
+  return document.createElement("canvas");
+}
+
+// True when the transform is axis-aligned and its scale matches the previous call's.
+function scaleSettled(slot, m) {
+  const scaleKey = `${m.a}|${m.d}`;
+  const settled = slot.lastScaleKey === scaleKey;
+  slot.lastScaleKey = scaleKey;
+  return settled && m.b === 0 && m.c === 0 && m.a > 0 && m.d > 0;
+}
+
+// Sub-pixel offsets are rounded to 1/64 px so float noise in the camera transform
+// doesn't force a repaint.
+function quantize(v) {
+  return Math.round(v * 64) / 64;
+}
+
+const bgCache = { canvas: null, key: "", lastScaleKey: "", lastKey: "" };
+
+// Returns false if it couldn't use the cache this frame.
+function stampBackground(ctx, W, H, COLORS) {
+  const m = ctx.getTransform();
+  if (!scaleSettled(bgCache, m)) return false;
+
+  // Device-pixel box of the W×H background, clipped to the canvas.
+  const x0 = Math.max(0, Math.floor(m.e));
+  const y0 = Math.max(0, Math.floor(m.f));
+  const x1 = Math.min(ctx.canvas.width, Math.ceil(m.a * W + m.e));
+  const y1 = Math.min(ctx.canvas.height, Math.ceil(m.d * H + m.f));
+  const w = x1 - x0;
+  const h = y1 - y0;
+  if (w <= 0 || h <= 0) return true;
+
+  const tx = quantize(m.e - x0);
+  const ty = quantize(m.f - y0);
+  const key = `${m.a}|${m.d}|${tx}|${ty}|${w}|${h}|${W}|${H}|${world.GROUND_Y}|${COLORS.bgTop}|${COLORS.bgBottom}|${COLORS.fog}`;
+  // The camera can pan while zoomed in: only repaint once the view has held still for a frame.
+  const steady = key === bgCache.lastKey;
+  bgCache.lastKey = key;
+
+  if (bgCache.key !== key) {
+    if (!steady) return false;
+    if (!bgCache.canvas) bgCache.canvas = createCanvas();
+    const canvas = bgCache.canvas;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    const pctx = canvas.getContext("2d");
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, w, h);
+    pctx.setTransform(m.a, 0, 0, m.d, tx, ty);
+    drawBackgroundDirect(pctx, W, H, COLORS);
+    bgCache.key = key;
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(bgCache.canvas, x0, y0);
+  return true;
+}
+
+export function drawBackground(ctx, W, H, COLORS) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  ctx.filter = "none";
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
+  if (!canCache || !stampBackground(ctx, W, H, COLORS)) {
+    drawBackgroundDirect(ctx, W, H, COLORS);
+  }
 
   ctx.restore();
 }
+
+// Skyline tiles: one canvas per (layer, tile index), dropped once it scrolls off screen.
+// Records the bounds of a tile's fillRects so its canvas is exactly as big as needed.
+const boundsCtx = {
+  fillStyle: "",
+  x0: 0, y0: 0, x1: 0, y1: 0,
+  fillRect(x, y, w, h) {
+    this.x0 = Math.min(this.x0, x);
+    this.y0 = Math.min(this.y0, y);
+    this.x1 = Math.max(this.x1, x + w);
+    this.y1 = Math.max(this.y1, y + h);
+  },
+};
+
+function createTileLayer() {
+  return { key: "", lastScaleKey: "", tiles: new Map(), spare: [], frame: 0 };
+}
+
+// Paints (or reuses) one tile and stamps it at x if it's on screen.
+// Assumes the layer's scale is settled. viewX0/viewX1: visible range in layer units.
+function stampSkylineTile(ctx, layer, m, x, viewX0, viewX1, horizon, span, tile, style) {
+  let entry = layer.tiles.get(tile);
+  if (!entry) {
+    // Bounds relative to the tile's left edge (x = 0), with a 1 device px margin
+    // for antialiased edges. The canvas is painted later, once the tile is visible.
+    boundsCtx.x0 = Infinity;
+    boundsCtx.y0 = Infinity;
+    boundsCtx.x1 = -Infinity;
+    boundsCtx.y1 = -Infinity;
+    drawSkylineLayer(boundsCtx, 0, horizon, span, tile, style);
+    const empty = !(boundsCtx.x1 > boundsCtx.x0);
+    const bx = boundsCtx.x0 - 1 / m.a;
+    const by = boundsCtx.y0 - 1 / m.d;
+    const pw = empty ? 0 : Math.ceil((boundsCtx.x1 - bx) * m.a) + 1;
+    const ph = empty ? 0 : Math.ceil((boundsCtx.y1 - by) * m.d) + 1;
+    entry = { canvas: null, frame: 0, bx, by, pw, ph, bw: pw / m.a, bh: ph / m.d };
+    layer.tiles.set(tile, entry);
+  }
+  entry.frame = layer.frame;
+  if (entry.pw === 0 || x + entry.bx >= viewX1 || x + entry.bx + entry.bw <= viewX0) return;
+
+  if (!entry.canvas) {
+    const canvas = layer.spare.pop() || createCanvas();
+    if (canvas.width !== entry.pw || canvas.height !== entry.ph) {
+      canvas.width = entry.pw;
+      canvas.height = entry.ph;
+    }
+    const pctx = canvas.getContext("2d");
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, entry.pw, entry.ph);
+    pctx.setTransform(m.a, 0, 0, m.d, -entry.bx * m.a, -entry.by * m.d);
+    drawSkylineLayer(pctx, 0, horizon, span, tile, style);
+    entry.canvas = canvas;
+  }
+  ctx.drawImage(entry.canvas, x + entry.bx, entry.by, entry.bw, entry.bh);
+}
+
+// Draws one parallax layer, from cached tiles when the scale is settled.
+function drawSkylineTiles(ctx, layer, W, horizon, span, scroll, style) {
+  const index = Math.floor(scroll / span);
+  const off = -(scroll % span);
+  const last = Math.ceil(W / span) + 1;
+
+  // Zoomed in (start screen, death cinematic), tiles would be bigger than the screen
+  // and mostly off it: draw directly.
+  const m = canCache ? ctx.getTransform() : null;
+  const settled = m && scaleSettled(layer, m);
+  if (!settled || span * m.a > ctx.canvas.width) {
+    for (let i = -1; i <= last; i++) {
+      drawSkylineLayer(ctx, off + i * span, horizon, span, index + i, style);
+    }
+    return;
+  }
+  const viewX0 = -m.e / m.a;
+  const viewX1 = (ctx.canvas.width - m.e) / m.a;
+
+  // Tiles are painted at the device scale: repaint them all if it changed.
+  const key = `${m.a}|${m.d}|${horizon}`;
+  if (layer.key !== key) {
+    for (const entry of layer.tiles.values()) {
+      if (entry.canvas) layer.spare.push(entry.canvas);
+    }
+    layer.tiles.clear();
+    layer.key = key;
+  }
+
+  layer.frame++;
+  for (let i = -1; i <= last; i++) {
+    stampSkylineTile(ctx, layer, m, off + i * span, viewX0, viewX1, horizon, span, index + i, style);
+  }
+
+  // Drop tiles that weren't drawn this frame and keep their canvases for reuse.
+  for (const [tile, entry] of layer.tiles) {
+    if (entry.frame !== layer.frame) {
+      if (entry.canvas) layer.spare.push(entry.canvas);
+      layer.tiles.delete(tile);
+    }
+  }
+}
+
+const farLayer = createTileLayer();
+const midLayer = createTileLayer();
+const nearLayer = createTileLayer();
+
+const FAR_SKYLINE = {
+  baseColor: "rgba(10,12,18,0.72)",
+  windowColor: "rgba(120,205,255,0.14)",
+  accentColor: "rgba(255,140,70,0.18)",
+  minBuildings: 2,
+  maxBuildings: 3,
+  minW: 90,
+  maxW: 200,
+  minH: 90,
+  maxH: 190,
+  roofMin: 16,
+  roofMax: 36,
+  antennaMax: 80,
+  gapMin: 14,
+  gapMax: 40,
+  pad: 20,
+  roofChance: 0.55,
+  shoulderChance: 0.6,
+  antennaChance: 0.72,
+  craneChance: 0.8,
+  accentChance: 0.6,
+  seedA: 3.1,
+  seedB: 5.7,
+  seedC: 9.1,
+  seedD: 11.3,
+  seedE: 13.7,
+  seedF: 17.9,
+  seedG: 19.7,
+  seedH: 23.3,
+  seedI: 29.1,
+  seedJ: 31.3,
+  seedK: 37.7,
+  seedL: 41.9,
+  seedM: 43.7,
+  seedN: 47.1,
+  seedO: 49.9,
+  seedP: 53.3,
+  seedQ: 59.1,
+  seedR: 61.7,
+  seedS: 67.9,
+  seedT: 71.3,
+  seedU: 73.7,
+  seedV: 79.1,
+  seedW: 83.3,
+  seedX: 89.7,
+  seedY: 97.1,
+};
+
+const MID_SKYLINE = {
+  baseColor: "rgba(16,18,26,0.88)",
+  windowColor: "rgba(120,205,255,0.20)",
+  accentColor: "rgba(255,160,80,0.16)",
+  minBuildings: 2,
+  maxBuildings: 4,
+  minW: 80,
+  maxW: 200,
+  minH: 110,
+  maxH: 230,
+  roofMin: 18,
+  roofMax: 44,
+  antennaMax: 100,
+  gapMin: 10,
+  gapMax: 32,
+  pad: 12,
+  roofChance: 0.5,
+  shoulderChance: 0.55,
+  antennaChance: 0.68,
+  craneChance: 0.72,
+  accentChance: 0.55,
+  seedA: 4.3,
+  seedB: 6.9,
+  seedC: 8.7,
+  seedD: 12.1,
+  seedE: 14.9,
+  seedF: 18.7,
+  seedG: 21.1,
+  seedH: 24.9,
+  seedI: 27.7,
+  seedJ: 33.1,
+  seedK: 36.7,
+  seedL: 39.9,
+  seedM: 45.1,
+  seedN: 48.7,
+  seedO: 52.3,
+  seedP: 57.1,
+  seedQ: 62.9,
+  seedR: 66.7,
+  seedS: 70.1,
+  seedT: 74.3,
+  seedU: 78.7,
+  seedV: 82.9,
+  seedW: 86.3,
+  seedX: 91.7,
+  seedY: 95.9,
+};
+
+const NEAR_SKYLINE = {
+  baseColor: "rgba(22,24,32,0.96)",
+  windowColor: "rgba(120,205,255,0.26)",
+  accentColor: "rgba(255,150,70,0.20)",
+  minBuildings: 2,
+  maxBuildings: 4,
+  minW: 70,
+  maxW: 190,
+  minH: 100,
+  maxH: 210,
+  roofMin: 16,
+  roofMax: 40,
+  antennaMax: 120,
+  gapMin: 8,
+  gapMax: 26,
+  pad: 10,
+  roofChance: 0.48,
+  shoulderChance: 0.52,
+  antennaChance: 0.62,
+  craneChance: 0.66,
+  accentChance: 0.5,
+  seedA: 6.1,
+  seedB: 8.3,
+  seedC: 10.9,
+  seedD: 14.3,
+  seedE: 18.1,
+  seedF: 21.7,
+  seedG: 25.1,
+  seedH: 28.7,
+  seedI: 31.9,
+  seedJ: 35.3,
+  seedK: 38.9,
+  seedL: 42.1,
+  seedM: 46.3,
+  seedN: 49.1,
+  seedO: 52.7,
+  seedP: 57.7,
+  seedQ: 61.1,
+  seedR: 65.3,
+  seedS: 69.1,
+  seedT: 73.3,
+  seedU: 76.7,
+  seedV: 81.1,
+  seedW: 85.3,
+  seedX: 88.9,
+  seedY: 93.1,
+};
 
 export function drawParallax(ctx, W, H, distance) {
   ctx.save();
@@ -213,174 +535,9 @@ export function drawParallax(ctx, W, H, distance) {
   ctx.shadowColor = "transparent";
 
   const horizon = world.GROUND_Y - 26;
-
-  const farSpan = 520;
-  const farScroll = distance * 0.06;
-  const farIndex = Math.floor(farScroll / farSpan);
-  const offFar = -(farScroll % farSpan);
-  for (let i = -1; i <= Math.ceil(W / farSpan) + 1; i++) {
-    const tile = farIndex + i;
-    const x = offFar + i * farSpan;
-    drawSkylineLayer(ctx, x, horizon, farSpan, tile, {
-      baseColor: "rgba(10,12,18,0.72)",
-      windowColor: "rgba(120,205,255,0.14)",
-      accentColor: "rgba(255,140,70,0.18)",
-      minBuildings: 2,
-      maxBuildings: 3,
-      minW: 90,
-      maxW: 200,
-      minH: 90,
-      maxH: 190,
-      roofMin: 16,
-      roofMax: 36,
-      antennaMax: 80,
-      gapMin: 14,
-      gapMax: 40,
-      pad: 20,
-      roofChance: 0.55,
-      shoulderChance: 0.6,
-      antennaChance: 0.72,
-      craneChance: 0.8,
-      accentChance: 0.6,
-      seedA: 3.1,
-      seedB: 5.7,
-      seedC: 9.1,
-      seedD: 11.3,
-      seedE: 13.7,
-      seedF: 17.9,
-      seedG: 19.7,
-      seedH: 23.3,
-      seedI: 29.1,
-      seedJ: 31.3,
-      seedK: 37.7,
-      seedL: 41.9,
-      seedM: 43.7,
-      seedN: 47.1,
-      seedO: 49.9,
-      seedP: 53.3,
-      seedQ: 59.1,
-      seedR: 61.7,
-      seedS: 67.9,
-      seedT: 71.3,
-      seedU: 73.7,
-      seedV: 79.1,
-      seedW: 83.3,
-      seedX: 89.7,
-      seedY: 97.1,
-    });
-  }
-
-  const midSpan = 360;
-  const midScroll = distance * 0.11;
-  const midIndex = Math.floor(midScroll / midSpan);
-  const offMid = -(midScroll % midSpan);
-  for (let i = -1; i <= Math.ceil(W / midSpan) + 1; i++) {
-    const tile = midIndex + i;
-    const x = offMid + i * midSpan;
-    drawSkylineLayer(ctx, x, horizon, midSpan, tile, {
-      baseColor: "rgba(16,18,26,0.88)",
-      windowColor: "rgba(120,205,255,0.20)",
-      accentColor: "rgba(255,160,80,0.16)",
-      minBuildings: 2,
-      maxBuildings: 4,
-      minW: 80,
-      maxW: 200,
-      minH: 110,
-      maxH: 230,
-      roofMin: 18,
-      roofMax: 44,
-      antennaMax: 100,
-      gapMin: 10,
-      gapMax: 32,
-      pad: 12,
-      roofChance: 0.5,
-      shoulderChance: 0.55,
-      antennaChance: 0.68,
-      craneChance: 0.72,
-      accentChance: 0.55,
-      seedA: 4.3,
-      seedB: 6.9,
-      seedC: 8.7,
-      seedD: 12.1,
-      seedE: 14.9,
-      seedF: 18.7,
-      seedG: 21.1,
-      seedH: 24.9,
-      seedI: 27.7,
-      seedJ: 33.1,
-      seedK: 36.7,
-      seedL: 39.9,
-      seedM: 45.1,
-      seedN: 48.7,
-      seedO: 52.3,
-      seedP: 57.1,
-      seedQ: 62.9,
-      seedR: 66.7,
-      seedS: 70.1,
-      seedT: 74.3,
-      seedU: 78.7,
-      seedV: 82.9,
-      seedW: 86.3,
-      seedX: 91.7,
-      seedY: 95.9,
-    });
-  }
-
-  const nearSpan = 300;
-  const nearScroll = distance * 0.18;
-  const nearIndex = Math.floor(nearScroll / nearSpan);
-  const offNear = -(nearScroll % nearSpan);
-  for (let i = -1; i <= Math.ceil(W / nearSpan) + 1; i++) {
-    const tile = nearIndex + i;
-    const x = offNear + i * nearSpan;
-    drawSkylineLayer(ctx, x, horizon, nearSpan, tile, {
-      baseColor: "rgba(22,24,32,0.96)",
-      windowColor: "rgba(120,205,255,0.26)",
-      accentColor: "rgba(255,150,70,0.20)",
-      minBuildings: 2,
-      maxBuildings: 4,
-      minW: 70,
-      maxW: 190,
-      minH: 100,
-      maxH: 210,
-      roofMin: 16,
-      roofMax: 40,
-      antennaMax: 120,
-      gapMin: 8,
-      gapMax: 26,
-      pad: 10,
-      roofChance: 0.48,
-      shoulderChance: 0.52,
-      antennaChance: 0.62,
-      craneChance: 0.66,
-      accentChance: 0.5,
-      seedA: 6.1,
-      seedB: 8.3,
-      seedC: 10.9,
-      seedD: 14.3,
-      seedE: 18.1,
-      seedF: 21.7,
-      seedG: 25.1,
-      seedH: 28.7,
-      seedI: 31.9,
-      seedJ: 35.3,
-      seedK: 38.9,
-      seedL: 42.1,
-      seedM: 46.3,
-      seedN: 49.1,
-      seedO: 52.7,
-      seedP: 57.7,
-      seedQ: 61.1,
-      seedR: 65.3,
-      seedS: 69.1,
-      seedT: 73.3,
-      seedU: 76.7,
-      seedV: 81.1,
-      seedW: 85.3,
-      seedX: 88.9,
-      seedY: 93.1,
-    });
-  }
+  drawSkylineTiles(ctx, farLayer, W, horizon, 520, distance * 0.06, FAR_SKYLINE);
+  drawSkylineTiles(ctx, midLayer, W, horizon, 360, distance * 0.11, MID_SKYLINE);
+  drawSkylineTiles(ctx, nearLayer, W, horizon, 300, distance * 0.18, NEAR_SKYLINE);
 
   // Sparse signal lights.
   ctx.fillStyle = "rgba(120,205,255,0.20)";
@@ -391,14 +548,68 @@ export function drawParallax(ctx, W, H, distance) {
     ctx.fillRect(sx, sy, 2, 2);
   }
 
-  // Subtle scanline noise.
+  if (!canCache || !stampScanlines(ctx, W, H)) {
+    drawScanlinesDirect(ctx, W, H);
+  }
+
+  ctx.restore();
+}
+
+// Subtle scanline noise.
+function drawScanlinesDirect(ctx, W, H) {
   ctx.globalAlpha = 0.06;
   ctx.fillStyle = "rgba(0,0,0,0.6)";
   for (let y = 0; y < H; y += 3) {
     ctx.fillRect(0, y, W, 1);
   }
+  ctx.globalAlpha = 1;
+}
 
-  ctx.restore();
+// Every column of the scanlines is identical, so the cache is a narrow strip that gets
+// stretched across the screen. The key only depends on the vertical part of the
+// transform, so the horizontal parallax shift never forces a repaint.
+const SCAN_STRIP_W = 1;
+const scanCache = { canvas: null, key: "", lastScaleKey: "", lastKey: "" };
+
+// Returns false if it couldn't use the cache this frame.
+function stampScanlines(ctx, W, H) {
+  const m = ctx.getTransform();
+  if (!scaleSettled(scanCache, m)) return false;
+
+  const x0 = Math.max(0, Math.round(m.e));
+  const x1 = Math.min(ctx.canvas.width, Math.round(m.a * W + m.e));
+  const y0 = Math.max(0, Math.floor(m.f));
+  const y1 = Math.min(ctx.canvas.height, Math.ceil(m.d * H + m.f));
+  const w = x1 - x0;
+  const h = y1 - y0;
+  if (w <= 0 || h <= 0) return true;
+
+  const ty = quantize(m.f - y0);
+  const key = `${m.d}|${ty}|${h}|${H}`;
+  const steady = key === scanCache.lastKey;
+  scanCache.lastKey = key;
+
+  if (scanCache.key !== key) {
+    if (!steady) return false;
+    if (!scanCache.canvas) scanCache.canvas = createCanvas();
+    const canvas = scanCache.canvas;
+    if (canvas.width !== SCAN_STRIP_W || canvas.height !== h) {
+      canvas.width = SCAN_STRIP_W;
+      canvas.height = h;
+    }
+    const pctx = canvas.getContext("2d");
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.clearRect(0, 0, SCAN_STRIP_W, h);
+    pctx.setTransform(1, 0, 0, m.d, 0, ty);
+    drawScanlinesDirect(pctx, SCAN_STRIP_W, H);
+    scanCache.key = key;
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(scanCache.canvas, 0, 0, SCAN_STRIP_W, h, x0, y0, w, h);
+  return true;
 }
 
 export function drawVignette(ctx, W, H) {

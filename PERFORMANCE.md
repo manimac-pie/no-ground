@@ -4,21 +4,21 @@
 
 Almost all the per-frame cost is in drawing. The game logic only handles about 10 platforms and a few particles per step, so tuning it won't change much. The items below are ranked by expected impact.
 
-## Summary
+## Checklist
 
-| # | Change | Where | Impact | Effort | Status |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Draw the static background once | `render/worldBackdrop.js` | High | Low | To do |
-| 2 | Cache skyline tiles | `render/worldBackdrop.js` | High | Medium | To do |
-| 3 | Pre-render the scanlines | `render/worldBackdrop.js` | Medium–High | Low | To do |
-| 4 | Stop blurring on the fly | `render/playerFx.js`, `render/worldBuildings.js` | High (mobile) | Medium | To do |
-| 5 | Don't redraw frames where nothing changed | `main.js` | High on 120 Hz screens | Low–Medium | To do |
-| 6 | Stop reading the layout every frame | `render/index.js` | Medium | Low | **Done** (2026-09-30) |
-| 7 | Cache UI panels | `render/ui.js` | Medium | Medium | **Done** (2026-09-30) |
-| 8 | Stamp the START text as one image | `render/menu.js` | Medium (start screen) | Low | **Done** (2026-09-30) |
-| 9 | Reuse particle objects | `render/worldBuildings.js` | Medium (stutter) | Medium | **Done** (2026-09-30) |
-| 10 | Remove per-frame "ensure defaults" checks | `game/platforms.js`, `game/player.js` | Low | Low | **Done** (2026-09-30) |
-| 11 | Scale resolution down on slow devices | `render/index.js` | Medium (low-end) | Low | To do |
+Each item gives where the change goes, its impact and its effort. Details are in the numbered sections below.
+
+- [x] **1. Draw the static background once** · `render/worldBackdrop.js` · Impact: High · Effort: Low · *Done 2026-10-04*
+- [x] **2. Cache skyline tiles** · `render/worldBackdrop.js` · Impact: High · Effort: Medium · *Done 2026-10-04*
+- [x] **3. Pre-render the scanlines** · `render/worldBackdrop.js` · Impact: Medium–High · Effort: Low · *Done 2026-10-04*
+- [x] **4. Stop blurring on the fly** · `render/playerFx.js`, `render/worldBuildings.js` · Impact: High (mobile) · Effort: Medium · *Done 2026-10-04*
+- [x] **5. Don't redraw frames where nothing changed** · `main.js` · Impact: High on 120 Hz screens · Effort: Low–Medium · *Done 2026-10-04*
+- [x] **6. Stop reading the layout every frame** · `render/index.js` · Impact: Medium · Effort: Low · *Done 2026-09-30*
+- [x] **7. Cache UI panels** · `render/ui.js` · Impact: Medium · Effort: Medium · *Done 2026-09-30*
+- [x] **8. Stamp the START text as one image** · `render/menu.js` · Impact: Medium (start screen) · Effort: Low · *Done 2026-09-30*
+- [x] **9. Reuse particle objects** · `render/worldBuildings.js` · Impact: Medium (stutter) · Effort: Medium · *Done 2026-09-30*
+- [x] **10. Remove per-frame "ensure defaults" checks** · `game/platforms.js`, `game/player.js` · Impact: Low · Effort: Low · *Done 2026-09-30*
+- [x] **11. Scale resolution down on slow devices** · `render/index.js` · Impact: Medium (low-end) · Effort: Low · *Done 2026-10-04*
 
 ## Biggest wins
 
@@ -28,17 +28,43 @@ Almost all the per-frame cost is in drawing. The game logic only handles about 1
 
 **Fix:** draw them once to an offscreen canvas whenever the window resizes, then copy it each frame with a single `drawImage`. The vignette (`worldBackdrop.js:404`) builds a new radial gradient every frame and can be cached the same way.
 
+**Done (2026-10-04).** In `worldBackdrop.js`, `stampBackground` paints the background once into a canvas-sized offscreen canvas at the current device scale and sub-pixel offset. It then stamps it 1:1 with `drawImage`.
+- It repaints when the scale, offset, internal size, ground height or colours change.
+- Offsets are rounded to 1/64 px, so float noise in the camera transform doesn't force a repaint.
+- While the zoom animates (menu zoom-in, death cinematic) or the camera pans while zoomed, it draws directly. It repaints only once the view has held still for a frame, so it never repaints every frame.
+- The vignette was left alone: `drawVignette` isn't called anywhere.
+
+**Verified:** old and new were drawn side by side in Chrome (Apple M2 GPU), at the gameplay view and the 2.8× start-screen zoom. The background differs by at most 5–6/255, on about 0.001% of values. Gameplay backdrop cost, background and skyline together: 0.096 → 0.039 ms per frame.
+
 ### 2. Cache skyline tiles
 
 `drawSkylineLayer` (`worldBackdrop.js:27`) rebuilds each parallax tile from scratch every frame: buildings, rooftops, antennas, cranes and windows, each with several `hash01` calls. The tiles are fixed for a given tile index.
 
 **Fix:** draw each tile to a small offscreen canvas once and keep it in a `Map` keyed by layer and tile index. Drop tiles that have scrolled off screen. The parallax pass then becomes a few `drawImage` calls per layer instead of hundreds of `fillRect`s.
 
+**Done (2026-10-04).** In `worldBackdrop.js`, `drawSkylineTiles` keeps one `Map` per layer from tile index to an offscreen canvas.
+- A tile's exact bounds come from a dry run of `drawSkylineLayer` against a bounds-recording stand-in, so each canvas is as small as possible. Crane arms and accents overhang the tile edges, and those are included.
+- A tile is painted only once it's on screen, then stamped with `drawImage` at its sub-pixel position.
+- Tiles that leave the drawn range are dropped, and their canvases are reused for new tiles.
+- All tiles are repainted when the device scale or horizon changes (resize).
+- The three layer styles are now constants (`FAR_SKYLINE`, `MID_SKYLINE`, `NEAR_SKYLINE`).
+- When the scale is still changing, or a tile would be wider than the screen (2.8× start-screen zoom, death zoom), it draws directly as before. A first version cached at zoom too, which made the start screen 3× slower and used far more memory.
+
+**Verified:** 240 scrolling frames were compared with the camera shift drifting by fractions of a pixel. The difference is at most 12–17/255, on about 0.1% of values. That's stamping pre-drawn tiles at sub-pixel positions, which softens 2 px windows and antennas very slightly, and it isn't visible in side-by-side crops. At the start-screen zoom the cost is unchanged (0.085 → 0.073 ms).
+
 ### 3. Pre-render the scanlines
 
 `worldBackdrop.js:397` does one `fillRect` for every 3 px of screen height, which is 150 or more calls per frame.
 
 **Fix:** draw the pattern once to an offscreen canvas, or move it to a CSS overlay on top of the canvas so the canvas doesn't draw it at all.
+
+**Done (2026-10-04).** In `worldBackdrop.js`, `stampScanlines` paints the scanlines once into a 1-device-pixel-wide strip, at the current vertical scale and sub-pixel offset. It then stretches the strip across the screen with a single `drawImage`.
+- A CSS overlay was ruled out: the scanlines are drawn between the parallax and the world, so an overlay would also darken the platforms, player and UI.
+- Every column of the pattern is the same, so the cache key only uses the vertical part of the transform. The horizontal parallax shift never forces a repaint.
+- It uses the same rules as the background cache. While the zoom animates it draws directly, and it repaints only once the view has held still for a frame.
+- Wider strips (32 and 256 px) were tried in case Chrome doesn't GPU-back tiny canvases. They were no faster than 1 px.
+
+**Verified:** in headless Chrome (ANGLE Metal, Apple M2), old and new were drawn side by side for 40 frames each with a drifting parallax shift. Views tested: the 2× screen gameplay view, 1280×720 at 1×, a phone landscape view, and the 2.8× start-screen zoom. The difference is at most 1–2/255, from 8-bit alpha rounding of the faint lines. While the zoom animates, it falls back to drawing directly and the output is identical. `drawParallax` cost: 0.089 → 0.036 ms per frame at the gameplay view and 0.085 → 0.060 ms at the start-screen zoom.
 
 ### 4. Stop blurring on the fly
 
@@ -48,13 +74,34 @@ Almost all the per-frame cost is in drawing. The game logic only handles about 1
 - Draw the blurred trail and glow shapes once to small offscreen sprites and stamp them with `drawImage`.
 - Fake the glow with two or three strokes at lower alpha and increasing width.
 
+**Done (2026-10-04), faked with layered strokes.** Measurement showed that Chrome's `blur()` and `shadowBlur` are both in device pixels, so each replacement converts its radius into local units from the current transform.
+- **Flip ribbon and slowfall halo** (`playerFx.js`): `strokeSoft` draws a wider stroke at 30% under the core at 75%.
+- **Trick afterimage** (`playerFx.js`): blended additively, each ghost is drawn as four nested copies, grown or shrunk by ±0.5σ and ±1.5σ, at a quarter strength each. Together they build the blur's edge ramp.
+- **Roof and wall crack glow** (`worldBuildings.js`): `strokeWithGlow` draws three round-joined bands sized to the shadow's Gaussian falloff. They're scaled by the line width and the colour's alpha, which is how a real shadow's strength works.
+
+**Verified:** each effect was drawn old and new in Chrome (M2 GPU) at the gameplay scale. Max difference is 7–12/255, with at most 1% of values more than 4/255 off. Side-by-side crops look the same. The afterimage's faint dark wheel comes out slightly fainter.
+
+| Effect | Old (ms/draw) | New (ms/draw) |
+| --- | --- | --- |
+| Flip ribbon | 0.71 | 0.009 |
+| Afterimage | 1.98 | 0.029 |
+| Slowfall halo | 0.20 | 0.006 |
+| Roof cracks (one roof) | 1.90 | 0.045 |
+| Wall cracks (one building) | 2.74 | 0.033 |
+
+**Still blurring every frame:** the player body glow (`shadowBlur = 12` in `render/player.js`) is applied to every shape of the runner whenever it's on screen. The `ui.js` and `menu.js` shadows are now cached, so they no longer run every frame.
+
 ### 5. Don't redraw frames where nothing changed
 
-In `main.js:162`, the loop renders on every `requestAnimationFrame` even when no physics step ran. On a 120 Hz phone or ProMotion screen, half the frames redraw the exact same state.
+In `main.js`, the loop rendered on every `requestAnimationFrame` even when no physics step ran. On a 120 Hz phone or ProMotion screen, half the frames redraw the exact same state.
 
 **Fix (either):**
 - **Simple:** skip `render()` when `steps === 0`. This roughly halves the render cost on those screens.
 - **Better:** pass `acc / FIXED_DT` to the renderer and blend between the previous and current positions. The game then looks smooth at 120 fps while physics stays at 60 Hz.
+
+**Done (2026-10-04), simple version.** `main.js` calls `render()` only when `steps > 0`. The canvas keeps the last frame in between. Render-side animation (camera smoothing, shards, debris, drag trail) is already scaled by the real time between draws, so nothing slows down. Blending between physics steps is still open if 120 Hz motion should look smoother.
+
+**Verified:** in Chrome on a 60 Hz screen, there were 60.6 frames and 57 renders a second. The skipped frames are timing jitter where no step was due and the picture would have been identical. A run starts and plays normally, with no console errors. Not yet measured on a 120 Hz screen.
 
 ## Medium wins
 
@@ -146,6 +193,13 @@ Debris, billboard debris, rubble and building chunks (`worldBuildings.js`) creat
 ### 11. Scale resolution down on slow devices
 
 Resolution is already capped at `devicePixelRatio` 1.5 (`index.js:507`), which is good. On slow phones, drop to 1.0 automatically if average frame time goes over about 20 ms.
+
+**Done (2026-10-04).**
+- `render/index.js`: the 1.5 cap is now `maxDpr`, changed with the new `setMaxDpr(value)`.
+- `main.js`: `watchFrameTime` skips the first 3 seconds, then averages the time between frames over 2-second windows. If a window averages over 20 ms (under about 50 fps), it calls `setMaxDpr(1)` once, for the rest of the session, and logs `[perf] … rendering at 1x resolution.` Gaps over 250 ms (tab switches, debugger pauses) are ignored. Returning to the tab restarts the window with a 1-second warm-up. The cached UI panels and START image rebuild by themselves, because they are keyed on scale.
+- iPhone Low Power Mode limits Safari to 30 fps, so it also triggers the drop.
+
+**Verified:** in Chrome on a 2× screen, adding 25 ms of busy work per frame (about 40 fps) dropped the canvas from 1453×984 to 969×656 within one window. A normal 8-second run at 60 fps stayed at 1453×984.
 
 ## How to measure
 

@@ -6,7 +6,7 @@
 import { createInput } from "./input.js";
 import { createGame } from "./game.js";
 import { setInternalSizeFromViewport } from "./game/constants.js";
-import { render, setCanvasRect } from "./render/index.js";
+import { render, setCanvasRect, setMaxDpr } from "./render/index.js";
 
 //Leaderboard API udpate
 import { refreshLeaderboard } from "./ui/leaderboardView.js";
@@ -41,7 +41,7 @@ if (!ctx) {
 const input = createInput(canvas, {
   buttons: {
     jump: document.querySelector('[data-control="jump"]'),
-    drift: document.querySelector('[data-control="drift"]'),
+    slowfall: document.querySelector('[data-control="slowfall"]'),
     dive: document.querySelector('[data-control="dive"]'),
     dash: document.querySelector('[data-control="dash"]'),
     backflip: document.querySelector('[data-control="backflip"]'),
@@ -141,6 +141,23 @@ onResize();
 // Attempt to focus immediately (some browsers require user gesture; harmless if ignored)
 focusCanvas();
 
+// Mobile button text labels: shown until the player has finished LABEL_RUNS runs.
+// Set LABEL_RUNS to Infinity to always show them.
+const LABEL_RUNS = 3;
+const LABEL_RUNS_KEY = "ng_control_label_runs";
+let labelRunsDone = 0;
+try {
+  labelRunsDone = parseInt(localStorage.getItem(LABEL_RUNS_KEY), 10) || 0;
+} catch {}
+let wasGameOver = false;
+document.body.classList.toggle("show-control-labels", labelRunsDone < LABEL_RUNS);
+
+function countFinishedRun() {
+  labelRunsDone++;
+  try { localStorage.setItem(LABEL_RUNS_KEY, String(labelRunsDone)); } catch {}
+  if (labelRunsDone >= LABEL_RUNS) document.body.classList.remove("show-control-labels");
+}
+
 // Main loop — fixed timestep for stable physics + smoother feel
 let last = performance.now();
 let acc = 0;
@@ -148,7 +165,45 @@ const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 0.10; // cap big jumps (tab switch, hitch)
 const MAX_STEPS = 5; // avoid spiral of death on slow devices
 
+// Slow-device fallback: if frames average over SLOW_FRAME_MS (under ~50 fps),
+// drop the canvas to 1 device pixel per CSS pixel for the rest of the session.
+const SLOW_FRAME_MS = 20;
+const PERF_WARMUP_MS = 3000; // ignore load-time hitches
+const PERF_WINDOW_MS = 2000;
+const PERF_MAX_SAMPLE_MS = 250; // longer gaps are tab switches/debugger pauses
+let perfWarmupLeft = PERF_WARMUP_MS;
+let perfWindowMs = 0;
+let perfWindowFrames = 0;
+let lowRes = false;
+
+function resetFrameTimeWatch(warmupMs) {
+  perfWarmupLeft = warmupMs;
+  perfWindowMs = 0;
+  perfWindowFrames = 0;
+}
+
+function watchFrameTime(ms) {
+  if (lowRes || !(ms >= 0) || ms > PERF_MAX_SAMPLE_MS) return;
+  if (perfWarmupLeft > 0) {
+    perfWarmupLeft -= ms;
+    return;
+  }
+
+  perfWindowMs += ms;
+  perfWindowFrames++;
+  if (perfWindowMs < PERF_WINDOW_MS) return;
+
+  const avgMs = perfWindowMs / perfWindowFrames;
+  resetFrameTimeWatch(0);
+  if (avgMs > SLOW_FRAME_MS && (window.devicePixelRatio || 1) > 1) {
+    lowRes = true;
+    setMaxDpr(1);
+    console.info(`[perf] Average frame ${avgMs.toFixed(1)} ms; rendering at 1x resolution.`);
+  }
+}
+
 function tick(now) {
+  watchFrameTime(now - last);
   let frameDt = (now - last) / 1000;
   last = now;
 
@@ -172,8 +227,14 @@ function tick(now) {
 
   const hideControls = Boolean(game.state?.gameOver);
   document.body.classList.toggle("hide-controls", hideControls);
+  if (hideControls !== wasGameOver) {
+    wasGameOver = hideControls;
+    if (hideControls && labelRunsDone < LABEL_RUNS) countFinishedRun();
+  }
 
-  render(ctx, game.state);
+  // Physics runs at 60 Hz, so on faster screens (120 Hz) some frames run no step.
+  // The state hasn't changed and the canvas keeps the last frame, so skip the redraw.
+  if (steps > 0) render(ctx, game.state);
 
   requestAnimationFrame(tick);
 }
@@ -187,6 +248,7 @@ window.addEventListener("visibilitychange", () => {
   // Reset timing when returning to the tab
   last = performance.now();
   acc = 0;
+  resetFrameTimeWatch(1000);
 });
 
 requestAnimationFrame(tick);

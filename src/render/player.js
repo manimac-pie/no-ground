@@ -22,7 +22,7 @@ import {
   drawDashStreaks,
   drawDiveFX,
   drawDiveStreaks,
-  drawFloatFX,
+  drawSlowfallFX,
   drawHeavyLandingBurst,
   drawHeavyLandingRing,
   drawLandingRubble,
@@ -30,6 +30,7 @@ import {
 
 // Render-only smoothing for dive pose (prevents snapping frame-to-frame)
 let _diveK = 0; // 0..1 smoothed
+let _duckK = 0; // 0..1 smoothed duck squash
 
 // ---------------- shadow ----------------
 export function drawPlayerShadow(ctx, player) {
@@ -63,8 +64,9 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   const suppressGlow = opts.noGlow === true;
 
   const airborne = !player.onGround;
-  const floating = airborne && state.floatHeld === true;
+  const slowfalling = airborne && state.slowfallHeld === true;
   const diving = airborne && player.diving === true;
+  const ducking = !airborne && player.ducking === true;
 
   // Dash VFX should be driven by the dash impulse timer / world-speed impulse,
   // not by a positional dashOffset (gameplay dash does not move the player in world space).
@@ -97,6 +99,11 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   const a = 1 - Math.exp(-smooth * dt);
   _diveK = _diveK + (targetDiveK - _diveK) * a;
 
+  // Duck follows the hitbox closely (it shrinks instantly), so smooth only lightly.
+  const duckA = 1 - Math.exp(-28 * dt);
+  _duckK = _duckK + ((ducking ? 1 : 0) - _duckK) * duckA;
+  if (_duckK < 0.001) _duckK = 0;
+
   // Squash/stretch
   const vy = player.vy ?? 0;
   const up01 = clamp(-vy / 900, 0, 1);
@@ -119,8 +126,12 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   sx = clamp(sx, 0.82, 1.18);
   sy = clamp(sy, 0.82, 1.22);
 
+  // Duck: squash toward the feet (hitbox top drops to ~half height).
+  const duckSy = 1 - 0.44 * _duckK;
+  const duckSx = 1 + 0.16 * _duckK;
+
   const cx = player.x + player.w / 2;
-  const cy = player.y + player.h / 2;
+  const cy = player.y + player.h / 2 + (player.h / 2) * (1 - duckSy);
 
   const bodyW = player.w * 0.70;
   const bodyH = player.h * 0.78;
@@ -190,6 +201,12 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     }
   }
 
+  if (_duckK > 0) {
+    poseSx *= duckSx;
+    poseSy *= duckSy;
+    poseRot *= 1 - _duckK;
+  }
+
   // Heavy landing squash if the game provides a timer.
   const heavyT = Number.isFinite(state.heavyLandT) ? state.heavyLandT : 0;
   if (heavyT > 0) {
@@ -209,7 +226,7 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     drawAfterimage(ctx, player, animTime, landed, state.running, state.speed || 0, poseRot, COLORS);
   }
 
-  // Float/Dive FX (readability for W/S)
+  // Slowfall/Dive FX (readability for W/S)
   if (diving && !suppressFx) {
     // Always draw the red dive halo so feedback is immediate, even during anticipation.
     drawDiveFX(ctx, bodyW, bodyH, COLORS, animTime || 0, vy);
@@ -218,21 +235,21 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     if (divePhase !== "anticipate") {
       drawDiveStreaks(ctx, bodyW, bodyH, animTime || 0, _diveK);
     }
-  } else if (floating && !suppressFx) {
-    drawFloatFX(ctx, bodyW, bodyH, COLORS, animTime || 0);
+  } else if (slowfalling && !suppressFx) {
+    drawSlowfallFX(ctx, bodyW, bodyH, COLORS, animTime || 0);
   }
 
   if (!suppressFx && dashFxK > 0.01) {
     drawDashStreaks(ctx, bodyW, bodyH, animTime || 0, dashFxK);
   }
 
-  // Glow (stronger tint during float/dive)
+  // Glow (stronger tint during slowfall/dive)
   if (suppressGlow) {
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
   } else {
     if (diving) ctx.shadowColor = "rgba(255,85,110,0.18)";
-    else if (floating) ctx.shadowColor = "rgba(120,205,255,0.22)";
+    else if (slowfalling) ctx.shadowColor = "rgba(120,205,255,0.22)";
     else ctx.shadowColor = "rgba(242,242,242,0.18)";
     ctx.shadowBlur = 12;
   }
@@ -266,7 +283,7 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   // Crisp outline
   ctx.shadowBlur = 0;
   if (diving) ctx.strokeStyle = "rgba(255,85,110,0.35)";
-  else if (floating) ctx.strokeStyle = "rgba(120,205,255,0.35)";
+  else if (slowfalling) ctx.strokeStyle = "rgba(120,205,255,0.35)";
   else ctx.strokeStyle = "rgba(242,242,242,0.30)";
   ctx.lineWidth = 1;
 

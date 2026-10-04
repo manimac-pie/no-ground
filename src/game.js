@@ -11,7 +11,7 @@ import {
   SPEED_RAMP_PER_SEC,
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
-  FLOAT_SCORE_MULT,
+  SLOWFALL_SCORE_MULT,
   DEATH_CINEMATIC_TOTAL,
   BREAK_SHARDS,
   RESTART_FLYBY_SEC,
@@ -296,7 +296,7 @@ export function createGame() {
     const dashPressed = input?.consumeDashPressed?.() === true;
 
     state.jumpHeld = input?.jumpHeld === true;
-    state.floatHeld = input?.floatHeld === true;
+    state.slowfallHeld = input?.slowfallHeld === true;
     state.pointerX = input?.pointerX ?? state.pointerX;
     state.pointerY = input?.pointerY ?? state.pointerY;
     state.pointerInside = input?.pointerInside === true;
@@ -308,7 +308,7 @@ export function createGame() {
     state.divePressed = input?.consumeDivePressed?.() === true;
     state.dashPressed = dashPressed;
 
-    // Kept for UI/debug only
+    // Held S/dive button -> duck while on a roof
     state.diveHeld = input?.diveHeld === true;
 
     const onRestartScreen =
@@ -463,13 +463,13 @@ export function createGame() {
     integratePlayer(state, dt, endGame);
 
     if (!Number.isFinite(state.score)) state.score = 0;
-    if (!Number.isFinite(state.glideDistance)) state.glideDistance = 0;
+    if (!Number.isFinite(state.slowfallDistance)) state.slowfallDistance = 0;
     const p = state.player;
     const airborne = p ? p.onGround === false : false;
-    const floating = airborne && state.floatHeld === true && !(p && p.diving);
-    const scoreMult = floating ? FLOAT_SCORE_MULT : 1;
+    const slowfalling = airborne && state.slowfallHeld === true && !(p && p.diving);
+    const scoreMult = slowfalling ? SLOWFALL_SCORE_MULT : 1;
     state.score += distanceDelta * scoreMult;
-    if (floating) state.glideDistance += distanceDelta;
+    if (slowfalling) state.slowfallDistance += distanceDelta;
 
     tryConsumeBufferedJump(state);
     return state;

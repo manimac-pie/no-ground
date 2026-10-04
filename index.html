@@ -187,6 +187,7 @@
         -webkit-tap-highlight-color: transparent;
         display: grid;
         place-items: center;
+        position: relative;
       }
 
       .control-btn--kinetic {
@@ -242,7 +243,7 @@
         filter: drop-shadow(0 0 6px rgba(120, 205, 255, 0.35));
       }
 
-      .control-btn[data-control="drift"] svg {
+      .control-btn[data-control="slowfall"] svg {
         width: 200%;
         height: 200%;
       }
@@ -308,6 +309,35 @@
 
       .control-btn[data-control="dash"] {
         margin-left: 6px;
+      }
+
+      /* Text labels under the buttons; main.js shows them for the first few runs. */
+      .control-btn::after {
+        content: attr(data-label);
+        display: none;
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        font: 10px/1 "Share Tech Mono", ui-monospace, monospace;
+        letter-spacing: 0.14em;
+        color: rgba(207, 228, 255, 0.9);
+        text-shadow: 0 0 6px rgba(120, 205, 255, 0.55), 0 1px 2px rgba(0, 0, 0, 0.8);
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      body.show-control-labels .control-btn::after {
+        display: block;
+      }
+
+      /* Make room for the labels between stacked buttons. */
+      body.show-control-labels #mobile-controls .control-column {
+        gap: 22px;
+      }
+
+      body.show-control-labels #mobile-controls .control-cluster.right {
+        gap: 20px;
       }
 
       @media (pointer: coarse) {
@@ -427,9 +457,9 @@
         <div class="control-cluster left">
           <div class="control-column">
             <div class="control-row">
-              <button class="control-btn control-btn--left" type="button" data-control="drift" aria-label="Drift">
+              <button class="control-btn control-btn--left" type="button" data-control="slowfall" data-label="SLOWFALL" aria-label="Slowfall">
                 <svg viewBox="0 0 80 80" aria-hidden="true">
-                  <!-- Drift pictogram: float ring + lift -->
+                  <!-- Slowfall pictogram: halo ring + lift -->
                   <rect x="28" y="44" width="4" height="4" />
                   <rect x="32" y="40" width="4" height="4" />
                   <rect x="36" y="36" width="4" height="4" />
@@ -445,7 +475,7 @@
                   <rect x="44" y="28" width="4" height="4" />
                 </svg>
               </button>
-              <button class="control-btn control-btn--left" type="button" data-control="dash" aria-label="Dash">
+              <button class="control-btn control-btn--left" type="button" data-control="dash" data-label="DASH" aria-label="Dash">
                 <svg viewBox="0 0 80 80" aria-hidden="true">
                   <!-- Dash pictogram: long forward arrow + streaks -->
                   <rect x="44" y="28" width="4" height="4" />
@@ -473,7 +503,7 @@
             </div>
             <div class="control-row">
               <div class="control-spacer" aria-hidden="true"></div>
-              <button class="control-btn control-btn--left control-btn--mini" type="button" data-control="backflip" aria-label="Backflip">
+              <button class="control-btn control-btn--left control-btn--mini" type="button" data-control="backflip" data-label="BACKFLIP" aria-label="Backflip">
                 <svg viewBox="0 0 80 80" aria-hidden="true">
                   <!-- Backflip pictogram: minimal arc -->
                   <rect x="16" y="52" width="4" height="4" />
@@ -488,7 +518,7 @@
           </div>
         </div>
         <div class="control-cluster right">
-          <button class="control-btn control-btn--jump" type="button" data-control="jump" aria-label="Jump">
+          <button class="control-btn control-btn--jump" type="button" data-control="jump" data-label="JUMP" aria-label="Jump">
             <svg viewBox="0 0 80 80" aria-hidden="true">
               <rect x="38" y="26" width="4" height="4" />
               <rect x="34" y="30" width="4" height="4" />
@@ -528,7 +558,7 @@
               <rect x="58" y="46" width="4" height="4" />
             </svg>
           </button>
-          <button class="control-btn control-btn--left control-btn--small" type="button" data-control="dive" aria-label="Dive">
+          <button class="control-btn control-btn--left control-btn--small" type="button" data-control="dive" data-label="DUCK/DIVE" aria-label="Duck or dive">
             <svg viewBox="0 0 80 80" aria-hidden="true">
               <rect x="18" y="30" width="4" height="4" />
               <rect x="22" y="30" width="4" height="4" />

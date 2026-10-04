@@ -23,15 +23,18 @@ const DIVE_MAX_FALL_SPEED = getConst("DIVE_MAX_FALL_SPEED", 2200);
 const DIVE_ANTICIPATION_SEC = getConst("DIVE_ANTICIPATION_SEC", 0.11);
 const DIVE_SCORE_BONUS = getConst("DIVE_SCORE_BONUS", 0);
 
+const DUCK_HEIGHT_FRAC = getConst("DUCK_HEIGHT_FRAC", 0.5);
+const DUCK_LAND_SQUAT_SEC = getConst("DUCK_LAND_SQUAT_SEC", 0.2);
+
 const DASH_COOLDOWN = getConst("DASH_COOLDOWN", 0.45);
 const DASH_SPEED_BOOST = getConst("DASH_SPEED_BOOST", 520);
 const DASH_IMPULSE_DECAY = getConst("DASH_IMPULSE_DECAY", 6.5);
 const DASH_IMPULSE_FX_SEC = getConst("DASH_IMPULSE_FX_SEC", 0.20);
 const DASH_SCORE_BONUS = getConst("DASH_SCORE_BONUS", 0);
 
-const FLOAT_FUEL_MAX = getConst("FLOAT_FUEL_MAX", 1.0);
-const FLOAT_GRAVITY_MULT = getConst("FLOAT_GRAVITY_MULT", 0.30);
-const FLOAT_FUEL_REGEN_PER_SEC = getConst("FLOAT_FUEL_REGEN_PER_SEC", 0.7);
+const SLOWFALL_FUEL_MAX = getConst("SLOWFALL_FUEL_MAX", 1.0);
+const SLOWFALL_GRAVITY_MULT = getConst("SLOWFALL_GRAVITY_MULT", 0.30);
+const SLOWFALL_FUEL_REGEN_PER_SEC = getConst("SLOWFALL_FUEL_REGEN_PER_SEC", 0.7);
 
 const GROUND_Y = getConst("GROUND_Y", 390);
 const COYOTE_TIME_SEC = getConst("COYOTE_TIME_SEC", 0.13);
@@ -133,6 +136,25 @@ function updateDivePhase(state, dt, airborne) {
   }
 }
 
+// ---------------- duck ----------------
+// Same button as dive: on a roof it ducks (while held), in the air it dives.
+// A dive landing flows into a duck; if S is already released it's a brief squat.
+function updateDuck(state, dt) {
+  const p = state.player;
+  if (!p) return;
+
+  if (p.duckLandT > 0) p.duckLandT = Math.max(0, p.duckLandT - dt);
+
+  const canDuck = p.onGround && p.billboardDeath !== true;
+  if (!canDuck) p.duckLandT = 0;
+  p.ducking = canDuck && (state.diveHeld === true || p.duckLandT > 0);
+}
+
+// Top of the hitbox; lower while ducking (feet stay planted).
+function hitTop(p) {
+  return p.ducking ? p.y + p.h * (1 - DUCK_HEIGHT_FRAC) : p.y;
+}
+
 // ---------------- integration ----------------
 export function integratePlayer(state, dt, endGame) {
   const p = state.player;
@@ -146,6 +168,8 @@ export function integratePlayer(state, dt, endGame) {
   } else if (p.billboardDeathT > 0) {
     p.billboardDeathT = 0;
   }
+
+  updateDuck(state, dt);
 
   p.groundPlat = null;
   const airborne = !p.onGround;
@@ -169,9 +193,9 @@ export function integratePlayer(state, dt, endGame) {
     state.jumpCut = 0;
   }
 
-  if (!deathFall && airborne && state.floatHeld && !p.diving && p.floatFuel > 0) {
-    g *= FLOAT_GRAVITY_MULT;
-    p.floatFuel = Math.max(0, p.floatFuel - dt);
+  if (!deathFall && airborne && state.slowfallHeld && !p.diving && p.slowfallFuel > 0) {
+    g *= SLOWFALL_GRAVITY_MULT;
+    p.slowfallFuel = Math.max(0, p.slowfallFuel - dt);
   }
 
   if (!deathFall && airborne && p.diving) {
@@ -184,10 +208,10 @@ export function integratePlayer(state, dt, endGame) {
     maxFall = MAX_FALL_SPEED + (DIVE_MAX_FALL_SPEED - MAX_FALL_SPEED) * blend;
   }
 
-  if (!deathFall && p.onGround && p.floatFuel < FLOAT_FUEL_MAX) {
-    p.floatFuel = Math.min(
-      FLOAT_FUEL_MAX,
-      p.floatFuel + FLOAT_FUEL_REGEN_PER_SEC * dt
+  if (!deathFall && p.onGround && p.slowfallFuel < SLOWFALL_FUEL_MAX) {
+    p.slowfallFuel = Math.min(
+      SLOWFALL_FUEL_MAX,
+      p.slowfallFuel + SLOWFALL_FUEL_REGEN_PER_SEC * dt
     );
   }
 
@@ -220,7 +244,7 @@ export function integratePlayer(state, dt, endGame) {
     const bx = plat.x + b.offsetX;
     const by = plat.y - b.offsetY;
     const overlapsX = px2 > bx && px1 < bx + bw;
-    const overlapsY = bottom > by && p.y < by + bh;
+    const overlapsY = bottom > by && hitTop(p) < by + bh;
 
     if (overlapsX && overlapsY) {
       const isDashing = p.dashImpulseT > 0.01;
@@ -263,10 +287,14 @@ export function integratePlayer(state, dt, endGame) {
         if (wasDiving && !state.heavyLandT) {
           state.heavyLandT = 0.3;
         }
+        if (wasDiving) {
+          p.duckLandT = DUCK_LAND_SQUAT_SEC;
+          p.ducking = true;
+        }
         p.diving = false;
         p.divePhase = "";
         p.divePhaseT = 0;
-        p.floatFuel = FLOAT_FUEL_MAX;
+        p.slowfallFuel = SLOWFALL_FUEL_MAX;
         billboardHit = true;
         break;
       }
@@ -326,11 +354,15 @@ export function integratePlayer(state, dt, endGame) {
         if (wasDiving && !state.heavyLandT) {
           state.heavyLandT = 0.3;
         }
+        if (wasDiving) {
+          p.duckLandT = DUCK_LAND_SQUAT_SEC;
+          p.ducking = true;
+        }
 
         p.diving = false;
         p.divePhase = "";
         p.divePhaseT = 0;
-        p.floatFuel = FLOAT_FUEL_MAX;
+        p.slowfallFuel = SLOWFALL_FUEL_MAX;
         break;
       }
     }
@@ -355,7 +387,7 @@ export function integratePlayer(state, dt, endGame) {
         if (p.y + p.h <= by) {
           state.score += BILLBOARD_OVER_SCORE;
           b.resolved = true;
-        } else if (p.y >= by + bh) {
+        } else if (hitTop(p) >= by + bh) {
           state.score += BILLBOARD_UNDER_SCORE;
           b.resolved = true;
         } else {

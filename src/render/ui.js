@@ -496,9 +496,9 @@ function drawLeaderboardPanelDirect(
 function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
   const controls = [
     { label: "SPACE", caption: "Jump / Double Jump" },
-    { label: "W", caption: "Float" },
+    { label: "W", caption: "Slowfall" },
     { label: "D", caption: "Dash" },
-    { label: "S", caption: "Dive" },
+    { label: "S", caption: "Duck/Dive" },
     { label: "A", caption: "Backflip" },
   ];
 
@@ -736,11 +736,11 @@ function drawControlsPanelDirect(ctx, rect, COLORS) {
   const gap = 12;
   const rowWidth = wW + aW + sW + dW + gap * 3;
   let rowX = x + (w - rowWidth) / 2;
-  drawKeyChip(ctx, "W", "Drift", rowX, rowY, COLORS);
+  drawKeyChip(ctx, "W", "Slowfall", rowX, rowY, COLORS);
   rowX += wW + gap;
   drawKeyChip(ctx, "A", "Backflip", rowX, rowY, COLORS);
   rowX += aW + gap;
-  drawKeyChip(ctx, "S", "Dive", rowX, rowY, COLORS);
+  drawKeyChip(ctx, "S", "Duck/Dive", rowX, rowY, COLORS);
   rowX += sW + gap;
   drawKeyChip(ctx, "D", "Dash", rowX, rowY, COLORS);
 
@@ -924,9 +924,9 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   ctx.font = "800 12px Share Tech Mono, Orbitron, Menlo, monospace";
   ctx.fillText(`${player.jumpsRemaining}`, statX + 32, y + 24);
 
-  const fuelMax = Number.isFinite(player.floatFuelMax) ? player.floatFuelMax : 0.38;
-  const fuel01 = Number.isFinite(player.floatFuel)
-    ? clamp(fuelMax > 0 ? player.floatFuel / fuelMax : 0, 0, 1)
+  const fuelMax = Number.isFinite(player.slowfallFuelMax) ? player.slowfallFuelMax : 0.38;
+  const fuel01 = Number.isFinite(player.slowfallFuel)
+    ? clamp(fuelMax > 0 ? player.slowfallFuel / fuelMax : 0, 0, 1)
     : 0;
   const dashCd = Number.isFinite(player.dashCooldown) ? player.dashCooldown : 0;
   const dash01 = clamp(1 - (dashCd / Math.max(0.001, DASH_COOLDOWN)), 0, 1);
@@ -1032,7 +1032,7 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const displayScore = Number.isFinite(state.scoreTally) ? state.scoreTally : baseScore;
   const hudScore = Math.floor(displayScore);
   const scoreText = String(hudScore).padStart(6, "0");
-  const drift = Math.floor(state.glideDistance || 0);
+  const slowfallDist = Math.floor(state.slowfallDistance || 0);
   const backflips = Math.floor(state.backflipCount || 0);
   const billboardsDashed = Math.floor(state.billboardDashCount || 0);
   const dist = Math.floor(state.distance || 0);
@@ -1075,7 +1075,7 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const stringRightX = panelX + panelW * 0.74 + sway;
 
   const rows = [
-    { label: "DRIFT DISTANCE", value: formatNumber(drift) },
+    { label: "SLOWFALL DISTANCE", value: formatNumber(slowfallDist) },
     { label: "BACKFLIPS", value: formatNumber(backflips) },
     { label: "BILLBOARDS BROKEN", value: formatNumber(billboardsDashed) },
     { label: "TOTAL DISTANCE", value: formatNumber(dist) },

@@ -313,11 +313,11 @@
             </g>
             <use href="#bob" x="240" y="10" width="120" height="133" />
             <text x="300" y="190" fill="#e9ebef" font-weight="600">Jump</text>
-            <!-- Float -->
+            <!-- Slowfall -->
             <ellipse cx="480" cy="85" rx="66" ry="70" fill="none" stroke="#78cdff" stroke-width="3" opacity="0.55" filter="url(#glow)" />
             <ellipse cx="480" cy="85" rx="62" ry="66" fill="rgba(120,205,255,0.06)" stroke="#78cdff" stroke-width="1.5" opacity="0.8" />
             <use href="#bob" x="420" y="20" width="120" height="133" />
-            <text x="480" y="190" fill="#e9ebef" font-weight="600">Float (blue halo)</text>
+            <text x="480" y="190" fill="#e9ebef" font-weight="600">Slowfall (blue halo)</text>
             <!-- Dive -->
             <g transform="rotate(47 660 90)">
               <path d="M660 -5 V 30" stroke="#ff556e" stroke-width="2" opacity="0.5" />
@@ -337,8 +337,8 @@
       <div class="table-wrap"><table>
         <tr><th>Action</th><th>Desktop</th><th>Mobile</th><th>Behaviour</th></tr>
         <tr><td><b>Jump / double jump</b></td><td class="mono" style="white-space:nowrap">Space / ↑ / click</td><td>Jump button, tap</td><td>Velocity −630. Two jumps per landing. Letting go early makes the jump shorter.</td></tr>
-        <tr><td><b>Float</b> <span class="pill">"Drift"</span></td><td class="mono">hold W</td><td>Drift button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. Score ×1.2 while floating.</td></tr>
-        <tr><td><b>Dive</b></td><td class="mono">S</td><td>Dive button</td><td>Gravity ×4.2, terminal speed 4,200. Cancels tricks. A diving landing is "heavy" and adds stress to the roof.</td></tr>
+        <tr><td><b>Slowfall</b></td><td class="mono">hold W</td><td>Slowfall button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. Score ×1.2 while slowfalling.</td></tr>
+        <tr><td><b>Duck / Dive</b></td><td class="mono">S</td><td>Duck/Dive button</td><td>In the air: dive. Gravity ×4.2, terminal speed 4,200. Cancels tricks. A diving landing is "heavy" and adds stress to the roof. On a roof: duck while held (hitbox drops to half height). A dive landing flows straight into a duck if S is still held, otherwise a 0.2 s squat.</td></tr>
         <tr><td><b>Dash</b></td><td class="mono">D</td><td>Dash button</td><td>+820 world speed that fades quickly. 0.45 s cooldown. Breaks non-reinforced billboards.</td></tr>
         <tr><td><b>Backflip</b></td><td class="mono">A</td><td>Backflip button</td><td>A 0.30 s flip in the air. Shown in the run summary.</td></tr>
       </table></div>
@@ -349,10 +349,10 @@
           <div class="kbd-wrap">
             <div class="keys">
               <div class="key blank"></div>
-              <div class="key">W<small>Float</small></div>
+              <div class="key">W<small>Slowfall</small></div>
               <div class="key blank"></div>
               <div class="key">A<small>Flip</small></div>
-              <div class="key">S<small>Dive</small></div>
+              <div class="key">S<small>Duck/Dive</small></div>
               <div class="key">D<small>Dash</small></div>
             </div>
             <div class="key arrow">↑<small>Jump</small></div>
@@ -372,12 +372,12 @@
             </svg>
             <div class="hud">SCORE<b>4,812</b>DIST 4,210</div>
             <div class="cl left">
-              <div class="row"><div class="btn">DRIFT</div><div class="btn">DASH</div></div>
+              <div class="row"><div class="btn" style="text-align: center; line-height: 1.25">SLOW<br>FALL</div><div class="btn">DASH</div></div>
               <div class="row"><div class="btn spacer"></div><div class="btn mini">FLIP</div></div>
             </div>
             <div class="cl right">
               <div class="btn jump">JUMP</div>
-              <div class="btn small">DIVE</div>
+              <div class="btn small">DUCK/DIVE</div>
             </div>
           </div>
           <div class="cap">The left thumb handles air control and the right thumb handles jump and dive. The buttons hide on the game-over screen.</div>
@@ -404,7 +404,7 @@
         <svg id="arcs" viewBox="0 0 860 380" role="img" aria-label="Jump arcs"></svg>
         <div class="legend" id="arcs-legend"></div>
         <div class="table-wrap"><table id="arcs-table"></table></div>
-        <div class="cap">"Clears" compares the distance covered by the time Bob drops back to take-off height with the largest gap the generator can make: 150 px early on, 220 px at full difficulty. Jump is held the whole time and float starts at take-off.</div>
+        <div class="cap">"Clears" compares the distance covered by the time Bob drops back to take-off height with the largest gap the generator can make: 150 px early on, 220 px at full difficulty. Jump is held the whole time and slowfall starts at take-off.</div>
       </div>
     </section>
 
@@ -475,6 +475,16 @@
         <div class="hz">
           <svg viewBox="0 0 300 170" aria-hidden="true">
             <rect x="20" y="110" width="260" height="70" fill="#1a1c22" /><rect x="20" y="110" width="260" height="5" fill="#383a40" />
+            <rect x="130" y="62" width="90" height="34" rx="3" fill="rgba(120,205,255,0.35)" stroke="rgba(120,205,255,0.65)" />
+            <rect x="130" y="90" width="90" height="6" fill="rgba(255,180,70,0.65)" />
+            <line x1="138" y1="96" x2="138" y2="110" stroke="#2a2d35" stroke-width="3" /><line x1="212" y1="96" x2="212" y2="110" stroke="#2a2d35" stroke-width="3" />
+            <text x="175" y="50" text-anchor="middle" font-size="11" fill="#fff" font-family="Share Tech Mono">+60 under</text>
+          </svg>
+          <div class="body"><b>Low billboard (hazard stripes)</b><span>Hangs at head height, 27 px above the roof. Hold S to duck under it (+60) or jump over it. Standing up underneath is fatal. 45% of billboards are low when the roof is wide enough (226 px or more).</span></div>
+        </div>
+        <div class="hz">
+          <svg viewBox="0 0 300 170" aria-hidden="true">
+            <rect x="20" y="110" width="260" height="70" fill="#1a1c22" /><rect x="20" y="110" width="260" height="5" fill="#383a40" />
             <rect x="110" y="40" width="110" height="46" rx="3" fill="rgba(120,205,255,0.35)" stroke="rgba(120,205,255,0.65)" />
             <line x1="130" y1="86" x2="130" y2="110" stroke="#2a2d35" stroke-width="3" /><line x1="200" y1="86" x2="200" y2="110" stroke="#2a2d35" stroke-width="3" />
             <path d="M40 60 Q 165 -30 260 60" stroke="#6fe3a8" stroke-dasharray="3 5" fill="none" marker-end="url(#arr)" />
@@ -501,7 +511,7 @@
             <use href="#bob" x="170" y="20" width="26" height="29" />
             <line x1="0" y1="164" x2="400" y2="164" stroke="#ff556e" stroke-width="3" filter="url(#glow)" /><line x1="0" y1="164" x2="400" y2="164" stroke="#ff556e" />
           </svg>
-          <div class="body"><b>Float gap</b><span>The gap is 78–98% of the maximum, with a slight drop. Floating keeps Bob in the air long enough to reach the far roof.</span></div>
+          <div class="body"><b>Slowfall gap</b><span>The gap is 78–98% of the maximum, with a slight drop. Slowfalling keeps Bob in the air long enough to reach the far roof.</span></div>
         </div>
         <div class="hz">
           <svg viewBox="0 0 400 170" aria-hidden="true">
@@ -529,7 +539,7 @@
     <!-- 7 SCORING -->
     <section id="scoring">
       <h2><span class="num">07</span>Scoring</h2>
-      <p class="lead">Score is distance in pixels (×1.2 while floating) plus fixed bonuses. Distance makes up most of it. Bonuses decide close runs.</p>
+      <p class="lead">Score is distance in pixels (×1.2 while slowfalling) plus fixed bonuses. Distance makes up most of it. Bonuses decide close runs.</p>
       <div class="card">
         <div class="bars" id="bonus-bars"></div>
         <div class="cap">Bonus per event. For scale, one second at top speed is worth 480 distance points.</div>
@@ -542,7 +552,7 @@
             <rect x="20" y="10" width="320" height="230" rx="12" fill="rgba(0,0,0,0.42)" stroke="rgba(242,242,242,0.12)" />
             <text x="180" y="42" text-anchor="middle" font-family="Orbitron" font-weight="700" font-size="14" fill="#e9ebef" letter-spacing="2">RUN SUMMARY</text>
             <g font-family="Orbitron" font-size="10" fill="#9aa3b2" letter-spacing="1">
-              <text x="40" y="74">DRIFT DISTANCE</text><text x="40" y="96">BACKFLIPS</text><text x="40" y="118">BILLBOARDS BROKEN</text><text x="40" y="140">TOTAL DISTANCE</text>
+              <text x="40" y="74">SLOWFALL DISTANCE</text><text x="40" y="96">BACKFLIPS</text><text x="40" y="118">BILLBOARDS BROKEN</text><text x="40" y="140">TOTAL DISTANCE</text>
             </g>
             <g font-family="Share Tech Mono" font-size="13" fill="#e9ebef" text-anchor="end">
               <text x="320" y="74">1,284</text><text x="320" y="96">7</text><text x="320" y="118">3</text><text x="320" y="140">9,806</text>
@@ -600,7 +610,7 @@
       <div class="table-wrap"><table>
         <tr><th>Moment</th><th>Visual feedback</th></tr>
         <tr><td>Jump / dash</td><td>Short trail bursts (0.18 s / 0.20 s)</td></tr>
-        <tr><td>Float</td><td>Blue halo around Bob</td></tr>
+        <tr><td>Slowfall</td><td>Blue halo around Bob</td></tr>
         <tr><td>Roof stress</td><td>Red-tinted cracks spread as stress builds</td></tr>
         <tr><td>Roof or billboard break</td><td>Debris shards, and the roof falls</td></tr>
         <tr><td>Death</td><td>18 spark, plate and chip shards. The camera zooms in and a mechanical arm drags Bob away.</td></tr>
@@ -667,7 +677,6 @@
         <li><b>Backflips score nothing.</b> They're counted in the summary but add no points.</li>
         <li><b>Leftover dash constants.</b> <code>DASH_DISTANCE</code> and several dash-camera values look left over from an older dash that moved Bob's position.</li>
         <li><b>Scattered tuning values.</b> <code>BILLBOARD_*_SCORE</code> and <code>BILLBOARD_BOUNCE_VY</code> use fallback values in <code>player.js</code> and aren't in <code>constants.js</code>.</li>
-        <li><b>Two names for one move.</b> The key legend says "Float". The controls panel and mobile button say "Drift". Pick one.</li>
       </ul>
       <h3>Ideas</h3>
       <ul class="todo">
@@ -685,7 +694,7 @@
 // Mirrors src/game/constants.js. Keep in sync if tuning changes.
 const C = {
   GRAVITY: 1800, JUMP_VELOCITY: -630, FALL_GRAVITY_MULT: 1.2, MAX_FALL_SPEED: 1800,
-  FLOAT_FUEL_MAX: 0.55, FLOAT_GRAVITY_MULT: 0.30, DIVE_GRAVITY_MULT: 4.2, DIVE_MAX_FALL_SPEED: 4200,
+  SLOWFALL_FUEL_MAX: 0.55, SLOWFALL_GRAVITY_MULT: 0.30, DIVE_GRAVITY_MULT: 4.2, DIVE_MAX_FALL_SPEED: 4200,
   SPEED_START: 260, SPEED_MAX: 480, SPEED_RAMP_PER_SEC: 6, SPEED_SMOOTH: 7.5,
   DASH_SPEED_BOOST: 820, DASH_IMPULSE_DECAY: 2.4,
   GAP_MAX_EASY: 150, GAP_MAX_HARD: 220,
@@ -726,9 +735,9 @@ function lineChart({ w, h, m, x, y, xticks, yticks, xfmt = String, yfmt = String
 const MOVES = [
   { key: "jump", label: "Jump", color: COL.white },
   { key: "double", label: "Double jump (at apex)", color: COL.cyan, double: true },
-  { key: "float", label: "Jump + float", color: COL.green, float: true },
+  { key: "slowfall", label: "Jump + slowfall", color: COL.green, slowfall: true },
   { key: "dash", label: "Jump + dash", color: COL.amber, dash: true },
-  { key: "boost", label: "Jump boost (float + dash)", color: COL.violet, float: true, dash: true },
+  { key: "boost", label: "Jump boost (slowfall + dash)", color: COL.violet, slowfall: true, dash: true },
   { key: "dive", label: "Jump + dive (at apex)", color: COL.pink, dive: true },
 ];
 const FLOOR = -150;
@@ -736,7 +745,7 @@ const FLOOR = -150;
 function simulate(mv, base) {
   const dt = 1 / 240;
   let t = 0, y = 0, vy = C.JUMP_VELOCITY, x = 0, speed = base;
-  let impulse = mv.dash ? C.DASH_SPEED_BOOST : 0, fuel = C.FLOAT_FUEL_MAX, jumps = 1, dived = false;
+  let impulse = mv.dash ? C.DASH_SPEED_BOOST : 0, fuel = C.SLOWFALL_FUEL_MAX, jumps = 1, dived = false;
   let peak = 0, land = null, apexAct = null;
   const pts = [[0, 0]];
   while (t < 4) {
@@ -749,7 +758,7 @@ function simulate(mv, base) {
     if (vy >= 0 && mv.dive && !dived) { dived = true; vy = Math.max(vy, 220); apexAct = [x, -y]; }
     let g = C.GRAVITY, maxFall = C.MAX_FALL_SPEED;
     if (vy > 0) g *= C.FALL_GRAVITY_MULT;
-    if (mv.float && !dived && fuel > 0) { g *= C.FLOAT_GRAVITY_MULT; fuel = Math.max(0, fuel - dt); }
+    if (mv.slowfall && !dived && fuel > 0) { g *= C.SLOWFALL_GRAVITY_MULT; fuel = Math.max(0, fuel - dt); }
     if (dived) { g *= C.DIVE_GRAVITY_MULT; maxFall = C.DIVE_MAX_FALL_SPEED; }
     vy = Math.min(vy + g * dt, maxFall);
     const prevH = -y;

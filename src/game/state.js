@@ -8,7 +8,7 @@ import {
   PLAYER_H,
   SPEED_START,
   COYOTE_TIME_SEC,
-  FLOAT_FUEL_MAX,
+  SLOWFALL_FUEL_MAX,
 } from "./constants.js";
 
 export function createInitialState() {
@@ -56,7 +56,7 @@ export function createInitialState() {
     styleCombo: 0,
 
     score: 0,
-    glideDistance: 0,
+    slowfallDistance: 0,
     backflipCount: 0,
     billboardDashCount: 0,
     diveCount: 0,
@@ -110,8 +110,8 @@ export function createInitialState() {
       spinDir: 1,
       spinCooldown: 0,
       trickLandWindow: 0,
-      floatFuel: FLOAT_FUEL_MAX,
-      floatFuelMax: FLOAT_FUEL_MAX,
+      slowfallFuel: SLOWFALL_FUEL_MAX,
+      slowfallFuelMax: SLOWFALL_FUEL_MAX,
 
       trickKind: "spin",
       trickIntent: "neutral",
@@ -119,6 +119,8 @@ export function createInitialState() {
       diving: false,
       divePhase: "",
       divePhaseT: 0,
+      ducking: false,
+      duckLandT: 0,
 
       dashCooldown: 0,
       dashOffset: 0,
@@ -178,7 +180,7 @@ export function resetRunState(state) {
   state.styleScore = 0;
   state.styleCombo = 0;
   state.score = 0;
-  state.glideDistance = 0;
+  state.slowfallDistance = 0;
   state.backflipCount = 0;
   state.billboardDashCount = 0;
   state.diveCount = 0;
@@ -233,8 +235,10 @@ export function resetRunState(state) {
   p.diving = false;
   p.divePhase = "";
   p.divePhaseT = 0;
-  p.floatFuel = FLOAT_FUEL_MAX;
-  p.floatFuelMax = FLOAT_FUEL_MAX;
+  p.ducking = false;
+  p.duckLandT = 0;
+  p.slowfallFuel = SLOWFALL_FUEL_MAX;
+  p.slowfallFuelMax = SLOWFALL_FUEL_MAX;
   p.dashCooldown = 0;
   p.dashOffset = 0;
   p.dashTarget = 0;

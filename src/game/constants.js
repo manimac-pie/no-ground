@@ -50,12 +50,16 @@ export const JUMP_CUT_MULT = 2.0;
 export const JUMP_CUT_RAMP_PER_SEC = 18;
 export const JUMP_IMPULSE_FX_SEC = 0.18; // jump trail burst duration
 
-// Air control (W = float, S = dive)
-export const FLOAT_FUEL_MAX = 0.55;            // seconds of float available
-export const FLOAT_FUEL_REGEN_PER_SEC = 0.70;  // fuel/sec regained while grounded
-export const FLOAT_GRAVITY_MULT = 0.30;        // gravity multiplier while floating
-export const DIVE_GRAVITY_MULT = 4.2;          // extra gravity while diving (faster descent)
-export const DIVE_MAX_FALL_SPEED = 4200;       // faster terminal speed when diving
+// Air control (W = slowfall, S = dive)
+export const SLOWFALL_FUEL_MAX = 0.55;           // seconds of slowfall available
+export const SLOWFALL_FUEL_REGEN_PER_SEC = 0.70; // fuel/sec regained while grounded
+export const SLOWFALL_GRAVITY_MULT = 0.30;       // gravity multiplier while slowfalling
+export const DIVE_GRAVITY_MULT = 4.2;            // extra gravity while diving (faster descent)
+export const DIVE_MAX_FALL_SPEED = 4200;         // faster terminal speed when diving
+
+// Duck (S held on a roof; a dive landing flows into it)
+export const DUCK_HEIGHT_FRAC = 0.5;    // hitbox height while ducking (fraction of PLAYER_H)
+export const DUCK_LAND_SQUAT_SEC = 0.2; // brief squat after a dive landing when S is already released
 
 export const LAND_GRACE_SEC = 0.06;
 
@@ -107,17 +111,18 @@ export const DASH_CAM_SMOOTH = 12;      // smoothing rate for camera offset
 export const DASH_CAM_CATCHUP_BOOST = 3.0; // multiplier for camera smooth after landing
 export const DASH_CAM_CATCHUP_SEC = 0.10;  // duration of post-landing catchup boost
 export const DASH_PARALLAX_CAM_FACTOR = 0.2; // parallax camera influence (0 = fixed)
-export const DASH_FLOAT_GRAVITY_BOOST = 0.18; // slight float weakening during dash
+export const DASH_SLOWFALL_GRAVITY_BOOST = 0.18; // slight slowfall weakening during dash
 export const DASH_CATCHUP_DELAY = 0.08; // delay after landing before camera catches up
 export const DASH_MAX_CAM_LAG = 160;    // cap camera lag while airborne
 export const DASH_VY_SCALE_START = 200; // start reducing dash distance above this |vy|
 export const DASH_VY_SCALE_END = 1200;  // max reduction at this |vy|
 export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
 export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash streaks
-export const FLOAT_SCORE_MULT = 1.2;     // score multiplier while floating (blue halo)
+export const SLOWFALL_SCORE_MULT = 1.2; // score multiplier while slowfalling (blue halo)
 export const DIVE_SCORE_BONUS = 40;     // score bonus per dive
 export const BREAK_JIT_SCORE_BONUS = 30; // Just-in-time bonus after break jump
 export const BILLBOARD_BOUNCE_VY = 900; // downward kick when bouncing off a billboard
+export const LOW_BILLBOARD_CHANCE = 0.45; // share of billboards hung at head height (duck under / jump over)
 
 // Input grace
 export const COYOTE_TIME_SEC = 0.2;

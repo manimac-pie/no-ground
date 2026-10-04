@@ -20,6 +20,7 @@ import {
   FALL_GRAVITY_MULT,
   JUMP_VELOCITY,
   PLAYER_H,
+  LOW_BILLBOARD_CHANCE,
   SPEED_START,
   BREAK_JUMP_GRACE_SEC,
 } from "./constants.js";
@@ -65,15 +66,15 @@ export function spawnNextPlatform(state) {
 
   const gapMax = GAP_MAX_EASY + (GAP_MAX_HARD - GAP_MAX_EASY) * d;
 
-  // Occasionally enforce a float/dive requirement by shaping gap + height.
-  state._nextAirReq = state._nextAirReq ?? "none"; // "none" | "float" | "dive"
+  // Occasionally enforce a slowfall/dive requirement by shaping gap + height.
+  state._nextAirReq = state._nextAirReq ?? "none"; // "none" | "slowfall" | "dive"
   state._nextAirReqDist = state._nextAirReqDist ?? 0;
 
   const wantReq = state.distance > state._nextAirReqDist;
   if (wantReq && state._nextAirReq === "none") {
     const chance = 0.10 + 0.18 * d;
     if (Math.random() < chance) {
-      state._nextAirReq = Math.random() < 0.5 ? "float" : "dive";
+      state._nextAirReq = Math.random() < 0.5 ? "slowfall" : "dive";
     }
   }
 
@@ -101,8 +102,8 @@ export function spawnNextPlatform(state) {
 
   if (prev && state._nextAirReq !== "none") {
     const prevY = Number.isFinite(prev.baseY) ? prev.baseY : prev.y;
-    if (state._nextAirReq === "float") {
-      // Longer gap + mild drop: float extends airtime to reach the far platform.
+    if (state._nextAirReq === "slowfall") {
+      // Longer gap + mild drop: slowfall extends airtime to reach the far platform.
       gap = randRange(gapMax * 0.78, gapMax * 0.98);
       y = clamp(prevY + 8 + 10 * Math.random(), 190, GROUND_Y - 60);
     } else if (state._nextAirReq === "dive") {
@@ -176,7 +177,31 @@ export function spawnNextPlatform(state) {
   state._buildingCount = buildingIndex;
 
   let billboard = null;
-  if (buildingIndex % 5 === 0 && Math.random() < 0.5) {
+  // Low billboards hang at head height: duck under (hold S) or jump over.
+  // Kept toward the right of the roof so there's room to land and react.
+  const LOW_BB_W = 110;
+  const LOW_BB_H = 56;
+  const LOW_BB_LEAD = 110; // min roof run before the billboard
+  const LOW_BB_CLEAR = 27; // roof -> billboard bottom (standing collides, ducking clears)
+  const wantBillboard = buildingIndex % 5 === 0 && Math.random() < 0.5;
+  const canLow = w >= LOW_BB_LEAD + LOW_BB_W + 6;
+  if (wantBillboard && canLow && Math.random() < LOW_BILLBOARD_CHANCE) {
+    const bbX = LOW_BB_LEAD + (w - LOW_BB_LEAD - LOW_BB_W - 6) * Math.random();
+    billboard = {
+      offsetX: bbX,
+      offsetY: LOW_BB_H + LOW_BB_CLEAR,
+      w: LOW_BB_W,
+      h: LOW_BB_H,
+      low: true,
+      reinforced: !breakable,
+      resolved: false,
+      broken: false,
+      hit: false,
+      breaking: false,
+      breakT: 0,
+      breakSpawned: false,
+    };
+  } else if (wantBillboard) {
     const maxW = Math.max(70, w - 24);
     const bbW = clamp(160, 70, maxW);
     const bbH = 96;
@@ -201,13 +226,13 @@ export function spawnNextPlatform(state) {
       breakT: 0,
       breakSpawned: false,
     };
+  }
 
-    if (breakable) {
-      // Billboards shouldn't auto-trigger roof breaking; only stress from standing should.
-      breakArmed = false;
-      breakDelay = 0;
-      lowSpawnBreakY = Number.POSITIVE_INFINITY;
-    }
+  if (billboard && breakable) {
+    // Billboards shouldn't auto-trigger roof breaking; only stress from standing should.
+    breakArmed = false;
+    breakDelay = 0;
+    lowSpawnBreakY = Number.POSITIVE_INFINITY;
   }
 
   state.platforms.push({

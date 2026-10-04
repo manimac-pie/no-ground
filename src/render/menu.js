@@ -230,9 +230,9 @@ function drawKeyChip(ctx, label, caption, x, y, COLORS, opts = {}) {
 function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
   const controls = [
     { label: "SPACE", caption: "Jump / Double Jump" },
-    { label: "W", caption: "Float" },
+    { label: "W", caption: "Slowfall" },
     { label: "D", caption: "Dash" },
-    { label: "S", caption: "Dive" },
+    { label: "S", caption: "Duck/Dive" },
     { label: "A", caption: "Backflip" },
   ];
 
