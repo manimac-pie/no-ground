@@ -877,6 +877,95 @@ export function drawRestartFlyby(ctx, state, COLORS, W, H) {
   return true;
 }
 
+// ---------------- HUD feedback ----------------
+const SCORE_PULSE_SEC = 0.3;
+const BEST_FLASH_SEC = 1.2;
+const LOW_FUEL_FRAC = 0.2;
+const POPUP_LIFE_SEC = 0.9;
+let _hudBestValue = -1;
+let _hudBestText = "";
+let _hudDanger = 0;
+let _hudDangerT = -1;
+let _vignette = null; // { w, h, gradient }
+
+// True when a roof is under (or just ahead of) Bob's feet, so a fall isn't fatal.
+function hasRoofBelow(state, p) {
+  const feet = p.y + p.h;
+  const reachX = p.x + p.w + 40; // roofs scroll toward Bob
+  for (const plat of state.platforms) {
+    if (plat.collapsing) continue;
+    if (plat.y + 1 < feet) continue;
+    if (plat.x < reachX && plat.x + plat.w > p.x) return true;
+  }
+  return false;
+}
+
+// Ground danger for the HUD (0..1, smoothed). Only while actually falling toward the
+// ground with nothing to land on, so standing on a low roof doesn't light it up.
+export function computeHudDanger(state, danger01) {
+  const p = state.player;
+  const now = state.uiTime || 0;
+  const dt = _hudDangerT >= 0 ? clamp(now - _hudDangerT, 0, 0.1) : 0;
+  _hudDangerT = now;
+
+  let target = 0;
+  if (state.running && p && !p.onGround && (p.vy || 0) > 0 && danger01 > 0 && !hasRoofBelow(state, p)) {
+    target = danger01;
+  }
+  const rate = target > _hudDanger ? 12 : 4;
+  _hudDanger += (target - _hudDanger) * (1 - Math.exp(-rate * dt));
+  if (_hudDanger < 0.002) _hudDanger = 0;
+  return _hudDanger;
+}
+
+// Faint red edge vignette (screen space), scaled by danger.
+export function drawDangerVignette(ctx, W, H, danger) {
+  if (!(danger > 0.01)) return;
+  if (!_vignette || _vignette.w !== W || _vignette.h !== H) {
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.38, W / 2, H / 2, Math.hypot(W, H) * 0.55);
+    g.addColorStop(0, "rgba(255,40,70,0)");
+    g.addColorStop(1, "rgba(255,40,70,1)");
+    _vignette = { w: W, h: H, gradient: g };
+  }
+  ctx.save();
+  ctx.globalAlpha = 0.32 * danger;
+  ctx.fillStyle = _vignette.gradient;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+// Rising "+130 SMASH" text above Bob (world space). Reads state.scoreEvents only.
+export function drawScorePopups(ctx, state) {
+  const events = state.scoreEvents;
+  if (!events) return;
+  const now = state.uiTime || 0;
+  // Ride up with Bob while he's rising so the text never sits on top of him.
+  const playerTop = state.player ? state.player.y : Infinity;
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = "800 13px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.shadowColor = "rgba(80,255,220,0.7)";
+  ctx.shadowBlur = 10;
+  for (const ev of events) {
+    if (ev.t < 0) continue;
+    const age = now - ev.t;
+    if (age < 0 || age > POPUP_LIFE_SEC) continue;
+    const k = age / POPUP_LIFE_SEC;
+    const rise = 34 * easeOutCubic(k);
+    const pop = age < 0.12 ? 1.3 - 0.3 * (age / 0.12) : 1;
+    ctx.globalAlpha = k < 0.55 ? 1 : 1 - (k - 0.55) / 0.45;
+    ctx.save();
+    ctx.translate(ev.x, Math.min(ev.y, playerTop) - 10 - rise - ev.stack * 15);
+    ctx.scale(pop, pop);
+    ctx.fillStyle = ev.amount >= 100 ? "rgba(255,215,120,0.98)" : "rgba(220,255,255,0.98)";
+    ctx.fillText(ev.text, 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
 export function drawHUD(ctx, state, danger01, COLORS) {
   const player = state.player;
   const introT = state.hudIntroT || 0;
@@ -905,14 +994,103 @@ export function drawHUD(ctx, state, danger01, COLORS) {
     );
   }
 
+  const uiTime = state.uiTime || 0;
+
+  // Ground danger: red rim over the cached frame.
+  if (danger01 > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, danger01 * 1.1);
+    ctx.shadowColor = "rgba(255,60,90,0.9)";
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = "rgba(255,70,100,0.95)";
+    ctx.lineWidth = 2;
+    roundedRectPath(ctx, x + 2, y + 2, w - 4, h - 4, 12);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Live values
   ctx.globalAlpha = 0.95;
   const baseScore = Number.isFinite(state.score) ? state.score : (state.distance || 0);
   const hudScore = Math.floor(baseScore);
   const scoreText = String(hudScore).padStart(6, "0");
+
+  // Short pulse when a bonus lands.
+  const lastEventT = Number.isFinite(state.scoreEventLastT) ? state.scoreEventLastT : -1;
+  const pulseAge = lastEventT >= 0 ? uiTime - lastEventT : Infinity;
+  const pulseK = pulseAge >= 0 && pulseAge < SCORE_PULSE_SEC
+    ? 1 - easeOutCubic(pulseAge / SCORE_PULSE_SEC)
+    : 0;
   ctx.fillStyle = "rgba(220,255,255,0.98)";
   ctx.font = "800 28px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText(scoreText, x + 14, y + 52);
+  if (pulseK > 0) {
+    ctx.save();
+    ctx.translate(x + 14, y + 52);
+    ctx.scale(1 + 0.12 * pulseK, 1 + 0.12 * pulseK);
+    ctx.shadowColor = "rgba(80,255,220,0.9)";
+    ctx.shadowBlur = 14 * pulseK;
+    ctx.fillStyle = "rgba(245,255,255,1)";
+    ctx.fillText(scoreText, 0, 0);
+    ctx.restore();
+  } else {
+    ctx.fillText(scoreText, x + 14, y + 52);
+  }
+
+  // Air pot: points riding on this jump (paid out on a safe landing), plus its multipliers:
+  // backflips (orange, on distance) and slowfall (cyan, on everything).
+  const airPot = state.airActive === true ? Math.floor(state.airPot || 0) : 0;
+  if (airPot > 0) {
+    const fuelMaxP = Number.isFinite(player.slowfallFuelMax) ? player.slowfallFuelMax : 0.55;
+    const mult = 1 + Math.min(1, (state.airSlowfallUsed || 0) / Math.max(0.001, fuelMaxP));
+    const flipMult = 1 + Math.max(0, state.airFlips || 0);
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.fillStyle = "rgba(160,235,255,0.85)";
+    ctx.font = "800 12px Share Tech Mono, Orbitron, Menlo, monospace";
+    ctx.fillText(`+${airPot}`, x + 112, y + 42);
+    ctx.font = "800 11px Share Tech Mono, Orbitron, Menlo, monospace";
+    ctx.shadowBlur = 8;
+    let multX = x + 112;
+    if (flipMult > 1) {
+      const flipText = `×${flipMult}`;
+      ctx.shadowColor = "rgba(255,170,80,0.8)";
+      ctx.fillStyle = "rgba(255,200,120,0.98)";
+      ctx.fillText(flipText, multX, y + 55);
+      multX += ctx.measureText(flipText).width + 5;
+    }
+    if (mult > 1.005) {
+      ctx.shadowColor = "rgba(120,205,255,0.8)";
+      ctx.fillStyle = "rgba(120,220,255,0.98)";
+      ctx.fillText(`×${mult.toFixed(1)}`, multX, y + 55);
+    }
+    ctx.restore();
+  }
+
+  // Personal-best target (top row, right of SCORE).
+  const bestTarget = Number.isFinite(state.runBestTarget) ? state.runBestTarget : 0;
+  if (bestTarget > 0) {
+    const passed = state.passedBest === true;
+    if (bestTarget !== _hudBestValue) {
+      _hudBestValue = bestTarget;
+      _hudBestText = `BEST ${formatNumber(bestTarget)}`;
+    }
+    const passedAge = passed ? uiTime - (state.passedBestT || 0) : 0;
+    const flashing = passed && passedAge >= 0 && passedAge < BEST_FLASH_SEC;
+    ctx.save();
+    ctx.textAlign = "right";
+    ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
+    if (passed) {
+      ctx.globalAlpha = flashing && Math.floor(passedAge * 10) % 2 === 1 ? 0.35 : 1;
+      ctx.shadowColor = "rgba(255,190,90,0.8)";
+      ctx.shadowBlur = flashing ? 12 : 6;
+      ctx.fillStyle = "rgba(255,215,120,0.98)";
+      ctx.fillText("NEW BEST", statX - 14, y + 22);
+    } else {
+      ctx.fillStyle = "rgba(150,245,255,0.6)";
+      ctx.fillText(_hudBestText, statX - 14, y + 22);
+    }
+    ctx.restore();
+  }
 
   // Distance line
   const hudDistance = Math.floor(state.distance || 0);
@@ -931,7 +1109,14 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   const dashCd = Number.isFinite(player.dashCooldown) ? player.dashCooldown : 0;
   const dash01 = clamp(1 - (dashCd / Math.max(0.001, DASH_COOLDOWN)), 0, 1);
 
-  ctx.fillStyle = "rgba(0,255,208,0.85)";
+  // Low fuel: blink the bar while slowfalling on the last ~20%.
+  const slowfalling =
+    !player.onGround && state.slowfallHeld === true && player.diving !== true && fuel01 > 0;
+  const fuelLow = slowfalling && fuel01 < LOW_FUEL_FRAC;
+  const blinkOff = fuelLow && Math.floor(uiTime * 8) % 2 === 1;
+  ctx.fillStyle = fuelLow
+    ? (blinkOff ? "rgba(255,70,100,0.55)" : "rgba(255,120,140,0.95)")
+    : "rgba(0,255,208,0.85)";
   ctx.fillRect(statX, barY1, Math.floor(statW * fuel01), 6);
   ctx.fillStyle = dash01 >= 1 ? "rgba(255,110,180,0.9)" : "rgba(120,120,255,0.75)";
   ctx.fillRect(statX, barY2, Math.floor(statW * dash01), 6);
@@ -1110,6 +1295,9 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
     );
   } else {
     drawScoreCapsule(ctx, capsule);
+  }
+  if (state.passedBest === true && state.scoreTallyDone === true && dropK >= 1) {
+    drawNewBestStamp(ctx, pillX + pillW2 - 50, pillY + 2, state.scoreTallyDoneT || 0);
   }
   // The score glow stays on for what follows (RESET and the leaderboard pick it up).
   ctx.shadowColor = "rgba(80,255,220,0.7)";
@@ -1423,6 +1611,31 @@ function drawScoreCapsule(ctx, capsule) {
   ctx.fillStyle = "rgba(240,255,255,0.98)";
   ctx.textAlign = "center";
   ctx.fillText(scoreText, panelCenterX, pillY + 40 + (40 - scoreFontSize) * 0.3);
+}
+
+// Tilted "NEW BEST" stamp on the score capsule; slams in once the tally finishes.
+function drawNewBestStamp(ctx, x, y, t) {
+  const k = clamp(t / 0.22, 0, 1);
+  const scale = 1.8 - 0.8 * easeOutCubic(k);
+  ctx.save();
+  ctx.globalAlpha = k;
+  ctx.translate(x, y);
+  ctx.rotate(-0.14);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "rgba(20,14,6,0.92)";
+  roundRect(ctx, -44, -11, 88, 22, 6);
+  ctx.shadowColor = "rgba(255,190,90,0.85)";
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = "rgba(255,210,110,0.95)";
+  ctx.lineWidth = 2;
+  roundedRectPath(ctx, -44, -11, 88, 22, 6);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,222,140,0.98)";
+  ctx.font = "800 11px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("NEW BEST", 0, 1);
+  ctx.restore();
 }
 
 function drawResetButton(ctx, button, resetHover) {

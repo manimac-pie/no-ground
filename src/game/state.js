@@ -10,6 +10,7 @@ import {
   COYOTE_TIME_SEC,
   SLOWFALL_FUEL_MAX,
 } from "./constants.js";
+import { createScoreEvents } from "./score.js";
 
 export function createInitialState() {
   return {
@@ -56,6 +57,23 @@ export function createInitialState() {
     styleCombo: 0,
 
     score: 0,
+    scoreEvents: createScoreEvents(),
+    scoreEventHead: 0,
+    scoreEventLastT: -1, // uiTime of the latest bonus (HUD score pulse)
+
+    // Air pot: points earned since takeoff, paid out (x slowfall multiplier) on a safe landing.
+    airActive: false,
+    airPot: 0,
+    airDistance: 0, // distance part of the pot (multiplied by backflips)
+    airFlips: 0,    // backflips this airtime
+    airSlowfallUsed: 0, // seconds of slowfall fuel spent this airtime
+
+    // Personal best: snapshot taken as the run starts (the server value changes after submit).
+    runBestTarget: 0,
+    sessionBest: 0, // best finished run this session; survives resets
+    passedBest: false,
+    passedBestT: -1, // uiTime when this run passed the best
+
     slowfallDistance: 0,
     backflipCount: 0,
     billboardDashCount: 0,
@@ -180,6 +198,17 @@ export function resetRunState(state) {
   state.styleScore = 0;
   state.styleCombo = 0;
   state.score = 0;
+  for (const ev of state.scoreEvents) ev.t = -1;
+  state.scoreEventHead = 0;
+  state.scoreEventLastT = -1;
+  state.airActive = false;
+  state.airPot = 0;
+  state.airDistance = 0;
+  state.airFlips = 0;
+  state.airSlowfallUsed = 0;
+  state.runBestTarget = 0;
+  state.passedBest = false;
+  state.passedBestT = -1;
   state.slowfallDistance = 0;
   state.backflipCount = 0;
   state.billboardDashCount = 0;

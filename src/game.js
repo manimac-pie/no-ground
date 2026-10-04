@@ -11,7 +11,6 @@ import {
   SPEED_RAMP_PER_SEC,
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
-  SLOWFALL_SCORE_MULT,
   DEATH_CINEMATIC_TOTAL,
   BREAK_SHARDS,
   RESTART_FLYBY_SEC,
@@ -24,6 +23,7 @@ import {
 
 import { clamp } from "./game/utils.js";
 import { createInitialState, resetRunState } from "./game/state.js";
+import { addDistancePoints } from "./game/score.js";
 import { resetPlatforms, scrollWorld, updatePlatforms } from "./game/platforms.js";
 import {
   tryConsumeBufferedJump,
@@ -33,6 +33,7 @@ import {
 import { startSpin, updateTricks } from "./game/tricks.js";
 import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "./ui/layout.js";
 import { onGameFinished } from "./ui/leaderboardView.js";
+import { getMyBest } from "./ui/leaderboardState.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
@@ -52,9 +53,24 @@ export function createGame() {
   function reportRunEnd(runScore) {
     if (state.leaderboardReported) return;
     state.leaderboardReported = true;
+    if (Number.isFinite(runScore)) state.sessionBest = Math.max(state.sessionBest || 0, runScore);
     onGameFinished(runScore).catch((error) => {
       console.error("Submitting final score failed:", error);
     });
+  }
+
+  // Personal-best target for the HUD and the run summary. Taken from the stored best
+  // (or this session's best, if a submit is still in flight) and kept fixed for the run.
+  // Retried while it's 0 in case the leaderboard loads after the run starts.
+  function updateBestTarget() {
+    if (state.passedBest) return;
+    if (state.runBestTarget <= 0) {
+      state.runBestTarget = Math.max(getMyBest() || 0, state.sessionBest || 0);
+    }
+    if (state.runBestTarget > 0 && state.score > state.runBestTarget) {
+      state.passedBest = true;
+      state.passedBestT = state.uiTime || 0;
+    }
   }
 
   function updateScoreTally(dt) {
@@ -467,9 +483,10 @@ export function createGame() {
     const p = state.player;
     const airborne = p ? p.onGround === false : false;
     const slowfalling = airborne && state.slowfallHeld === true && !(p && p.diving);
-    const scoreMult = slowfalling ? SLOWFALL_SCORE_MULT : 1;
-    state.score += distanceDelta * scoreMult;
+    // Airborne distance goes into the air pot (x backflips, x slowfall, paid out on landing).
+    addDistancePoints(state, distanceDelta);
     if (slowfalling) state.slowfallDistance += distanceDelta;
+    updateBestTarget();
 
     tryConsumeBufferedJump(state);
     return state;

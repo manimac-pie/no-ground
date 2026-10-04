@@ -9,9 +9,9 @@ The game looks good: the neon city, the hanging run summary and the robot-arm de
 Each item gives where the change goes, its impact and its effort. Details are in the numbered sections below.
 
 **Batch A: Feel**
-- [ ] **1. Bonus score pop-ups** · `game/player.js`, `game/state.js`, `render/ui.js` · Impact: High · Effort: Low–Medium
-- [ ] **2. Ground-danger and low-fuel warnings** · `render/ui.js` · Impact: High · Effort: Low
-- [ ] **3. Personal-best target** · `render/ui.js` · Impact: High · Effort: Low
+- [x] **1. Bonus score pop-ups** · `game/player.js`, `game/state.js`, `render/ui.js` · Impact: High · Effort: Low–Medium
+- [x] **2. Ground-danger and low-fuel warnings** · `render/ui.js` · Impact: High · Effort: Low
+- [x] **3. Personal-best target** · `render/ui.js` · Impact: High · Effort: Low
 - [x] **4. One name for Slowfall, plus mobile button labels** · `render/menu.js`, `render/ui.js`, `index.html` · Impact: Medium · Effort: Low
 
 **Batch B: Flow**
@@ -65,6 +65,8 @@ The HUD shows only the current score. Your best is visible only on the leaderboa
 - In the HUD, add `BEST 012,345` under `DIST`, taken from `getLeaderboardState().myBest`. Flash it once when the run passes it.
 - In the run summary, add a "NEW BEST" stamp on the score capsule (`drawScoreCapsule`, `src/render/ui.js:1391`) when the run beats the stored best.
 - Optional: a thin in-world marker at the distance of your best run.
+
+*Done 2026-10-04:* `BEST` sits on the top row, right of `SCORE`, because the HUD has no room under `DIST`. Once passed it turns into a gold `NEW BEST`. The in-world marker isn't built.
 
 **Verify:** beat your best and check the HUD flash and the summary stamp. On a run that doesn't beat it, neither should appear.
 

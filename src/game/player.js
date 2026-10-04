@@ -4,6 +4,7 @@
 
 import * as C from "./constants.js";
 import { clamp } from "./utils.js";
+import { awardBonus, beginAir, landAir, loseAir } from "./score.js";
 
 function getConst(name, fallback) {
   const v = C[name];
@@ -22,6 +23,9 @@ const DIVE_GRAVITY_MULT = getConst("DIVE_GRAVITY_MULT", 2.2);
 const DIVE_MAX_FALL_SPEED = getConst("DIVE_MAX_FALL_SPEED", 2200);
 const DIVE_ANTICIPATION_SEC = getConst("DIVE_ANTICIPATION_SEC", 0.11);
 const DIVE_SCORE_BONUS = getConst("DIVE_SCORE_BONUS", 0);
+
+const JUMP_SCORE = getConst("JUMP_SCORE", 0);
+const DOUBLE_JUMP_SCORE = getConst("DOUBLE_JUMP_SCORE", 0);
 
 const DUCK_HEIGHT_FRAC = getConst("DUCK_HEIGHT_FRAC", 0.5);
 const DUCK_LAND_SQUAT_SEC = getConst("DUCK_LAND_SQUAT_SEC", 0.2);
@@ -75,6 +79,11 @@ export function performJump(state) {
     state.roofJumpT = 0.22;
   }
 
+  const isDoubleJump = state.airActive === true && p.jumpsRemaining < 2;
+  beginAir(state);
+  if (isDoubleJump) awardBonus(state, DOUBLE_JUMP_SCORE, "DOUBLE JUMP");
+  else awardBonus(state, JUMP_SCORE, "JUMP");
+
   p.vy = JUMP_VELOCITY;
   p.onGround = false;
   p.onBillboard = false;
@@ -83,7 +92,7 @@ export function performJump(state) {
   p.jumpImpulseT = JUMP_IMPULSE_FX_SEC;
 
   if (p.breakGrace > 0 && p.breakJumpEligible === true) {
-    state.score += BREAK_JIT_SCORE_BONUS;
+    awardBonus(state, BREAK_JIT_SCORE_BONUS, "JUST IN TIME");
     p.breakGrace = 0;
     p.breakJumpEligible = false;
   }
@@ -119,7 +128,7 @@ function updateDivePhase(state, dt, airborne) {
     p.divePhaseT = 0;
 
     if (p.vy < 220) p.vy = 220;
-    state.score += DIVE_SCORE_BONUS;
+    awardBonus(state, DIVE_SCORE_BONUS, "DIVE");
     state.diveCount += 1;
   }
 
@@ -195,7 +204,9 @@ export function integratePlayer(state, dt, endGame) {
 
   if (!deathFall && airborne && state.slowfallHeld && !p.diving && p.slowfallFuel > 0) {
     g *= SLOWFALL_GRAVITY_MULT;
+    const used = Math.min(dt, p.slowfallFuel);
     p.slowfallFuel = Math.max(0, p.slowfallFuel - dt);
+    state.airSlowfallUsed = (state.airSlowfallUsed || 0) + used;
   }
 
   if (!deathFall && airborne && p.diving) {
@@ -250,7 +261,7 @@ export function integratePlayer(state, dt, endGame) {
       const isDashing = p.dashImpulseT > 0.01;
       const isDiving = p.diving === true;
       if (b.reinforced === false && (isDashing || isDiving)) {
-        state.score += BILLBOARD_DASH_SCORE;
+        awardBonus(state, BILLBOARD_DASH_SCORE, "SMASH");
         state.billboardDashCount += 1;
         b.resolved = true;
         b.breaking = true;
@@ -295,6 +306,7 @@ export function integratePlayer(state, dt, endGame) {
         p.divePhase = "";
         p.divePhaseT = 0;
         p.slowfallFuel = SLOWFALL_FUEL_MAX;
+        landAir(state);
         billboardHit = true;
         break;
       }
@@ -302,7 +314,7 @@ export function integratePlayer(state, dt, endGame) {
       const rightGraceEdge = bx + bw * 0.70;
       if (px2 <= leftGraceEdge || px1 >= rightGraceEdge) continue;
       if (b.reinforced === false && isDashing) {
-        state.score += BILLBOARD_DASH_SCORE;
+        awardBonus(state, BILLBOARD_DASH_SCORE, "SMASH");
         state.billboardDashCount += 1;
         b.resolved = true;
         b.breaking = true;
@@ -313,6 +325,7 @@ export function integratePlayer(state, dt, endGame) {
       } else {
         b.hit = true;
         p.billboardDeath = true;
+        loseAir(state);
         p.billboardDeathT = 0;
         p.onGround = false;
         p.groundPlat = null;
@@ -363,6 +376,7 @@ export function integratePlayer(state, dt, endGame) {
         p.divePhase = "";
         p.divePhaseT = 0;
         p.slowfallFuel = SLOWFALL_FUEL_MAX;
+        landAir(state);
         break;
       }
     }
@@ -385,10 +399,10 @@ export function integratePlayer(state, dt, endGame) {
       const by = plat.y - b.offsetY;
       if (bx + bw < centerX) {
         if (p.y + p.h <= by) {
-          state.score += BILLBOARD_OVER_SCORE;
+          awardBonus(state, BILLBOARD_OVER_SCORE, "OVER");
           b.resolved = true;
-        } else if (hitTop(p) >= by + bh) {
-          state.score += BILLBOARD_UNDER_SCORE;
+        } else if (p.ducking && hitTop(p) >= by + bh) {
+          awardBonus(state, BILLBOARD_UNDER_SCORE, "DUCK");
           b.resolved = true;
         } else {
           b.resolved = true;
@@ -398,6 +412,7 @@ export function integratePlayer(state, dt, endGame) {
   }
 
   if (p.y + p.h >= GROUND_Y + 1) {
+    loseAir(state);
     if (typeof endGame === "function") endGame();
     else {
       state.running = false;
@@ -405,6 +420,9 @@ export function integratePlayer(state, dt, endGame) {
     }
     return;
   }
+
+  // Takeoff (walked off an edge, roof gave way, or jumped): start this airtime's pot.
+  if (!p.onGround && p.billboardDeath !== true) beginAir(state);
 
   if (state.heavyLandT > 0) {
     state.heavyLandT = Math.max(0, state.heavyLandT - dt);
@@ -431,7 +449,7 @@ export function updateDash(state, dt) {
     state.speedImpulse += DASH_SPEED_BOOST;
     p.dashCooldown = DASH_COOLDOWN;
     p.dashImpulseT = DASH_IMPULSE_FX_SEC;
-    state.score += DASH_SCORE_BONUS;
+    awardBonus(state, DASH_SCORE_BONUS, "DASH");
   }
 
   state.speedImpulse *= Math.exp(-DASH_IMPULSE_DECAY * dt);

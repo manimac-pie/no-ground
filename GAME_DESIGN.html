@@ -337,7 +337,7 @@
       <div class="table-wrap"><table>
         <tr><th>Action</th><th>Desktop</th><th>Mobile</th><th>Behaviour</th></tr>
         <tr><td><b>Jump / double jump</b></td><td class="mono" style="white-space:nowrap">Space / ↑ / click</td><td>Jump button, tap</td><td>Velocity −630. Two jumps per landing. Letting go early makes the jump shorter.</td></tr>
-        <tr><td><b>Slowfall</b></td><td class="mono">hold W</td><td>Slowfall button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. Score ×1.2 while slowfalling.</td></tr>
+        <tr><td><b>Slowfall</b></td><td class="mono">hold W</td><td>Slowfall button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. Multiplies the jump's points on landing: ×(1 + share of fuel used), so a full tank is ×2.</td></tr>
         <tr><td><b>Duck / Dive</b></td><td class="mono">S</td><td>Duck/Dive button</td><td>In the air: dive. Gravity ×4.2, terminal speed 4,200. Cancels tricks. A diving landing is "heavy" and adds stress to the roof. On a roof: duck while held (hitbox drops to half height). A dive landing flows straight into a duck if S is still held, otherwise a 0.2 s squat.</td></tr>
         <tr><td><b>Dash</b></td><td class="mono">D</td><td>Dash button</td><td>+820 world speed that fades quickly. 0.45 s cooldown. Breaks non-reinforced billboards.</td></tr>
         <tr><td><b>Backflip</b></td><td class="mono">A</td><td>Backflip button</td><td>A 0.30 s flip in the air. Shown in the run summary.</td></tr>
@@ -493,7 +493,7 @@
             <text x="270" y="96" font-size="11" fill="#6fe3a8" font-family="Share Tech Mono" text-anchor="end">+60</text>
             <line x1="0" y1="164" x2="300" y2="164" stroke="#ff556e" stroke-width="3" filter="url(#glow)" /><line x1="0" y1="164" x2="300" y2="164" stroke="#ff556e" />
           </svg>
-          <div class="body"><b>Billboard, reinforced (blue)</b><span>Go over it (+50) or under it (+60), or land on top: it works as a platform and gives 1.2× distance. Hitting its side is fatal.</span></div>
+          <div class="body"><b>Billboard, reinforced (blue)</b><span>Go over it (+50) or duck under it (+60, only while ducking), or land on top: it works as a platform and gives 1.2× distance. Hitting its side is fatal.</span></div>
         </div>
       </div>
       <p class="cap">About every 5th building has a 50% chance of a billboard above it.</p>
@@ -539,7 +539,8 @@
     <!-- 7 SCORING -->
     <section id="scoring">
       <h2><span class="num">07</span>Scoring</h2>
-      <p class="lead">Score is distance in pixels (×1.2 while slowfalling) plus fixed bonuses. Distance makes up most of it. Bonuses decide close runs.</p>
+      <p class="lead">Score is distance in pixels plus fixed bonuses. Distance makes up most of it. Bonuses decide close runs.</p>
+      <p><b>Air pot.</b> From takeoff to landing, distance and bonuses go into a pot for that jump instead of the score. A safe landing (roof or billboard top) pays out (air distance × flip multiplier + bonuses) × slowfall multiplier. The flip multiplier is 1 + backflips this airtime (one flip ×2, two flips ×3) and only applies to distance. The slowfall multiplier is 1 + share of fuel used (no slowfall ×1, a full tank ×2). Dying before landing loses the pot. Each backflip pops up its new multiplier, and the HUD shows the pot and both multipliers next to the score while airborne.</p>
       <div class="card">
         <div class="bars" id="bonus-bars"></div>
         <div class="cap">Bonus per event. For scale, one second at top speed is worth 480 distance points.</div>
@@ -674,7 +675,6 @@
       <h3>Loose ends in the code</h3>
       <ul class="todo">
         <li><b>Style score is unused.</b> <code>STYLE_BASE</code>, <code>STYLE_COMBO_BONUS</code>, <code>styleScore</code> and <code>styleCombo</code> are defined but nothing reads them. Should tricks feed a combo?</li>
-        <li><b>Backflips score nothing.</b> They're counted in the summary but add no points.</li>
         <li><b>Leftover dash constants.</b> <code>DASH_DISTANCE</code> and several dash-camera values look left over from an older dash that moved Bob's position.</li>
         <li><b>Scattered tuning values.</b> <code>BILLBOARD_*_SCORE</code> and <code>BILLBOARD_BOUNCE_VY</code> use fallback values in <code>player.js</code> and aren't in <code>constants.js</code>.</li>
       </ul>
@@ -918,7 +918,7 @@ function drawTimeline() {
 // ---------- bonus bars ----------
 function drawBonuses() {
   const b = [
-    ["Break a billboard", 130], ["Pass under a billboard", 60], ["Dash", 53], ["Pass over a billboard", 50], ["Dive", 40], ["Break-jump (just in time)", 30],
+    ["Break a billboard", 130], ["Backflip", 100], ["Duck under a billboard", 60], ["Dash", 53], ["Pass over a billboard", 50], ["Dive", 40], ["Break-jump (just in time)", 30], ["Double jump", 20], ["Jump", 10],
   ];
   const max = 130;
   document.getElementById("bonus-bars").innerHTML = b.map(([l, v]) =>

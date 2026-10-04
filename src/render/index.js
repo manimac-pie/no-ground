@@ -26,6 +26,9 @@ import {
 import { drawPlayerShadow, drawPlayer } from "./player.js";
 import {
   drawHUD,
+  computeHudDanger,
+  drawDangerVignette,
+  drawScorePopups,
   drawRestartFlyby,
   drawCenterScore,
   drawLeaderboardPanel,
@@ -828,6 +831,11 @@ export function render(ctx, state) {
   });
   ctx.restore();
 
+  if (!deathActive) {
+    resetCtx(ctx);
+    drawScorePopups(ctx, state);
+  }
+
   resetCtx(ctx);
   updateAndDrawBreakShards(ctx, state, dt, playerOffsetX);
 
@@ -883,9 +891,12 @@ export function render(ctx, state) {
     !state.menuZooming &&
     (state.running || (state.hudIntroT || 0) > 0);
 
+  const hudDanger = computeHudDanger(state, danger01);
   if (showHUD) {
     resetCtx(ctx);
-    drawHUD(ctx, state, danger01, COLORS);
+    drawDangerVignette(ctx, W, H, hudDanger);
+    resetCtx(ctx);
+    drawHUD(ctx, state, hudDanger, COLORS);
   }
 
   if (onRestartScreen) {

@@ -3,8 +3,10 @@
 import {
   SPIN_DURATION,
   SPIN_COOLDOWN,
+  BACKFLIP_SCORE,
 } from "./constants.js";
 import { clamp } from "./utils.js";
+import { awardBackflip } from "./score.js";
 
 export function startSpin(state, intent = "neutral") {
   const p = state.player;
@@ -30,6 +32,7 @@ export function startSpin(state, intent = "neutral") {
     p.spinDir = -1;
     if (!Number.isFinite(state.backflipCount)) state.backflipCount = 0;
     state.backflipCount += 1;
+    awardBackflip(state, BACKFLIP_SCORE);
   } else {
     p.trickKind = "spin";
     p.spinDir = p.spinDir === 1 ? -1 : 1;

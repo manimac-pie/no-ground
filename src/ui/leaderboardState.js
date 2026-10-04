@@ -29,6 +29,11 @@ export function getLeaderboardState() {
   };
 }
 
+// Allocation-free read for per-frame callers.
+export function getMyBest() {
+  return cachedMyBest;
+}
+
 export function setLeaderboardState(state = {}) {
   if (Array.isArray(state.entries)) {
     cachedEntries = state.entries.slice(0, MAX_ENTRIES).map((entry) => ({
