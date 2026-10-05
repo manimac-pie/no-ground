@@ -349,6 +349,25 @@
       body.hide-controls #mobile-controls {
         display: none !important;
       }
+
+      /* Pause: top-right, only during a live run (main.js drops is-running while paused). */
+      #mobile-controls .control-btn--pause {
+        position: absolute;
+        top: max(12px, env(safe-area-inset-top));
+        right: max(16px, env(safe-area-inset-right));
+        width: min(44px, 10vw);
+        height: min(44px, 10vw);
+        border-radius: 12px;
+        display: none;
+      }
+
+      body.is-running #mobile-controls .control-btn--pause {
+        display: grid;
+      }
+
+      .control-btn--pause::after {
+        display: none !important;
+      }
       #leaderboard-prompt {
         position: fixed;
         inset: 0;
@@ -454,6 +473,12 @@
     <div id="game-shell">
       <canvas id="game" aria-label="No Ground game canvas" role="img"></canvas>
       <div id="mobile-controls" aria-hidden="true">
+        <button class="control-btn control-btn--pause" type="button" data-control="pause" aria-label="Pause">
+          <svg viewBox="0 0 80 80" aria-hidden="true">
+            <rect x="24" y="20" width="10" height="40" />
+            <rect x="46" y="20" width="10" height="40" />
+          </svg>
+        </button>
         <div class="control-cluster left">
           <div class="control-column">
             <div class="control-row">

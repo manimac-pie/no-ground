@@ -90,8 +90,6 @@ export const ROOF_FALL_GRAVITY = 2400;
 // Tricks / spins + style
 export const SPIN_DURATION = 0.30;
 export const SPIN_COOLDOWN = 0.08;
-export const STYLE_BASE = 25;
-export const STYLE_COMBO_BONUS = 10;
 
 // Player
 export const PLAYER_W = 34;
@@ -104,7 +102,6 @@ export const DASH_CATCHUP_SPEED = 520;  // how fast the camera catches up after 
 export const DASH_COOLDOWN = 0.45;      // seconds between dashes
 export const DASH_SPEED_BOOST = 820;    // added to world speed on dash (keep peak speed)
 export const DASH_IMPULSE_DECAY = 2.4;  // decay rate for dash impulse (lower = longer)
-export const DASH_SCORE_BONUS = 53;   // score bonus per dash
 export const DASH_OFFSET_SNAP_SPEED = 1800; // max dash offset speed (px/sec)
 export const DASH_OFFSET_SMOOTH = 18;   // smoothing rate for dash offset
 export const DASH_CAM_SMOOTH = 12;      // smoothing rate for camera offset
@@ -118,12 +115,31 @@ export const DASH_VY_SCALE_START = 200; // start reducing dash distance above th
 export const DASH_VY_SCALE_END = 1200;  // max reduction at this |vy|
 export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
 export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash streaks
-export const JUMP_SCORE = 10;           // per jump (goes into the air pot)
-export const DOUBLE_JUMP_SCORE = 20;    // per double jump (air pot)
-export const BACKFLIP_SCORE = 100;      // per backflip (air pot)
-// Air pot pays out on a safe landing x (1 + share of slowfall fuel used): full tank = x2.
-export const DIVE_SCORE_BONUS = 40;     // score bonus per dive
-export const BREAK_JIT_SCORE_BONUS = 30; // Just-in-time bonus after break jump
+
+// Scoring
+// Bonuses are measured in seconds of running: points = seconds x current speed (dash boost
+// not counted), so they keep the same weight against distance as the run speeds up.
+// (At 260 px/s 0.1 s = 26 points; at 480 px/s it is 48.)
+export const DOUBLE_JUMP_BONUS_SEC = 0.05;     // air pot
+export const BACKFLIP_BONUS_SEC = 0.25;        // air pot
+export const DIVE_BONUS_SEC = 0.10;            // air pot
+export const AIR_DASH_BONUS_SEC = 0.12;        // air pot; a dash on a roof scores nothing
+export const BREAK_JIT_BONUS_SEC = 0.25;       // jump off a collapsing roof at the last moment
+export const BILLBOARD_OVER_BONUS_SEC = 0.15;
+export const BILLBOARD_DUCK_BONUS_SEC = 0.25;
+export const BILLBOARD_SMASH_BONUS_SEC = 0.40;
+export const CLOSE_CALL_BONUS_SEC = 0.30;      // land with only the front of Bob on the roof
+export const CLOSE_CALL_OVERLAP_FRAC = 0.6;    // ...at most this share of his width
+export const CLUTCH_FLIP_BONUS_SEC = 0.30;     // a backflip that finishes just before landing
+export const CLUTCH_FLIP_WINDOW_SEC = 0.12;    // ...within this many seconds
+
+// Air multiplier on a jump's distance (paid on a safe landing):
+// 1 + FLIP_MULT_STEP per backflip + COMBO_MULT_STEP per combo link, capped at AIR_MULT_MAX.
+// A combo link is a clean tricked landing (at least one backflip, none still spinning).
+// A plain or mid-flip landing resets the combo.
+export const FLIP_MULT_STEP = 1;
+export const COMBO_MULT_STEP = 0.5;
+export const AIR_MULT_MAX = 4;
 export const BILLBOARD_BOUNCE_VY = 900; // downward kick when bouncing off a billboard
 export const LOW_BILLBOARD_CHANCE = 0.45; // share of billboards hung at head height (duck under / jump over)
 
@@ -140,6 +156,12 @@ export const DEATH_CINEMATIC = {
   DRAG: 0.90,         // pull Bob off-screen
   ARM_RETRACT: 0.45,  // arm slides back out
 };
+
+// Skipping the death cinematic: a jump press skips it once it has played this long
+// (so a player still mashing jump at the moment of death doesn't skip by accident).
+export const DEATH_SKIP_UNLOCK_SEC = 1.0;
+// After a skip, the run summary (drop-in, score count-up, wait before RESET) runs this many times faster.
+export const SKIP_SUMMARY_SPEED = 3;
 
 export const DEATH_CINEMATIC_TOTAL =
   DEATH_CINEMATIC.ARM_DELAY +

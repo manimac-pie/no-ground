@@ -6,7 +6,7 @@
 import { createInput } from "./input.js";
 import { createGame } from "./game.js";
 import { setInternalSizeFromViewport } from "./game/constants.js";
-import { render, setCanvasRect, setMaxDpr } from "./render/index.js";
+import { render, setCanvasRect, setMaxDpr, setTouchUi } from "./render/index.js";
 
 //Leaderboard API udpate
 import { refreshLeaderboard } from "./ui/leaderboardView.js";
@@ -45,6 +45,7 @@ const input = createInput(canvas, {
     dive: document.querySelector('[data-control="dive"]'),
     dash: document.querySelector('[data-control="dash"]'),
     backflip: document.querySelector('[data-control="backflip"]'),
+    pause: document.querySelector('[data-control="pause"]'),
   },
 });
 onLeaderboardPromptStateChange((open) => {
@@ -108,6 +109,11 @@ function setCanvasSize() {
   setCanvasRect(canvas.getBoundingClientRect());
 }
 
+function isTouchLike() {
+  return (navigator.maxTouchPoints || 0) > 0
+    || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+}
+
 function updateOverlay() {
   if (!overlay) return;
 
@@ -117,8 +123,7 @@ function updateOverlay() {
     ? window.matchMedia("(orientation: portrait)").matches
     : window.innerHeight > window.innerWidth;
   const phoneish = Math.min(window.innerWidth, window.innerHeight) < 700;
-  const touchLike = (navigator.maxTouchPoints || 0) > 0
-    || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  const touchLike = isTouchLike();
 
   overlay.style.display = portrait && phoneish && touchLike ? "flex" : "none";
 }
@@ -126,11 +131,17 @@ function updateOverlay() {
 function onResize() {
   setCanvasSize();
   updateOverlay();
+  // Pause hint wording: "TAP" on touch screens, keys on desktop.
+  setTouchUi(isTouchLike());
 }
 
 window.addEventListener("resize", onResize, { passive: true });
 window.addEventListener("orientationchange", onResize, { passive: true });
 document.addEventListener("fullscreenchange", onResize, { passive: true });
+// Esc in fullscreen exits fullscreen without the page seeing the key, so leaving fullscreen pauses.
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) game.pause();
+}, { passive: true });
 if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", onResize, { passive: true });
 }
@@ -219,7 +230,9 @@ function tick(now) {
     steps++;
   }
 
-  const running = game.state?.running === true;
+  // Paused or counting down: show the cursor (and hide the pause button).
+  const s = game.state;
+  const running = s?.running === true && !s.paused && !(s.resumeCountdownT > 0);
   if (running !== cursorRunning) {
     cursorRunning = running;
     document.body.classList.toggle("is-running", running);
@@ -243,8 +256,14 @@ window.addEventListener("beforeunload", () => {
   input.destroy();
 });
 
+// Leaving the tab or window pauses the run (game.pause() ignores it outside a live run).
+window.addEventListener("blur", () => game.pause(), { passive: true });
+
 window.addEventListener("visibilitychange", () => {
-  if (document.hidden) return;
+  if (document.hidden) {
+    game.pause();
+    return;
+  }
   // Reset timing when returning to the tab
   last = performance.now();
   acc = 0;

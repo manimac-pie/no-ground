@@ -34,6 +34,8 @@ import {
   drawLeaderboardPanel,
   drawControlsButton,
   drawControlsPanel,
+  drawPauseOverlay,
+  drawSkipHint,
 } from "./ui.js";
 import { drawStartPrompt } from "./menu.js";
 import {
@@ -517,6 +519,13 @@ export function setMaxDpr(value) {
   maxDpr = value;
 }
 
+// Touch screen or not (main.js decides): picks "TAP" or key wording in on-screen hints.
+let touchUi = false;
+
+export function setTouchUi(value) {
+  touchUi = value === true;
+}
+
 function ensureCanvasSize(ctx, W, H) {
   // Renderer owns backing store sizing; main.js only sets CSS size.
   const canvas = ctx.canvas;
@@ -622,6 +631,9 @@ export function render(ctx, state) {
   if (_prevFrameT > 0) dt = (now - _prevFrameT) / 1000;
   _prevFrameT = now;
   dt = Math.max(0, Math.min(1 / 20, dt));
+  // Paused or counting down: freeze render-side motion (camera lag, dust) along with the game.
+  const frozen = state.paused === true || state.resumeCountdownT > 0;
+  if (frozen) dt = 0;
 
   if (!Number.isFinite(_camX)) _camX = 0;
 
@@ -861,8 +873,7 @@ export function render(ctx, state) {
     pointer: pointerWorld,
   });
 
-  const restartPromptReady =
-    state.scoreTallyDone && (state.scoreTallyDoneT || 0) >= 0.5;
+  const restartPromptReady = state.restartReady === true;
 
   if (deathActive) {
     resetCtx(ctx);
@@ -906,9 +917,14 @@ export function render(ctx, state) {
       state.pointerInViewport === true
         ? { x: state.pointerUiX, y: state.pointerUiY }
         : null;
-    drawCenterScore(ctx, state, W, H, pointerUi, restartPromptReady);
+    drawCenterScore(ctx, state, W, H, pointerUi, restartPromptReady, touchUi);
   } else {
     state.restartHover = false;
+  }
+
+  if (deathActive) {
+    resetCtx(ctx);
+    drawSkipHint(ctx, state, W, H, touchUi);
   }
 
   if (state.restartFlybyActive) {
@@ -971,6 +987,12 @@ export function render(ctx, state) {
     if (state.controlsPanelOpen) {
       drawControlsPanel(ctx, panelRect, COLORS);
     }
+  }
+
+  // Pause screen / resume countdown covers everything, HUD included.
+  if (frozen) {
+    resetCtx(ctx);
+    drawPauseOverlay(ctx, state, W, H, touchUi);
   }
 
   // Restore viewport transform

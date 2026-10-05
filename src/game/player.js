@@ -22,10 +22,9 @@ const JUMP_IMPULSE_FX_SEC = getConst("JUMP_IMPULSE_FX_SEC", 0.18);
 const DIVE_GRAVITY_MULT = getConst("DIVE_GRAVITY_MULT", 2.2);
 const DIVE_MAX_FALL_SPEED = getConst("DIVE_MAX_FALL_SPEED", 2200);
 const DIVE_ANTICIPATION_SEC = getConst("DIVE_ANTICIPATION_SEC", 0.11);
-const DIVE_SCORE_BONUS = getConst("DIVE_SCORE_BONUS", 0);
+const DIVE_BONUS_SEC = getConst("DIVE_BONUS_SEC", 0);
 
-const JUMP_SCORE = getConst("JUMP_SCORE", 0);
-const DOUBLE_JUMP_SCORE = getConst("DOUBLE_JUMP_SCORE", 0);
+const DOUBLE_JUMP_BONUS_SEC = getConst("DOUBLE_JUMP_BONUS_SEC", 0);
 
 const DUCK_HEIGHT_FRAC = getConst("DUCK_HEIGHT_FRAC", 0.5);
 const DUCK_LAND_SQUAT_SEC = getConst("DUCK_LAND_SQUAT_SEC", 0.2);
@@ -34,7 +33,7 @@ const DASH_COOLDOWN = getConst("DASH_COOLDOWN", 0.45);
 const DASH_SPEED_BOOST = getConst("DASH_SPEED_BOOST", 520);
 const DASH_IMPULSE_DECAY = getConst("DASH_IMPULSE_DECAY", 6.5);
 const DASH_IMPULSE_FX_SEC = getConst("DASH_IMPULSE_FX_SEC", 0.20);
-const DASH_SCORE_BONUS = getConst("DASH_SCORE_BONUS", 0);
+const AIR_DASH_BONUS_SEC = getConst("AIR_DASH_BONUS_SEC", 0);
 
 const SLOWFALL_FUEL_MAX = getConst("SLOWFALL_FUEL_MAX", 1.0);
 const SLOWFALL_GRAVITY_MULT = getConst("SLOWFALL_GRAVITY_MULT", 0.30);
@@ -45,10 +44,12 @@ const COYOTE_TIME_SEC = getConst("COYOTE_TIME_SEC", 0.13);
 const LAND_GRACE_SEC = getConst("LAND_GRACE_SEC", 0.06);
 const JUMP_BUFFER_SEC = getConst("JUMP_BUFFER_SEC", 0.13);
 const JUMP_VELOCITY = getConst("JUMP_VELOCITY", -630);
-const BREAK_JIT_SCORE_BONUS = getConst("BREAK_JIT_SCORE_BONUS", 0);
-const BILLBOARD_OVER_SCORE = getConst("BILLBOARD_OVER_SCORE", 50);
-const BILLBOARD_UNDER_SCORE = getConst("BILLBOARD_UNDER_SCORE", 60);
-const BILLBOARD_DASH_SCORE = getConst("BILLBOARD_DASH_SCORE", 130);
+const BREAK_JIT_BONUS_SEC = getConst("BREAK_JIT_BONUS_SEC", 0);
+const BILLBOARD_OVER_BONUS_SEC = getConst("BILLBOARD_OVER_BONUS_SEC", 0);
+const BILLBOARD_DUCK_BONUS_SEC = getConst("BILLBOARD_DUCK_BONUS_SEC", 0);
+const BILLBOARD_SMASH_BONUS_SEC = getConst("BILLBOARD_SMASH_BONUS_SEC", 0);
+const CLOSE_CALL_BONUS_SEC = getConst("CLOSE_CALL_BONUS_SEC", 0);
+const CLOSE_CALL_OVERLAP_FRAC = getConst("CLOSE_CALL_OVERLAP_FRAC", 0.6);
 const BILLBOARD_BOUNCE_VY = getConst("BILLBOARD_BOUNCE_VY", 0);
 
 // ---------------- helpers ----------------
@@ -81,8 +82,8 @@ export function performJump(state) {
 
   const isDoubleJump = state.airActive === true && p.jumpsRemaining < 2;
   beginAir(state);
-  if (isDoubleJump) awardBonus(state, DOUBLE_JUMP_SCORE, "DOUBLE JUMP");
-  else awardBonus(state, JUMP_SCORE, "JUMP");
+  // A plain jump scores nothing itself: crossing the gap is the job, and the distance pays for it.
+  if (isDoubleJump) awardBonus(state, DOUBLE_JUMP_BONUS_SEC, "DOUBLE JUMP");
 
   p.vy = JUMP_VELOCITY;
   p.onGround = false;
@@ -92,7 +93,7 @@ export function performJump(state) {
   p.jumpImpulseT = JUMP_IMPULSE_FX_SEC;
 
   if (p.breakGrace > 0 && p.breakJumpEligible === true) {
-    awardBonus(state, BREAK_JIT_SCORE_BONUS, "JUST IN TIME");
+    awardBonus(state, BREAK_JIT_BONUS_SEC, "JUST IN TIME");
     p.breakGrace = 0;
     p.breakJumpEligible = false;
   }
@@ -128,7 +129,7 @@ function updateDivePhase(state, dt, airborne) {
     p.divePhaseT = 0;
 
     if (p.vy < 220) p.vy = 220;
-    awardBonus(state, DIVE_SCORE_BONUS, "DIVE");
+    awardBonus(state, DIVE_BONUS_SEC, "DIVE");
     state.diveCount += 1;
   }
 
@@ -204,9 +205,7 @@ export function integratePlayer(state, dt, endGame) {
 
   if (!deathFall && airborne && state.slowfallHeld && !p.diving && p.slowfallFuel > 0) {
     g *= SLOWFALL_GRAVITY_MULT;
-    const used = Math.min(dt, p.slowfallFuel);
     p.slowfallFuel = Math.max(0, p.slowfallFuel - dt);
-    state.airSlowfallUsed = (state.airSlowfallUsed || 0) + used;
   }
 
   if (!deathFall && airborne && p.diving) {
@@ -261,7 +260,7 @@ export function integratePlayer(state, dt, endGame) {
       const isDashing = p.dashImpulseT > 0.01;
       const isDiving = p.diving === true;
       if (b.reinforced === false && (isDashing || isDiving)) {
-        awardBonus(state, BILLBOARD_DASH_SCORE, "SMASH");
+        awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, "SMASH");
         state.billboardDashCount += 1;
         b.resolved = true;
         b.breaking = true;
@@ -314,7 +313,7 @@ export function integratePlayer(state, dt, endGame) {
       const rightGraceEdge = bx + bw * 0.70;
       if (px2 <= leftGraceEdge || px1 >= rightGraceEdge) continue;
       if (b.reinforced === false && isDashing) {
-        awardBonus(state, BILLBOARD_DASH_SCORE, "SMASH");
+        awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, "SMASH");
         state.billboardDashCount += 1;
         b.resolved = true;
         b.breaking = true;
@@ -376,6 +375,10 @@ export function integratePlayer(state, dt, endGame) {
         p.divePhase = "";
         p.divePhaseT = 0;
         p.slowfallFuel = SLOWFALL_FUEL_MAX;
+        // Only the front of Bob made it onto the roof (still airborne, so it goes into the pot).
+        if (px2 - plat.x <= p.w * CLOSE_CALL_OVERLAP_FRAC) {
+          awardBonus(state, CLOSE_CALL_BONUS_SEC, "CLOSE CALL");
+        }
         landAir(state);
         break;
       }
@@ -399,10 +402,10 @@ export function integratePlayer(state, dt, endGame) {
       const by = plat.y - b.offsetY;
       if (bx + bw < centerX) {
         if (p.y + p.h <= by) {
-          awardBonus(state, BILLBOARD_OVER_SCORE, "OVER");
+          awardBonus(state, BILLBOARD_OVER_BONUS_SEC, "OVER");
           b.resolved = true;
         } else if (p.ducking && hitTop(p) >= by + bh) {
-          awardBonus(state, BILLBOARD_UNDER_SCORE, "DUCK");
+          awardBonus(state, BILLBOARD_DUCK_BONUS_SEC, "DUCK");
           b.resolved = true;
         } else {
           b.resolved = true;
@@ -449,7 +452,8 @@ export function updateDash(state, dt) {
     state.speedImpulse += DASH_SPEED_BOOST;
     p.dashCooldown = DASH_COOLDOWN;
     p.dashImpulseT = DASH_IMPULSE_FX_SEC;
-    awardBonus(state, DASH_SCORE_BONUS, "DASH");
+    // Only an air dash scores (into the pot, so it pays only if Bob lands). A roof dash is risk-free.
+    if (state.airActive) awardBonus(state, AIR_DASH_BONUS_SEC, "DASH");
   }
 
   state.speedImpulse *= Math.exp(-DASH_IMPULSE_DECAY * dt);

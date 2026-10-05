@@ -337,10 +337,10 @@
       <div class="table-wrap"><table>
         <tr><th>Action</th><th>Desktop</th><th>Mobile</th><th>Behaviour</th></tr>
         <tr><td><b>Jump / double jump</b></td><td class="mono" style="white-space:nowrap">Space / ↑ / click</td><td>Jump button, tap</td><td>Velocity −630. Two jumps per landing. Letting go early makes the jump shorter.</td></tr>
-        <tr><td><b>Slowfall</b></td><td class="mono">hold W</td><td>Slowfall button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. Multiplies the jump's points on landing: ×(1 + share of fuel used), so a full tank is ×2.</td></tr>
+        <tr><td><b>Slowfall</b></td><td class="mono">hold W</td><td>Slowfall button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. No score multiplier: it pays through longer airtime.</td></tr>
         <tr><td><b>Duck / Dive</b></td><td class="mono">S</td><td>Duck/Dive button</td><td>In the air: dive. Gravity ×4.2, terminal speed 4,200. Cancels tricks. A diving landing is "heavy" and adds stress to the roof. On a roof: duck while held (hitbox drops to half height). A dive landing flows straight into a duck if S is still held, otherwise a 0.2 s squat.</td></tr>
-        <tr><td><b>Dash</b></td><td class="mono">D</td><td>Dash button</td><td>+820 world speed that fades quickly. 0.45 s cooldown. Breaks non-reinforced billboards.</td></tr>
-        <tr><td><b>Backflip</b></td><td class="mono">A</td><td>Backflip button</td><td>A 0.30 s flip in the air. Shown in the run summary.</td></tr>
+        <tr><td><b>Dash</b></td><td class="mono">D</td><td>Dash button</td><td>+820 world speed that fades quickly. 0.45 s cooldown. Breaks non-reinforced billboards. Scores only in the air.</td></tr>
+        <tr><td><b>Backflip</b></td><td class="mono">A</td><td>Backflip button</td><td>A 0.30 s flip in the air. +1 to the air multiplier. Landing mid-flip is SLOPPY and breaks the combo.</td></tr>
       </table></div>
 
       <div style="display:grid;gap:16px;margin-top:20px">
@@ -539,11 +539,14 @@
     <!-- 7 SCORING -->
     <section id="scoring">
       <h2><span class="num">07</span>Scoring</h2>
-      <p class="lead">Score is distance in pixels plus fixed bonuses. Distance makes up most of it. Bonuses decide close runs.</p>
-      <p><b>Air pot.</b> From takeoff to landing, distance and bonuses go into a pot for that jump instead of the score. A safe landing (roof or billboard top) pays out (air distance × flip multiplier + bonuses) × slowfall multiplier. The flip multiplier is 1 + backflips this airtime (one flip ×2, two flips ×3) and only applies to distance. The slowfall multiplier is 1 + share of fuel used (no slowfall ×1, a full tank ×2). Dying before landing loses the pot. Each backflip pops up its new multiplier, and the HUD shows the pot and both multipliers next to the score while airborne.</p>
+      <p class="lead">Score is distance in pixels plus bonuses. Distance makes up most of it. Tricks and bonuses decide close runs.</p>
+      <p><b>Bonuses are measured in seconds of running.</b> A bonus of 0.25 s is worth 0.25 × the current speed (dash boost not counted): 65 points at the start, 120 at top speed. That way bonuses keep the same weight against distance for the whole run. Points only go to moves with some risk or skill. A plain jump scores nothing, and a dash only scores in the air.</p>
+      <p><b>Air pot.</b> From takeoff to landing, distance and bonuses go into a pot for that jump instead of the score. A safe landing (roof or billboard top) pays out air distance × air multiplier + bonuses. The air multiplier is 1 + 1 per backflip + 0.5 per combo link, capped at ×4, and only applies to distance. A jump with no backflip is ×1. Dying before landing loses the pot. Each backflip pops up its new multiplier, and the HUD shows the pot and multiplier next to the score while airborne.</p>
+      <p><b>Combo.</b> A clean tricked landing (at least one backflip, none still spinning) adds a combo link. A plain landing or a mid-flip landing ("SLOPPY") resets it. A sloppy landing still pays its flips, but not the combo. The HUD shows COMBO n between jumps.</p>
+      <p><b>Slowfall has no multiplier.</b> Fuel refills on every landing, so a slowfall multiplier was a free ×2 on every jump. Slowfall earns through airtime instead: more distance in the pot, and room for another flip.</p>
       <div class="card">
         <div class="bars" id="bonus-bars"></div>
-        <div class="cap">Bonus per event. For scale, one second at top speed is worth 480 distance points.</div>
+        <div class="cap">Bonus per event, in seconds of running. Air bonuses go into the pot. For scale, one second at top speed is worth 480 distance points.</div>
       </div>
 
       <h3>Run summary and leaderboard</h3>
@@ -674,9 +677,7 @@
       <h2><span class="num">10</span>Open questions</h2>
       <h3>Loose ends in the code</h3>
       <ul class="todo">
-        <li><b>Style score is unused.</b> <code>STYLE_BASE</code>, <code>STYLE_COMBO_BONUS</code>, <code>styleScore</code> and <code>styleCombo</code> are defined but nothing reads them. Should tricks feed a combo?</li>
         <li><b>Leftover dash constants.</b> <code>DASH_DISTANCE</code> and several dash-camera values look left over from an older dash that moved Bob's position.</li>
-        <li><b>Scattered tuning values.</b> <code>BILLBOARD_*_SCORE</code> and <code>BILLBOARD_BOUNCE_VY</code> use fallback values in <code>player.js</code> and aren't in <code>constants.js</code>.</li>
       </ul>
       <h3>Ideas</h3>
       <ul class="todo">
@@ -918,11 +919,11 @@ function drawTimeline() {
 // ---------- bonus bars ----------
 function drawBonuses() {
   const b = [
-    ["Break a billboard", 130], ["Backflip", 100], ["Duck under a billboard", 60], ["Dash", 53], ["Pass over a billboard", 50], ["Dive", 40], ["Break-jump (just in time)", 30], ["Double jump", 20], ["Jump", 10],
+    ["Break a billboard", 0.4], ["Close call (barely on the roof)", 0.3], ["Clutch (flip ends just before landing)", 0.3], ["Backflip", 0.25], ["Duck under a billboard", 0.25], ["Break-jump (just in time)", 0.25], ["Pass over a billboard", 0.15], ["Air dash", 0.12], ["Dive", 0.1], ["Double jump", 0.05],
   ];
-  const max = 130;
+  const max = 0.4;
   document.getElementById("bonus-bars").innerHTML = b.map(([l, v]) =>
-    `<div class="bar"><span>${l}</span><div class="track"><div class="fill" style="width:${v / max * 100}%"></div></div><span class="v">+${v}</span></div>`).join("");
+    `<div class="bar"><span>${l}</span><div class="track"><div class="fill" style="width:${v / max * 100}%"></div></div><span class="v">${v} s</span></div>`).join("");
 }
 
 // ---------- palette ----------

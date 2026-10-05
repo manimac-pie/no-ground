@@ -12,6 +12,8 @@ import {
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
   DEATH_CINEMATIC_TOTAL,
+  DEATH_SKIP_UNLOCK_SEC,
+  SKIP_SUMMARY_SPEED,
   BREAK_SHARDS,
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
@@ -41,6 +43,8 @@ const SMASH_APPROACH = 0.90;    // delay before smash to let Bob reach the text
 const SMASH_VISIBLE = 1.4;      // how long shards stay visible after impact
 const RESTART_SMASH_LEAD = 0; // no delay before restart flyby after reset breaks
 const HUD_SLIDE_SEC = 0.55;
+const RESTART_READY_DELAY_SEC = 0.5; // pause after the score tally before RESET appears
+const RESUME_COUNTDOWN_SEC = 3;      // 3-2-1 after unpausing
 
 export function createGame() {
   const state = createInitialState();
@@ -83,10 +87,13 @@ export function createGame() {
       state.scoreTally = 0;
       state.scoreTallyDone = false;
       state.scoreTallyDoneT = 0;
+      state.restartReady = false;
       return;
     }
 
-    state.scoreBoardT = (state.scoreBoardT || 0) + dt;
+    // After a skipped cinematic the whole summary plays faster (drop-in, count-up, RESET wait).
+    const summaryDt = state.deathSkipped ? dt * SKIP_SUMMARY_SPEED : dt;
+    state.scoreBoardT = (state.scoreBoardT || 0) + summaryDt;
     if ((state.scoreBoardT || 0) < RUN_SUMMARY_DROP_SEC) return;
 
     if (!state.scoreTallyActive) {
@@ -96,7 +103,7 @@ export function createGame() {
       state.scoreTallyDone = false;
       state.scoreTallyDoneT = 0;
     }
-    state.scoreTallyT += dt;
+    state.scoreTallyT += summaryDt;
     const duration = 0.9;
     const t = clamp(state.scoreTallyT / duration, 0, 1);
     const ease = 1 - Math.pow(1 - t, 3);
@@ -107,8 +114,19 @@ export function createGame() {
     if (t >= 1) {
       state.scoreTally = Math.floor(finalScore);
       state.scoreTallyDone = true;
-      state.scoreTallyDoneT += dt;
+      state.scoreTallyDoneT += summaryDt;
     }
+    // RESET appears (and the leaderboard name prompt may open) once the tally has settled.
+    state.restartReady = state.scoreTallyDone && state.scoreTallyDoneT >= RESTART_READY_DELAY_SEC;
+  }
+
+  // End the death cinematic: naturally, or early when the player skips it.
+  function finishDeathCinematic() {
+    state.deathCinematicT = DEATH_CINEMATIC_TOTAL;
+    state.deathCinematicActive = false;
+    state.deathCinematicDone = true;
+    state.startReady = true;
+    state.deathRestartT = 0;
   }
 
   function armStart() {
@@ -173,7 +191,64 @@ export function createGame() {
 
   
 
+  // Only a live run can pause: not the start screen, the zoom-in, the death cinematic or the summary.
+  function canPause() {
+    return state.running === true
+      && !state.gameOver
+      && !state.deathCinematicActive
+      && !state.menuZooming
+      && !state.restartFlybyActive;
+  }
+
+  // Pause (or go back to PAUSED from the countdown). main.js also calls this when the player leaves.
+  function pause() {
+    if (!canPause()) return false;
+    if (!state.paused) state.pauseT = 0;
+    state.paused = true;
+    state.resumeCountdownT = 0;
+    return true;
+  }
+
+  // Throw away every press made while frozen, so none fires when play resumes.
+  // Returns whether a jump (Space / tap) was pressed: the resume signal.
+  function drainInput(input) {
+    const jump = input?.consumeJumpPress?.();
+    input?.consumePointerPressed?.();
+    input?.consumeTrickPressed?.();
+    input?.consumeTrickIntent?.();
+    input?.consumeDashPressed?.();
+    input?.consumeDivePressed?.();
+    return jump?.pressed === true;
+  }
+
+  // Pause handling. Runs before the clocks advance, so pop-ups and flashes freeze too.
+  // Returns true while the run is frozen (paused or counting down).
+  function updatePause(dt, input) {
+    const pausePressed = input?.consumePausePressed?.() === true;
+    if (state.paused) {
+      state.pauseT += dt;
+      const jumpPressed = drainInput(input);
+      if (jumpPressed || pausePressed) {
+        state.paused = false;
+        state.resumeCountdownT = RESUME_COUNTDOWN_SEC;
+      }
+      return true;
+    }
+    if (state.resumeCountdownT > 0) {
+      drainInput(input);
+      if (pausePressed) pause();
+      else state.resumeCountdownT = Math.max(0, state.resumeCountdownT - dt);
+      return true;
+    }
+    if (pausePressed && pause()) {
+      drainInput(input);
+      return true;
+    }
+    return false;
+  }
+
   function update(dt, input) {
+    if (updatePause(dt, input)) return state;
     state.uiTime += dt;
     if (state.running || state.menuZooming || state.startDelay > 0) state.animTime += dt;
     updateScoreTally(dt);
@@ -224,12 +299,7 @@ export function createGame() {
         DEATH_CINEMATIC_TOTAL,
         state.deathCinematicT + dt
       );
-      if (state.deathCinematicT >= DEATH_CINEMATIC_TOTAL) {
-        state.deathCinematicActive = false;
-        state.deathCinematicDone = true;
-        state.startReady = true;
-        state.deathRestartT = 0;
-      }
+      if (state.deathCinematicT >= DEATH_CINEMATIC_TOTAL) finishDeathCinematic();
     }
 
     if (state.roofJumpT > 0) {
@@ -388,8 +458,14 @@ export function createGame() {
     }
 
     if (!state.running) {
-      // Freeze input while the death cinematic plays.
+      // Freeze input while the death cinematic plays; after DEATH_SKIP_UNLOCK_SEC a jump skips it.
+      // The skipping press stops here, and restartReady keeps later presses from restarting
+      // until RESET is showing.
       if (state.deathCinematicActive) {
+        if (jumpPressed && state.deathCinematicT >= DEATH_SKIP_UNLOCK_SEC) {
+          finishDeathCinematic();
+          state.deathSkipped = true;
+        }
         return state;
       }
 
@@ -400,6 +476,9 @@ export function createGame() {
       // Start/restart flow: Spacebar or Start button triggers zoom-out.
       if (startRequest && !state.menuZooming && state.startDelay <= 0) {
         if (state.gameOver) {
+          // Ignore presses until RESET is showing, so a run can't restart
+          // before its summary lands or its leaderboard name prompt opens.
+          if (!state.restartReady) return state;
           state.restartSmashActive = true;
           state.restartSmashBroken = true;
           state.restartSmashRed = state.restartHover === true;
@@ -477,13 +556,15 @@ export function createGame() {
     updatePlatforms(state, dt);
     updateTricks(state, dt);
     integratePlayer(state, dt, endGame);
+    // Bob died this frame: the final score was already submitted in endGame, so add nothing after it.
+    if (state.gameOver) return state;
 
     if (!Number.isFinite(state.score)) state.score = 0;
     if (!Number.isFinite(state.slowfallDistance)) state.slowfallDistance = 0;
     const p = state.player;
     const airborne = p ? p.onGround === false : false;
     const slowfalling = airborne && state.slowfallHeld === true && !(p && p.diving);
-    // Airborne distance goes into the air pot (x backflips, x slowfall, paid out on landing).
+    // Airborne distance goes into the air pot (x air multiplier, paid out on landing).
     addDistancePoints(state, distanceDelta);
     if (slowfalling) state.slowfallDistance += distanceDelta;
     updateBestTarget();
@@ -493,7 +574,7 @@ export function createGame() {
   }
 
   reset();
-  return { state, reset, update };
+  return { state, reset, update, pause };
 }
 
 export const world = {

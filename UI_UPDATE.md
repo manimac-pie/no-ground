@@ -15,8 +15,8 @@ Each item gives where the change goes, its impact and its effort. Details are in
 - [x] **4. One name for Slowfall, plus mobile button labels** · `render/menu.js`, `render/ui.js`, `index.html` · Impact: Medium · Effort: Low
 
 **Batch B: Flow**
-- [ ] **5. Pause and resume countdown** · `main.js`, `input.js`, `game.js`, `render/ui.js`, `index.html` · Impact: High (mobile) · Effort: Medium
-- [ ] **6. Faster restart** · `game.js`, `input.js`, `render/ui.js` · Impact: High · Effort: Low–Medium
+- [x] **5. Pause and resume countdown** · `main.js`, `input.js`, `game.js`, `render/ui.js`, `index.html` · Impact: High (mobile) · Effort: Medium
+- [x] **6. Faster restart** · `game.js`, `input.js`, `render/ui.js` · Impact: High · Effort: Low–Medium
 
 **Batch C: State at a glance**
 - [ ] **7. Clearer HUD meters** · `render/ui.js`, `render/playerFx.js` · Impact: Medium · Effort: Medium

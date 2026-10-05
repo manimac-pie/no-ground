@@ -6,6 +6,7 @@
 // - Duck/Dive: S press (one-shot pulse -> dive in air), S held (duck on a roof)
 // - Dash: D press (one-shot pulse)
 // - Flip: A (backflip)
+// - Pause: P / Esc (one-shot pulse)
 
 import { INTERNAL_WIDTH, INTERNAL_HEIGHT } from "./game/constants.js";
 
@@ -31,6 +32,7 @@ export function createInput(canvas, options = {}) {
     trickPressed: false,
     divePressed: false,
     dashPressed: false,
+    pausePressed: false,
     lastJumpSource: null,
 
     // Holds
@@ -79,6 +81,10 @@ export function createInput(canvas, options = {}) {
     state.dashPressed = true;
   }
 
+  function pressPause() {
+    state.pausePressed = true;
+  }
+
   function onKeyDown(e) {
     if (blocked) return;
     const key = e.code;
@@ -88,8 +94,9 @@ export function createInput(canvas, options = {}) {
     const isDiveKey = key === "KeyS";
     const isDashKey = key === "KeyD";
     const isFlipKey = key === "KeyA";
+    const isPauseKey = key === "KeyP" || key === "Escape";
 
-    if (!isJumpKey && !isSlowfallKey && !isDiveKey && !isDashKey && !isFlipKey) return;
+    if (!isJumpKey && !isSlowfallKey && !isDiveKey && !isDashKey && !isFlipKey && !isPauseKey) return;
 
     // Prevent page scroll / browser shortcuts interfering.
     e.preventDefault();
@@ -131,6 +138,11 @@ export function createInput(canvas, options = {}) {
 
     if (isFlipKey) {
       pressTrick("backflip");
+      return;
+    }
+
+    if (isPauseKey) {
+      pressPause();
       return;
     }
   }
@@ -273,6 +285,7 @@ export function createInput(canvas, options = {}) {
         if (action === "dive") pressDive();
         if (action === "dash") pressDash();
         if (action === "trick") pressTrick("backflip");
+        if (action === "pause") pressPause();
       }
     };
     const onUp = (e) => {
@@ -313,6 +326,7 @@ export function createInput(canvas, options = {}) {
     state.trickPressed = false;
     state.divePressed = false;
     state.dashPressed = false;
+    state.pausePressed = false;
     state.lastJumpSource = null;
     state.jumpHeld = false;
     state.slowfallHeld = false;
@@ -358,6 +372,7 @@ export function createInput(canvas, options = {}) {
     attachControlButton(buttons.dive, "dive", { hold: true, press: true }),
     attachControlButton(buttons.dash, "dash", { press: true }),
     attachControlButton(buttons.backflip || buttons.trick, "trick", { press: true }),
+    attachControlButton(buttons.pause, "pause", { press: true }),
   ].filter(Boolean);
 
   return {
@@ -383,6 +398,12 @@ export function createInput(canvas, options = {}) {
     consumeDashPressed() {
       const v = state.dashPressed;
       state.dashPressed = false;
+      return v;
+    },
+
+    consumePausePressed() {
+      const v = state.pausePressed;
+      state.pausePressed = false;
       return v;
     },
 

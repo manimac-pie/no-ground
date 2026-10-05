@@ -34,6 +34,7 @@ export function createInitialState() {
     deathCinematicActive: false,
     deathCinematicDone: false,
     deathCinematicT: 0,
+    deathSkipped: false, // the player skipped the cinematic (speeds up the run summary)
     deathSnapshot: null,
     breakShards: [],
     deathRestartT: 0,
@@ -53,8 +54,7 @@ export function createInitialState() {
     _breakableStreak: 0,
     _buildingCount: 0,
 
-    styleScore: 0,
-    styleCombo: 0,
+    combo: 0, // clean tricked landings in a row (adds to the air multiplier)
 
     score: 0,
     scoreEvents: createScoreEvents(),
@@ -66,7 +66,7 @@ export function createInitialState() {
     airPot: 0,
     airDistance: 0, // distance part of the pot (multiplied by backflips)
     airFlips: 0,    // backflips this airtime
-    airSlowfallUsed: 0, // seconds of slowfall fuel spent this airtime
+    airFlipEndT: -1, // uiTime the latest backflip finished (clutch bonus), -1 if none
 
     // Personal best: snapshot taken as the run starts (the server value changes after submit).
     runBestTarget: 0,
@@ -83,6 +83,12 @@ export function createInitialState() {
     scoreTallyActive: false,
     scoreTallyDone: false,
     scoreTallyDoneT: 0,
+    restartReady: false, // RESET is showing and a press may restart
+
+    // Pause: while paused or counting down, update() freezes the run.
+    paused: false,
+    pauseT: 0,           // seconds since the pause began (drives the blinking hint)
+    resumeCountdownT: 0, // > 0: counting down to resume (3 -> 0)
     scoreBoardT: 0,
 
   speed: SPEED_START,
@@ -177,6 +183,7 @@ export function resetRunState(state) {
   state.deathCinematicActive = false;
   state.deathCinematicDone = false;
   state.deathCinematicT = 0;
+  state.deathSkipped = false;
   state.deathSnapshot = null;
   state.breakShards = [];
   state.deathRestartT = 0;
@@ -195,8 +202,7 @@ export function resetRunState(state) {
   state._breakableStreak = 0;
   state._buildingCount = 0;
 
-  state.styleScore = 0;
-  state.styleCombo = 0;
+  state.combo = 0;
   state.score = 0;
   for (const ev of state.scoreEvents) ev.t = -1;
   state.scoreEventHead = 0;
@@ -205,7 +211,7 @@ export function resetRunState(state) {
   state.airPot = 0;
   state.airDistance = 0;
   state.airFlips = 0;
-  state.airSlowfallUsed = 0;
+  state.airFlipEndT = -1;
   state.runBestTarget = 0;
   state.passedBest = false;
   state.passedBestT = -1;
@@ -218,6 +224,10 @@ export function resetRunState(state) {
   state.scoreTallyActive = false;
   state.scoreTallyDone = false;
   state.scoreTallyDoneT = 0;
+  state.restartReady = false;
+  state.paused = false;
+  state.pauseT = 0;
+  state.resumeCountdownT = 0;
   state.scoreBoardT = 0;
 
   state.speed = SPEED_START;
