@@ -7,6 +7,10 @@
 // 1 + one step per backflip + one step per combo link, capped (see airMultiplier).
 // A clean tricked landing (a backflip, none still spinning) adds a combo link; any other landing resets it.
 // Dying before landing loses the pot.
+//
+// Run summary breakdown: points per source (plus counts for some), kept the same way as the pot.
+// Airborne points collect in state.airBreakdown and move to state.scoreBreakdown on a safe landing,
+// so the breakdown only holds banked points and adds up to the score.
 
 import * as C from "./constants.js";
 
@@ -17,7 +21,7 @@ function getConst(name, fallback) {
 
 const SPEED_START = getConst("SPEED_START", 260);
 const SPEED_MAX = getConst("SPEED_MAX", 480);
-const FLIP_MULT_STEP = getConst("FLIP_MULT_STEP", 1);
+const FLIP_MULT_STEP = getConst("FLIP_MULT_STEP", 0.5);
 const COMBO_MULT_STEP = getConst("COMBO_MULT_STEP", 0.5);
 const AIR_MULT_MAX = getConst("AIR_MULT_MAX", 4);
 const BACKFLIP_BONUS_SEC = getConst("BACKFLIP_BONUS_SEC", 0.25);
@@ -51,6 +55,31 @@ function pushScoreEvent(state, amount, text) {
   ev.stack = prev.t >= 0 && now - prev.t < SCORE_EVENT_STACK_SEC ? (prev.stack + 1) % 4 : 0;
 }
 
+// Sources: distance, multiplier (the air multiplier's extra distance), backflip, smash,
+// closeCall, other. The *N fields count events for the sources the summary shows a count for.
+export function createBreakdown() {
+  return {
+    distance: 0, multiplier: 0, backflip: 0, smash: 0, closeCall: 0, other: 0,
+    backflipN: 0, smashN: 0, closeCallN: 0,
+  };
+}
+
+export function clearBreakdown(b) {
+  for (const k in b) b[k] = 0;
+}
+
+// The breakdown points go into right now: pending while airborne, banked on a roof.
+function liveBreakdown(state) {
+  return state.airActive ? state.airBreakdown : state.scoreBreakdown;
+}
+
+// Count an event (e.g. a billboard broken) for the summary without adding points.
+export function countEvent(state, kind) {
+  const b = liveBreakdown(state);
+  const key = `${kind}N`;
+  if (b && key in b) b[key] += 1;
+}
+
 // Seconds of running at the current speed, in points. The dash boost is left out,
 // so a bonus earned mid-dash isn't inflated.
 export function runPoints(state, sec) {
@@ -60,24 +89,29 @@ export function runPoints(state, sec) {
 }
 
 // Add points: into the air pot while airborne, straight to the score on a roof.
-export function addPoints(state, amount) {
+// kind: the breakdown source they count towards.
+export function addPoints(state, amount, kind = "other") {
   if (!(amount > 0)) return;
   if (state.airActive) state.airPot += amount;
   else state.score += amount;
+  const b = liveBreakdown(state);
+  if (b && kind in b) b[kind] += amount;
 }
 
 // Distance points: like addPoints, but airborne distance is also tracked for the air multiplier.
 export function addDistancePoints(state, amount) {
   if (!(amount > 0)) return;
   if (state.airActive) state.airDistance += amount;
-  addPoints(state, amount);
+  addPoints(state, amount, "distance");
 }
 
 // A named bonus worth `sec` seconds of running: adds points and shows a pop-up.
-export function awardBonus(state, sec, label) {
+// kind: the breakdown source (counted once per award).
+export function awardBonus(state, sec, label, kind = "other") {
   const amount = runPoints(state, sec);
   if (!(amount > 0)) return;
-  addPoints(state, amount);
+  addPoints(state, amount, kind);
+  countEvent(state, kind);
   pushScoreEvent(state, amount, `+${amount} ${label}`);
   if (!state.airActive) state.scoreEventLastT = state.uiTime || 0;
 }
@@ -96,7 +130,8 @@ export function beginAir(state) {
 export function awardBackflip(state) {
   if (state.airActive) state.airFlips = (state.airFlips || 0) + 1;
   const amount = runPoints(state, BACKFLIP_BONUS_SEC);
-  addPoints(state, amount);
+  addPoints(state, amount, "backflip");
+  countEvent(state, "backflip");
   pushScoreEvent(state, amount, `+${amount} BACKFLIP ${formatMult(airMultiplier(state))}`);
   if (!state.airActive) state.scoreEventLastT = state.uiTime || 0;
 }
@@ -137,6 +172,14 @@ export function landAir(state) {
   // airPot already holds the distance once; the multiplier adds (mult - 1) more copies.
   const payout = Math.round((state.airPot || 0) + (state.airDistance || 0) * (mult - 1));
   state.combo = clean ? (state.combo || 0) + 1 : 0;
+  // Bank this jump's breakdown; the multiplier's extra copies of distance get their own row.
+  const banked = state.scoreBreakdown;
+  const pending = state.airBreakdown;
+  if (banked && pending) {
+    for (const k in pending) banked[k] += pending[k];
+    // payout - airPot is the multiplier's extra distance (or just rounding on a plain jump).
+    banked[mult > 1 ? "multiplier" : "distance"] += payout - (state.airPot || 0);
+  }
   loseAir(state);
   if (payout <= 0) return;
 
@@ -144,7 +187,7 @@ export function landAir(state) {
   let text = `+${payout}`;
   if (mult > 1) text += ` ${formatMult(mult)}`;
   if (midFlip) text += " SLOPPY";
-  else if (state.combo >= 2) text += ` COMBO ${state.combo}`;
+  else if (state.combo >= 2) text += ` CHAIN ×${state.combo}`;
   pushScoreEvent(state, payout, text);
   state.scoreEventLastT = now;
 }
@@ -156,4 +199,36 @@ export function loseAir(state) {
   state.airDistance = 0;
   state.airFlips = 0;
   state.airFlipEndT = -1;
+  if (state.airBreakdown) clearBreakdown(state.airBreakdown);
+}
+
+// ---------------- run summary tally ----------------
+// The summary counts up row by row, like an arcade end-of-level bonus tally.
+export const TALLY_ROW_SEC = 0.3;       // per row that scored
+export const TALLY_EMPTY_ROW_SEC = 0.1; // rows worth nothing pass quickly
+
+export function tallyRowSec(row) {
+  return row.points > 0 ? TALLY_ROW_SEC : TALLY_EMPTY_ROW_SEC;
+}
+
+// Summary rows in tally order: { key, points, count } (count is null for rows without one).
+// Bonus rows are rounded; DISTANCE takes the rest, so the rows add up to the shown total.
+export function buildSummaryRows(state) {
+  const b = state.scoreBreakdown || {};
+  const pts = (k) => Math.max(0, Math.round(b[k] || 0));
+  const rows = [
+    { key: "multiplier", points: pts("multiplier"), count: null },
+    { key: "backflip", points: pts("backflip"), count: b.backflipN || 0 },
+    { key: "smash", points: pts("smash"), count: b.smashN || 0 },
+    { key: "closeCall", points: pts("closeCall"), count: b.closeCallN || 0 },
+    { key: "other", points: pts("other"), count: null },
+  ];
+  const bonusTotal = rows.reduce((sum, r) => sum + r.points, 0);
+  const score = Number.isFinite(state.score) ? state.score : 0;
+  rows.unshift({
+    key: "distance",
+    points: Math.max(0, Math.floor(score) - bonusTotal),
+    count: Math.floor(state.distance || 0),
+  });
+  return rows;
 }

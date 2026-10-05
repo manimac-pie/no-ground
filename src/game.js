@@ -12,8 +12,6 @@ import {
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
   DEATH_CINEMATIC_TOTAL,
-  DEATH_SKIP_UNLOCK_SEC,
-  SKIP_SUMMARY_SPEED,
   BREAK_SHARDS,
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
@@ -21,11 +19,13 @@ import {
   START_PUSH_TOTAL,
   MENU_START_ZOOM,
   RUN_SUMMARY_DROP_SEC,
+  LEADERBOARD_SLIDE_DELAY_SEC,
+  LEADERBOARD_SLIDE_SEC,
 } from "./game/constants.js";
 
 import { clamp } from "./game/utils.js";
-import { createInitialState, resetRunState } from "./game/state.js";
-import { addDistancePoints } from "./game/score.js";
+import { createInitialState, isSummaryShowing, resetRunState } from "./game/state.js";
+import { addDistancePoints, buildSummaryRows, tallyRowSec } from "./game/score.js";
 import { resetPlatforms, scrollWorld, updatePlatforms } from "./game/platforms.js";
 import {
   tryConsumeBufferedJump,
@@ -78,49 +78,72 @@ export function createGame() {
   }
 
   function updateScoreTally(dt) {
-    const onRestartScreen =
-      state.gameOver && state.deathCinematicDone && !state.restartFlybyActive;
-    if (!onRestartScreen) {
+    if (!isSummaryShowing(state)) {
       state.scoreBoardT = 0;
       state.scoreTallyActive = false;
       state.scoreTallyT = 0;
       state.scoreTally = 0;
       state.scoreTallyDone = false;
       state.scoreTallyDoneT = 0;
+      state.tallyRow = 0;
+      state.tallyRowT = 0;
       state.restartReady = false;
       return;
     }
 
     // After a skipped cinematic the whole summary plays faster (drop-in, count-up, RESET wait).
-    const summaryDt = state.deathSkipped ? dt * SKIP_SUMMARY_SPEED : dt;
-    state.scoreBoardT = (state.scoreBoardT || 0) + summaryDt;
+    state.scoreBoardT = (state.scoreBoardT || 0) + dt;
     if ((state.scoreBoardT || 0) < RUN_SUMMARY_DROP_SEC) return;
 
     if (!state.scoreTallyActive) {
       state.scoreTallyActive = true;
       state.scoreTallyT = 0;
-      state.scoreTally = 0;
-      state.scoreTallyDone = false;
-      state.scoreTallyDoneT = 0;
+      state.tallyRows = buildSummaryRows(state);
     }
-    state.scoreTallyT += summaryDt;
-    const duration = 0.9;
-    const t = clamp(state.scoreTallyT / duration, 0, 1);
-    const ease = 1 - Math.pow(1 - t, 3);
-    const finalScore = Number.isFinite(state.score)
-      ? state.score
-      : (state.distance || 0);
-    state.scoreTally = Math.floor(finalScore * ease);
-    if (t >= 1) {
-      state.scoreTally = Math.floor(finalScore);
-      state.scoreTallyDone = true;
-      state.scoreTallyDoneT += summaryDt;
-    }
+    state.scoreTallyT += dt;
+    advanceTally();
     // RESET appears (and the leaderboard name prompt may open) once the tally has settled.
     state.restartReady = state.scoreTallyDone && state.scoreTallyDoneT >= RESTART_READY_DELAY_SEC;
   }
 
-  // End the death cinematic: naturally, or early when the player skips it.
+  // Walk the tally clock through the summary rows. Finished rows are banked into scoreTally;
+  // once every row is in, the time left over is how long the tally has been done.
+  function advanceTally() {
+    const rows = state.tallyRows;
+    let t = state.scoreTallyT;
+    let banked = 0;
+    let i = 0;
+    for (; i < rows.length; i++) {
+      const rowSec = tallyRowSec(rows[i]);
+      if (t < rowSec) break;
+      t -= rowSec;
+      banked += rows[i].points;
+    }
+    state.tallyRow = i;
+    state.tallyRowT = t;
+    state.scoreTally = banked;
+    state.scoreTallyDone = i >= rows.length;
+    state.scoreTallyDoneT = state.scoreTallyDone ? t : 0;
+  }
+
+  // A press during the run summary: land the panels and finish the tally at once.
+  function finishSummary() {
+    state.scoreBoardT = Math.max(
+      state.scoreBoardT || 0,
+      RUN_SUMMARY_DROP_SEC,
+      LEADERBOARD_SLIDE_DELAY_SEC + LEADERBOARD_SLIDE_SEC
+    );
+    if (!state.scoreTallyActive) {
+      state.scoreTallyActive = true;
+      state.tallyRows = buildSummaryRows(state);
+    }
+    // A hair past the end, so float rounding in advanceTally can't leave the last row unfinished.
+    const total = state.tallyRows.reduce((sum, row) => sum + tallyRowSec(row), 0) + 1e-6;
+    state.scoreTallyT = Math.max(state.scoreTallyT, total);
+    advanceTally();
+  }
+
+  // End the death cinematic.
   function finishDeathCinematic() {
     state.deathCinematicT = DEATH_CINEMATIC_TOTAL;
     state.deathCinematicActive = false;
@@ -458,14 +481,8 @@ export function createGame() {
     }
 
     if (!state.running) {
-      // Freeze input while the death cinematic plays; after DEATH_SKIP_UNLOCK_SEC a jump skips it.
-      // The skipping press stops here, and restartReady keeps later presses from restarting
-      // until RESET is showing.
+      // Freeze input while the death cinematic plays.
       if (state.deathCinematicActive) {
-        if (jumpPressed && state.deathCinematicT >= DEATH_SKIP_UNLOCK_SEC) {
-          finishDeathCinematic();
-          state.deathSkipped = true;
-        }
         return state;
       }
 
@@ -476,9 +493,12 @@ export function createGame() {
       // Start/restart flow: Spacebar or Start button triggers zoom-out.
       if (startRequest && !state.menuZooming && state.startDelay <= 0) {
         if (state.gameOver) {
-          // Ignore presses until RESET is showing, so a run can't restart
+          // Until RESET is showing, a press only finishes the summary, so a run can't restart
           // before its summary lands or its leaderboard name prompt opens.
-          if (!state.restartReady) return state;
+          if (!state.restartReady) {
+            if (onRestartScreen) finishSummary();
+            return state;
+          }
           state.restartSmashActive = true;
           state.restartSmashBroken = true;
           state.restartSmashRed = state.restartHover === true;

@@ -3,15 +3,15 @@
 
 import {
   DASH_COOLDOWN,
+  PLAYER_X,
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
   RUN_SUMMARY_DROP_SEC,
   LEADERBOARD_SLIDE_DELAY_SEC,
   LEADERBOARD_SLIDE_SEC,
-  DEATH_SKIP_UNLOCK_SEC,
 } from "../game/constants.js";
-import { airMultiplier, formatMult } from "../game/score.js";
+import { airMultiplier, buildSummaryRows, formatMult, tallyRowSec } from "../game/score.js";
 import {
   getLeaderboardState,
   LEADERBOARD_MAX_ENTRIES,
@@ -883,11 +883,16 @@ export function drawRestartFlyby(ctx, state, COLORS, W, H) {
 const SCORE_PULSE_SEC = 0.3;
 const BEST_FLASH_SEC = 1.2;
 const LOW_FUEL_FRAC = 0.2;
+const JUMP_DOTS = 2;              // jumps per landing
+const DASH_READY_FLASH_SEC = 0.6; // READY flash when the dash cooldown ends
 const POPUP_LIFE_SEC = 0.9;
 let _hudBestValue = -1;
 let _hudBestText = "";
 let _hudComboValue = -1;
 let _hudComboText = "";
+let _hudDashWasReady = true; // for the READY flash when the dash cooldown ends
+let _hudDashReadyT = -1;     // uiTime the cooldown last ended
+let _hudDashSeenT = -1;      // uiTime the HUD last checked it (skips a stale flash on a new run)
 let _hudDanger = 0;
 let _hudDangerT = -1;
 let _vignette = null; // { w, h, gradient }
@@ -938,7 +943,7 @@ export function drawDangerVignette(ctx, W, H, danger) {
   ctx.restore();
 }
 
-// Rising "+130 SMASH" text above Bob (world space). Reads state.scoreEvents only.
+// Rising "+130 AD BREAK" text above Bob (world space). Reads state.scoreEvents only.
 export function drawScorePopups(ctx, state) {
   const events = state.scoreEvents;
   if (!events) return;
@@ -977,8 +982,10 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   const introEase = 1 - Math.pow(1 - introK, 3);
 
   ctx.save();
-  // Retro neon HUD: score module top-left
-  const x = 14;
+  // Retro neon HUD: score module along the top, pinned just right of Bob's column
+  // (he always runs at PLAYER_X, so a top-left panel hid him at the top of high jumps).
+  // Pinned rather than centred so it stays the same distance from Bob on wide screens.
+  const x = PLAYER_X + 140;
   const y = 12;
   const w = 272;
   const h = 74;
@@ -986,11 +993,11 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   const statW = 74;
   const barY1 = y + 34;
   const barY2 = y + 50;
-  const slideX = -(w + x + 24) * (1 - introEase);
+  const slideY = -(h + y + 24) * (1 - introEase);
 
-  // Static frame: cached, except while sliding in/out.
-  if (slideX) {
-    ctx.translate(slideX, 0);
+  // Static frame: cached, except while sliding in/out (from the top).
+  if (slideY) {
+    ctx.translate(0, slideY);
     drawHudFrame(ctx, x, y, w, h, statX, statW, barY1, barY2);
   } else {
     drawCachedPanel(ctx, "hud", "hud", { x, y, w, h }, (pctx) =>
@@ -1065,7 +1072,7 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   if (combo > 0) {
     if (combo !== _hudComboValue) {
       _hudComboValue = combo;
-      _hudComboText = `COMBO ${combo}`;
+      _hudComboText = `CHAIN ×${combo}`;
     }
     ctx.save();
     ctx.textAlign = "left";
@@ -1109,9 +1116,22 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   ctx.font = "600 10px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText(`DIST ${hudDistance}`, x + 14, y + 66);
 
-  ctx.fillStyle = "rgba(240,255,255,0.95)";
-  ctx.font = "800 12px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText(`${player.jumpsRemaining}`, statX + 32, y + 24);
+  // Jumps left: two dots that empty as jumps are used.
+  const jumpsLeft = clamp(player.jumpsRemaining || 0, 0, JUMP_DOTS);
+  for (let i = 0; i < JUMP_DOTS; i++) {
+    const dx = statX + 38 + i * 12;
+    const dy = y + 20;
+    ctx.beginPath();
+    ctx.arc(dx, dy, 3.5, 0, Math.PI * 2);
+    if (i < jumpsLeft) {
+      ctx.fillStyle = "rgba(240,255,255,0.95)";
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = "rgba(180,250,255,0.4)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
 
   const fuelMax = Number.isFinite(player.slowfallFuelMax) ? player.slowfallFuelMax : 0.38;
   const fuel01 = Number.isFinite(player.slowfallFuel)
@@ -1131,6 +1151,27 @@ export function drawHUD(ctx, state, danger01, COLORS) {
   ctx.fillRect(statX, barY1, Math.floor(statW * fuel01), 6);
   ctx.fillStyle = dash01 >= 1 ? "rgba(255,110,180,0.9)" : "rgba(120,120,255,0.75)";
   ctx.fillRect(statX, barY2, Math.floor(statW * dash01), 6);
+
+  // Dash cooldown just ended: flash the bar white and show READY, both fading out.
+  const dashReady = dash01 >= 1;
+  const hudWasHidden = Math.abs(uiTime - _hudDashSeenT) > 0.25;
+  _hudDashSeenT = uiTime;
+  if (dashReady && !_hudDashWasReady && !hudWasHidden) _hudDashReadyT = uiTime;
+  _hudDashWasReady = dashReady;
+  const readyAge = _hudDashReadyT >= 0 ? uiTime - _hudDashReadyT : Infinity;
+  if (dashReady && readyAge >= 0 && readyAge < DASH_READY_FLASH_SEC) {
+    const k = 1 - readyAge / DASH_READY_FLASH_SEC;
+    ctx.save();
+    ctx.globalAlpha = 0.9 * k;
+    ctx.shadowColor = "rgba(255,150,210,0.9)";
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = "rgba(255,240,250,1)";
+    ctx.fillRect(statX, barY2, statW, 6);
+    ctx.textAlign = "right";
+    ctx.font = "700 8px Orbitron, Share Tech Mono, Menlo, monospace";
+    ctx.fillText("READY", statX + statW, barY2 - 2);
+    ctx.restore();
+  }
 
   ctx.restore();
 }
@@ -1221,6 +1262,137 @@ function drawHudFrame(ctx, x, y, w, h, statX, statW, barY1, barY2) {
   ctx.restore();
 }
 
+// Run summary rows: where the score came from, tallied one row at a time.
+// Row data comes from buildSummaryRows (game/score.js); this adds the look.
+const SUMMARY_ROW_H = 24;
+const SUMMARY_PANEL_BASE_H = 204; // panel height without rows
+const SUMMARY_ROW_LOOK = {
+  distance:   { label: "DISTANCE",          rgb: "120,220,255" },
+  multiplier: { label: "TRICK MULTIPLIER",  rgb: "255,215,110" },
+  backflip:   { label: "BACKFLIPS",         rgb: "255,165,80" },
+  smash:      { label: "BILLBOARDS BROKEN", rgb: "255,110,180" },
+  closeCall:  { label: "CLOSE CALLS",       rgb: "120,255,170" },
+  other:      { label: "OTHER BONUSES",     rgb: "190,150,255" },
+};
+const TALLY_COUNT_FRAC = 0.65; // share of a row's time spent counting; the rest flies to the total
+const TALLY_PULSE_SEC = 0.25;  // total score pulse when a row lands in it
+const ZERO_RGB = "120,130,150";
+
+// Row geometry shared by the cached frame and the live (counting) values.
+function summaryRowGeom(panelX, panelY, panelW, idx) {
+  const left = panelX + 26;
+  const right = panelX + panelW - 26;
+  const baseY = panelY + 64 + SUMMARY_ROW_H * idx - 6; // text baseline
+  const valueW = 112;
+  return { left, right, baseY, valueX: right - valueW + 4, valueW };
+}
+
+// Everything about the rows that only changes when a row finishes: backgrounds, labels,
+// count chips, dot leaders and the values of finished rows. The counting row's value is drawn live.
+function drawSummaryRows(ctx, summary) {
+  const { panelX, panelY, panelW, rows } = summary;
+  ctx.save();
+  ctx.textBaseline = "alphabetic";
+  rows.forEach((row, idx) => {
+    const { left, right, baseY, valueX, valueW } = summaryRowGeom(panelX, panelY, panelW, idx);
+    const reached = row.phase !== "pending";
+    const rgb = reached && row.points === 0 ? ZERO_RGB : row.rgb;
+    const dim = row.phase === "pending" ? 0.4 : row.points === 0 ? 0.55 : 1;
+
+    // Row background; the counting row gets a glowing edge in its colour.
+    ctx.fillStyle = "rgba(8,12,18,0.78)";
+    roundRect(ctx, left - 8, baseY - 10, panelW - 36, 24, 8);
+    if (row.phase === "active") {
+      ctx.save();
+      ctx.shadowColor = `rgba(${rgb},0.8)`;
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = `rgba(${rgb},0.85)`;
+      ctx.lineWidth = 1.5;
+      roundedRectPath(ctx, left - 8.5, baseY - 10.5, panelW - 35, 25, 8);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Label
+    ctx.globalAlpha = dim;
+    ctx.textAlign = "left";
+    ctx.fillStyle = `rgba(${rgb},0.95)`;
+    ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
+    ctx.fillText(row.label, left + 2, baseY);
+    let leaderX = left + 2 + ctx.measureText(row.label).width + 8;
+
+    // Count chip: "x6", or metres for distance.
+    if (row.count !== null) {
+      const chip = row.key === "distance" ? `${formatNumber(row.count)} m` : `×${formatNumber(row.count)}`;
+      ctx.font = "800 11px Share Tech Mono, Orbitron, Menlo, monospace";
+      const chipW = ctx.measureText(chip).width + 12;
+      ctx.fillStyle = `rgba(${rgb},0.16)`;
+      roundRect(ctx, leaderX, baseY - 11, chipW, 15, 5);
+      ctx.strokeStyle = `rgba(${rgb},0.55)`;
+      ctx.lineWidth = 1;
+      roundedRectPath(ctx, leaderX + 0.5, baseY - 10.5, chipW - 1, 14, 5);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(${rgb},0.95)`;
+      ctx.textAlign = "center";
+      ctx.fillText(chip, leaderX + chipW / 2, baseY);
+      leaderX += chipW + 8;
+    }
+
+    // Dot leaders up to the value
+    ctx.fillStyle = `rgba(${rgb},0.3)`;
+    for (let dx = leaderX; dx < valueX - 8; dx += 6) ctx.fillRect(dx, baseY - 2, 2, 2);
+
+    // Value pill; finished rows show their points, pending rows "···".
+    ctx.fillStyle = "rgba(12,18,28,0.92)";
+    roundRect(ctx, valueX, baseY - 16, valueW, 20, 8);
+    ctx.strokeStyle = `rgba(${rgb},0.3)`;
+    roundedRectPath(ctx, valueX + 0.5, baseY - 15.5, valueW - 1, 19, 8);
+    ctx.stroke();
+    ctx.textAlign = "right";
+    if (row.phase === "done") {
+      ctx.font = "800 13px Share Tech Mono, Orbitron, Menlo, monospace";
+      ctx.fillStyle = row.points > 0 ? `rgba(${rgb},1)` : `rgba(${rgb},0.8)`;
+      ctx.fillText(row.points > 0 ? `+${formatNumber(row.points)}` : "0", right - 6, baseY);
+    } else if (row.phase === "pending") {
+      ctx.font = "800 13px Share Tech Mono, Orbitron, Menlo, monospace";
+      ctx.fillStyle = "rgba(160,190,220,0.5)";
+      ctx.fillText("···", right - 6, baseY);
+    }
+    ctx.globalAlpha = 1;
+  });
+  ctx.restore();
+}
+
+// The counting row's value, and its points flying into the total once counted.
+function drawTallyLive(ctx, row, idx, rowK, geom, target) {
+  const { right, baseY } = summaryRowGeom(geom.panelX, geom.panelY, geom.panelW, idx);
+  const countK = easeOutCubic(clamp(rowK / TALLY_COUNT_FRAC, 0, 1));
+  const shown = Math.round(row.points * countK);
+  ctx.save();
+  ctx.textAlign = "right";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = "800 13px Share Tech Mono, Orbitron, Menlo, monospace";
+  ctx.shadowColor = `rgba(${row.rgb},0.9)`;
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "rgba(255,255,255,1)";
+  ctx.fillText(row.points > 0 ? `+${formatNumber(shown)}` : "0", right - 6, baseY);
+
+  if (row.points > 0 && rowK > TALLY_COUNT_FRAC) {
+    const f = (rowK - TALLY_COUNT_FRAC) / (1 - TALLY_COUNT_FRAC);
+    const e = f * f; // ease in: speeds up into the total
+    const x = right - 30 + (target.x - (right - 30)) * e;
+    const y = baseY + (target.y - baseY) * e;
+    const scale = 1.25 - 0.45 * e;
+    ctx.globalAlpha = 1 - 0.5 * e;
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    ctx.textAlign = "center";
+    ctx.fillStyle = `rgba(${row.rgb},1)`;
+    ctx.fillText(`+${formatNumber(row.points)}`, 0, 0);
+  }
+  ctx.restore();
+}
+
 // touchUi: touch screen, so RESET shows no key hint.
 export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady = false, touchUi = false) {
   const w = Number.isFinite(W) ? W : 800;
@@ -1229,10 +1401,22 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const displayScore = Number.isFinite(state.scoreTally) ? state.scoreTally : baseScore;
   const hudScore = Math.floor(displayScore);
   const scoreText = String(hudScore).padStart(6, "0");
-  const slowfallDist = Math.floor(state.slowfallDistance || 0);
-  const backflips = Math.floor(state.backflipCount || 0);
-  const billboardsDashed = Math.floor(state.billboardDashCount || 0);
-  const dist = Math.floor(state.distance || 0);
+  // Rows with their tally phase: done (banked), active (counting) or pending.
+  const tallying = state.scoreTallyActive === true && state.tallyRows.length > 0;
+  const tallyRow = tallying ? state.tallyRow : -1;
+  const rows = (tallying ? state.tallyRows : buildSummaryRows(state)).map((row, idx) => ({
+    ...row,
+    ...SUMMARY_ROW_LOOK[row.key],
+    phase: tallyRow < 0 || idx > tallyRow ? "pending" : idx < tallyRow ? "done" : "active",
+  }));
+  const activeRow = tallyRow >= 0 && tallyRow < rows.length ? rows[tallyRow] : null;
+  const activeK = activeRow ? clamp(state.tallyRowT / tallyRowSec(activeRow), 0, 1) : 0;
+  // Pulse the total when a scoring row lands in it (at the start of the next row, or at the end).
+  const lastRow = tallyRow > 0 ? rows[tallyRow - 1] : null;
+  const bankAge = lastRow && lastRow.points > 0
+    ? (activeRow ? state.tallyRowT : state.scoreTallyDoneT || 0)
+    : Infinity;
+  const pulseK = bankAge < TALLY_PULSE_SEC ? 1 - easeOutCubic(bankAge / TALLY_PULSE_SEC) : 0;
   const boardT = Number.isFinite(state.scoreBoardT) ? state.scoreBoardT : 0;
   // Intro progress: summary drop, then leaderboard slide (each 0..1).
   const dropK = clamp(boardT / RUN_SUMMARY_DROP_SEC, 0, 1);
@@ -1249,7 +1433,7 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const cy = h * 0.5;
 
   const panelW = Math.min(460, w * 0.74);
-  const panelH = 300;
+  const panelH = SUMMARY_PANEL_BASE_H + SUMMARY_ROW_H * rows.length;
   const leaderboardW = Math.min(220, w * 0.24);
   const spacing = Math.min(32, w * 0.04);
   const totalBlockW = panelW + spacing + leaderboardW;
@@ -1271,12 +1455,6 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const stringLeftX = panelX + panelW * 0.26 + sway;
   const stringRightX = panelX + panelW * 0.74 + sway;
 
-  const rows = [
-    { label: "SLOWFALL DISTANCE", value: formatNumber(slowfallDist) },
-    { label: "BACKFLIPS", value: formatNumber(backflips) },
-    { label: "BILLBOARDS BROKEN", value: formatNumber(billboardsDashed) },
-    { label: "TOTAL DISTANCE", value: formatNumber(dist) },
-  ];
   const summary = {
     panelX, panelY, panelW, panelH, panelCenterX, stringTop, stringLeftX, stringRightX, rows,
   };
@@ -1285,22 +1463,22 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   if (dropK < 1) {
     drawRunSummaryFrame(ctx, summary);
   } else {
-    const key = [panelX, panelY, panelW, panelH, ...rows.map((r) => r.value)].join("|");
+    const key = [panelX, panelY, panelW, panelH, tallyRow, ...rows.map((r) => `${r.points}/${r.count}`)].join("|");
     const top = stringTop - 22;
     const box = { x: panelX - 30, y: top, w: panelW + 60, h: panelY + panelH - top + 4 };
     drawCachedPanel(ctx, "runSummary", key, box, (pctx) => drawRunSummaryFrame(pctx, summary));
   }
 
   ctx.textAlign = "center";
-  const dividerY = panelY + 64 + 24 * rows.length + 6;
+  const dividerY = panelY + 64 + SUMMARY_ROW_H * rows.length + 6;
 
   // Total score capsule: cached once the tally has finished counting.
   const pillX = panelX + 40;
   const pillY = dividerY + 16;
   const pillW2 = panelW - 80;
   const pillH2 = 54;
-  const capsule = { pillX, pillY, pillW2, pillH2, panelCenterX, scoreText };
-  if (state.scoreTallyDone === true && dropK >= 1) {
+  const capsule = { pillX, pillY, pillW2, pillH2, panelCenterX, scoreText, pulseK };
+  if (state.scoreTallyDone === true && dropK >= 1 && pulseK === 0) {
     const key = [pillX, pillY, pillW2, scoreText].join("|");
     drawCachedPanel(ctx, "runScore", key, { x: pillX, y: pillY, w: pillW2, h: pillH2 }, (pctx) =>
       drawScoreCapsule(pctx, capsule)
@@ -1311,6 +1489,12 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   if (state.passedBest === true && state.scoreTallyDone === true && dropK >= 1) {
     drawNewBestStamp(ctx, pillX + pillW2 - 50, pillY + 2, state.scoreTallyDoneT || 0);
   }
+  // The counting row and its points flying into the total (over the capsule).
+  if (activeRow) {
+    const target = { x: panelCenterX, y: pillY + 40 };
+    drawTallyLive(ctx, activeRow, tallyRow, activeK, { panelX, panelY, panelW }, target);
+  }
+
   // The score glow stays on for what follows (RESET and the leaderboard pick it up).
   ctx.shadowColor = "rgba(80,255,220,0.7)";
   ctx.shadowBlur = 16;
@@ -1513,73 +1697,13 @@ function drawRunSummaryFrame(ctx, summary) {
   ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText("RUN SUMMARY", panelCenterX, panelY + 35);
 
-  ctx.textAlign = "left";
-  const left = panelX + 26;
-  const right = panelX + panelW - 26;
-  const rowY = panelY + 64;
-  const rowH = 24;
-  const pillH = 20;
-  const pillW = 160;
-
-  // Row backgrounds
-  ctx.fillStyle = "rgba(8,12,18,0.78)";
-  rows.forEach((_, idx) => {
-    roundRect(ctx, left - 8, rowY + rowH * idx - 16, panelW - 36, 24, 8);
-  });
-
-  // Left label chips
-  const labelGrad = ctx.createLinearGradient(left, 0, left + pillW, 0);
-  labelGrad.addColorStop(0, "rgba(120,200,255,0.26)");
-  labelGrad.addColorStop(1, "rgba(90,120,160,0.18)");
-  ctx.fillStyle = labelGrad;
-  rows.forEach((_, idx) => {
-    roundRect(ctx, left - 2, rowY + rowH * idx - 22, pillW, pillH, 8);
-  });
-
-  ctx.fillStyle = "rgba(160,235,255,0.95)";
-  ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
-  rows.forEach((row, idx) => {
-    ctx.fillText(row.label, left + 8, rowY + rowH * idx - 6);
-  });
-
-  // Right values
-  ctx.textAlign = "right";
-  const valuePillW = 156;
-  const valuePillH = 20;
-  const valueX = right - valuePillW + 4;
-  const valueGrad = ctx.createLinearGradient(valueX, 0, valueX + valuePillW, 0);
-  valueGrad.addColorStop(0, "rgba(12,18,28,0.92)");
-  valueGrad.addColorStop(1, "rgba(20,28,42,0.92)");
-  ctx.fillStyle = valueGrad;
-  rows.forEach((_, idx) => {
-    roundRect(ctx, valueX, rowY + rowH * idx - 22, valuePillW, valuePillH, 8);
-  });
-
-  ctx.strokeStyle = "rgba(120,205,255,0.25)";
-  ctx.lineWidth = 1;
-  rows.forEach((_, idx) => {
-    roundedRectPath(
-      ctx,
-      valueX + 0.5,
-      rowY + rowH * idx - 21.5,
-      valuePillW - 1,
-      valuePillH - 1,
-      8
-    );
-    ctx.stroke();
-  });
-
-  ctx.fillStyle = "rgba(240,255,255,0.98)";
-  ctx.font = "800 13px Share Tech Mono, Orbitron, Menlo, monospace";
-  rows.forEach((row, idx) => {
-    ctx.fillText(row.value, right, rowY + rowH * idx - 6);
-  });
+  drawSummaryRows(ctx, summary);
 
   // Divider
   ctx.textAlign = "center";
   ctx.strokeStyle = "rgba(120,205,255,0.22)";
   ctx.lineWidth = 1;
-  const dividerY = rowY + rowH * rows.length + 6;
+  const dividerY = panelY + 64 + SUMMARY_ROW_H * rows.length + 6;
   ctx.beginPath();
   ctx.moveTo(panelX + 20, dividerY);
   ctx.lineTo(panelX + panelW - 20, dividerY);
@@ -1590,7 +1714,7 @@ function drawRunSummaryFrame(ctx, summary) {
 
 // Total score pill + score. Leaves the score glow (shadow) set on ctx, as callers expect.
 function drawScoreCapsule(ctx, capsule) {
-  const { pillX, pillY, pillW2, pillH2, panelCenterX, scoreText } = capsule;
+  const { pillX, pillY, pillW2, pillH2, panelCenterX, scoreText, pulseK = 0 } = capsule;
   ctx.fillStyle = "rgba(8,12,18,0.8)";
   roundRect(ctx, pillX, pillY, pillW2, pillH2, 14);
   ctx.save();
@@ -1620,10 +1744,21 @@ function drawScoreCapsule(ctx, capsule) {
   }
 
   ctx.shadowColor = "rgba(80,255,220,0.7)";
-  ctx.shadowBlur = 16;
+  ctx.shadowBlur = 16 + 14 * pulseK;
   ctx.fillStyle = "rgba(240,255,255,0.98)";
   ctx.textAlign = "center";
-  ctx.fillText(scoreText, panelCenterX, pillY + 40 + (40 - scoreFontSize) * 0.3);
+  const textY = pillY + 40 + (40 - scoreFontSize) * 0.3;
+  if (pulseK > 0) {
+    // A row just landed in the total: punch the number up and let it settle.
+    const scale = 1 + 0.14 * pulseK;
+    ctx.save();
+    ctx.translate(panelCenterX, textY - scoreFontSize * 0.35);
+    ctx.scale(scale, scale);
+    ctx.fillText(scoreText, 0, scoreFontSize * 0.35);
+    ctx.restore();
+  } else {
+    ctx.fillText(scoreText, panelCenterX, textY);
+  }
 }
 
 // Tilted "NEW BEST" stamp on the score capsule; slams in once the tally finishes.
@@ -1741,24 +1876,6 @@ function drawResetButton(ctx, button, resetHover, keyHint = "") {
   ctx.stroke();
   ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText(keyHint, capX + capW / 2, midY + 1);
-  ctx.restore();
-}
-
-// "SPACE TO SKIP" / "TAP TO SKIP" during the death cinematic, fading in once a skip is allowed.
-const SKIP_HINT_FADE_SEC = 0.3;
-
-export function drawSkipHint(ctx, state, W, H, touchUi = false) {
-  if (state.deathCinematicActive !== true) return;
-  const since = (state.deathCinematicT || 0) - DEATH_SKIP_UNLOCK_SEC;
-  if (since < 0) return;
-  ctx.save();
-  ctx.globalAlpha = 0.85 * easeOutCubic(clamp(since / SKIP_HINT_FADE_SEC, 0, 1));
-  ctx.textAlign = "center";
-  ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.shadowColor = "rgba(120,205,255,0.7)";
-  ctx.shadowBlur = 8;
-  ctx.fillStyle = "rgba(200,235,255,0.95)";
-  ctx.fillText(touchUi ? "TAP TO SKIP" : "SPACE TO SKIP", W / 2, H - 24);
   ctx.restore();
 }
 

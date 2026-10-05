@@ -311,6 +311,48 @@
         margin-left: 6px;
       }
 
+      /* Live meters on the buttons. main.js sets --fuel (0..1 left) on Slowfall
+         and --cd (0..1 of the cooldown left) plus .is-cooling on Dash. The button's backdrop-filter
+         makes it a stacking context, so z-index -1 sits above its background but under the icon. */
+      .control-btn[data-control="slowfall"]::before,
+      .control-btn[data-control="dash"]::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        pointer-events: none;
+      }
+
+      .control-btn[data-control="slowfall"]::before {
+        background: linear-gradient(
+          to top,
+          rgba(0, 255, 208, 0.26) calc(var(--fuel, 1) * 100%),
+          transparent 0
+        );
+      }
+
+      .control-btn[data-control="slowfall"].is-low::before {
+        background: linear-gradient(
+          to top,
+          rgba(255, 90, 120, 0.4) calc(var(--fuel, 1) * 100%),
+          transparent 0
+        );
+      }
+
+      /* Cooling down: the recharged share lights up purple (like the HUD bar), the rest stays dark,
+         and the icon dims until the dash is ready again. */
+      .control-btn[data-control="dash"].is-cooling::before {
+        background: conic-gradient(
+          rgba(0, 0, 0, 0.5) 0deg calc(var(--cd, 0) * 360deg),
+          rgba(130, 130, 255, 0.32) 0
+        );
+      }
+
+      .control-btn[data-control="dash"].is-cooling svg {
+        opacity: 0.45;
+      }
+
       /* Text labels under the buttons; main.js shows them for the first few runs. */
       .control-btn::after {
         content: attr(data-label);

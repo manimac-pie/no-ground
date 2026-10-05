@@ -177,12 +177,16 @@ export function spawnNextPlatform(state) {
   state._buildingCount = buildingIndex;
 
   let billboard = null;
-  // Low billboards hang at head height: duck under (hold S) or jump over.
+  // Low billboards hang at head height: duck under (hold S). They're much taller than the regular
+  // ones (top ~187 px above the roof vs a ~110 px single jump), so only a double jump clears them.
+  // On the highest roofs they're shortened so the top stays on screen.
   // Kept toward the right of the roof so there's room to land and react.
   const LOW_BB_W = 110;
-  const LOW_BB_H = 56;
+  const LOW_BB_TOP_MARGIN = 12; // min gap between the sign's top and the top of the screen
   const LOW_BB_LEAD = 110; // min roof run before the billboard
   const LOW_BB_CLEAR = 27; // roof -> billboard bottom (standing collides, ducking clears)
+  // baseYRest is the highest this roof ever sits (moving roofs rise to it or sink from it).
+  const LOW_BB_H = Math.min(160, baseYRest - LOW_BB_CLEAR - LOW_BB_TOP_MARGIN);
   const wantBillboard = buildingIndex % 5 === 0 && Math.random() < 0.5;
   const canLow = w >= LOW_BB_LEAD + LOW_BB_W + 6;
   if (wantBillboard && canLow && Math.random() < LOW_BILLBOARD_CHANCE) {

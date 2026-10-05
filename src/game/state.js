@@ -9,8 +9,17 @@ import {
   SPEED_START,
   COYOTE_TIME_SEC,
   SLOWFALL_FUEL_MAX,
+  DEATH_SUMMARY_START_SEC,
 } from "./constants.js";
-import { createScoreEvents } from "./score.js";
+import { clearBreakdown, createBreakdown, createScoreEvents } from "./score.js";
+
+// The run summary is showing: from the moment the death arm grabs Bob (it keeps dragging him
+// away behind the panels) until the restart fly-by. Shared by the game logic and the renderer.
+export function isSummaryShowing(state) {
+  return state.gameOver === true
+    && !state.restartFlybyActive
+    && (state.deathCinematicDone === true || (state.deathCinematicT || 0) >= DEATH_SUMMARY_START_SEC);
+}
 
 export function createInitialState() {
   return {
@@ -34,7 +43,6 @@ export function createInitialState() {
     deathCinematicActive: false,
     deathCinematicDone: false,
     deathCinematicT: 0,
-    deathSkipped: false, // the player skipped the cinematic (speeds up the run summary)
     deathSnapshot: null,
     breakShards: [],
     deathRestartT: 0,
@@ -67,6 +75,8 @@ export function createInitialState() {
     airDistance: 0, // distance part of the pot (multiplied by backflips)
     airFlips: 0,    // backflips this airtime
     airFlipEndT: -1, // uiTime the latest backflip finished (clutch bonus), -1 if none
+    scoreBreakdown: createBreakdown(), // banked points per source (run summary)
+    airBreakdown: createBreakdown(),   // this jump's points per source, banked on landing
 
     // Personal best: snapshot taken as the run starts (the server value changes after submit).
     runBestTarget: 0,
@@ -83,6 +93,9 @@ export function createInitialState() {
     scoreTallyActive: false,
     scoreTallyDone: false,
     scoreTallyDoneT: 0,
+    tallyRows: [], // run summary rows being tallied (see buildSummaryRows)
+    tallyRow: 0,   // row counting now (tallyRows.length once done)
+    tallyRowT: 0,  // seconds into that row
     restartReady: false, // RESET is showing and a press may restart
 
     // Pause: while paused or counting down, update() freezes the run.
@@ -183,7 +196,6 @@ export function resetRunState(state) {
   state.deathCinematicActive = false;
   state.deathCinematicDone = false;
   state.deathCinematicT = 0;
-  state.deathSkipped = false;
   state.deathSnapshot = null;
   state.breakShards = [];
   state.deathRestartT = 0;
@@ -212,6 +224,8 @@ export function resetRunState(state) {
   state.airDistance = 0;
   state.airFlips = 0;
   state.airFlipEndT = -1;
+  clearBreakdown(state.scoreBreakdown);
+  clearBreakdown(state.airBreakdown);
   state.runBestTarget = 0;
   state.passedBest = false;
   state.passedBestT = -1;
@@ -224,6 +238,9 @@ export function resetRunState(state) {
   state.scoreTallyActive = false;
   state.scoreTallyDone = false;
   state.scoreTallyDoneT = 0;
+  state.tallyRows = [];
+  state.tallyRow = 0;
+  state.tallyRowT = 0;
   state.restartReady = false;
   state.paused = false;
   state.pauseT = 0;

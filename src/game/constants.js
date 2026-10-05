@@ -137,7 +137,7 @@ export const CLUTCH_FLIP_WINDOW_SEC = 0.12;    // ...within this many seconds
 // 1 + FLIP_MULT_STEP per backflip + COMBO_MULT_STEP per combo link, capped at AIR_MULT_MAX.
 // A combo link is a clean tricked landing (at least one backflip, none still spinning).
 // A plain or mid-flip landing resets the combo.
-export const FLIP_MULT_STEP = 1;
+export const FLIP_MULT_STEP = 0.5;
 export const COMBO_MULT_STEP = 0.5;
 export const AIR_MULT_MAX = 4;
 export const BILLBOARD_BOUNCE_VY = 900; // downward kick when bouncing off a billboard
@@ -157,17 +157,14 @@ export const DEATH_CINEMATIC = {
   ARM_RETRACT: 0.45,  // arm slides back out
 };
 
-// Skipping the death cinematic: a jump press skips it once it has played this long
-// (so a player still mashing jump at the moment of death doesn't skip by accident).
-export const DEATH_SKIP_UNLOCK_SEC = 1.0;
-// After a skip, the run summary (drop-in, score count-up, wait before RESET) runs this many times faster.
-export const SKIP_SUMMARY_SPEED = 3;
-
 export const DEATH_CINEMATIC_TOTAL =
   DEATH_CINEMATIC.ARM_DELAY +
   DEATH_CINEMATIC.ARM_REACH +
   DEATH_CINEMATIC.DRAG +
   DEATH_CINEMATIC.ARM_RETRACT;
+
+// The run summary and leaderboard drop in as the arm grabs Bob, while it drags him away.
+export const DEATH_SUMMARY_START_SEC = DEATH_CINEMATIC.ARM_DELAY + DEATH_CINEMATIC.ARM_REACH;
 
 export const BREAK_SHARDS = {
   COUNT: 18,

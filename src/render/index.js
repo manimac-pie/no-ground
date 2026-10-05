@@ -2,6 +2,7 @@
 // Single render orchestrator (prevents duplicate draws + state leaks).
 
 import { world } from "../game.js";
+import { isSummaryShowing } from "../game/state.js";
 import {
   DASH_MAX_CAM_LAG,
   DASH_CAM_SMOOTH,
@@ -35,7 +36,6 @@ import {
   drawControlsButton,
   drawControlsPanel,
   drawPauseOverlay,
-  drawSkipHint,
 } from "./ui.js";
 import { drawStartPrompt } from "./menu.js";
 import {
@@ -893,8 +893,8 @@ export function render(ctx, state) {
   // Remove zoom for overlay/UI layers.
   ctx.restore();
 
-  const onRestartScreen =
-    state.gameOver && state.deathCinematicDone && !deathActive && !state.restartFlybyActive;
+  // The summary drops in while the arm is still dragging Bob away.
+  const onRestartScreen = isSummaryShowing(state);
   // Suppress HUD during start zoom; allow slide-out on death.
   const showHUD =
     !state.restartFlybyActive &&
@@ -920,11 +920,6 @@ export function render(ctx, state) {
     drawCenterScore(ctx, state, W, H, pointerUi, restartPromptReady, touchUi);
   } else {
     state.restartHover = false;
-  }
-
-  if (deathActive) {
-    resetCtx(ctx);
-    drawSkipHint(ctx, state, W, H, touchUi);
   }
 
   if (state.restartFlybyActive) {

@@ -5,7 +5,7 @@
 // - Drive the main loop (requestAnimationFrame)
 import { createInput } from "./input.js";
 import { createGame } from "./game.js";
-import { setInternalSizeFromViewport } from "./game/constants.js";
+import { setInternalSizeFromViewport, DASH_COOLDOWN } from "./game/constants.js";
 import { render, setCanvasRect, setMaxDpr, setTouchUi } from "./render/index.js";
 
 //Leaderboard API udpate
@@ -169,6 +169,37 @@ function countFinishedRun() {
   if (labelRunsDone >= LABEL_RUNS) document.body.classList.remove("show-control-labels");
 }
 
+// Mobile button meters: Slowfall fills with fuel, Dash dims with a sweep while cooling down.
+// Values are rounded so the style is only written when the meter visibly changes.
+const slowfallBtn = document.querySelector('[data-control="slowfall"]');
+const dashBtn = document.querySelector('[data-control="dash"]');
+const METER_STEPS = 40;
+const LOW_FUEL_FRAC = 0.2; // same threshold as the HUD's low-fuel blink
+let shownFuel = -1;
+let shownCd = -1;
+let shownLow = false;
+
+function updateButtonMeters(player) {
+  if (!player) return;
+  const fuelMax = player.slowfallFuelMax > 0 ? player.slowfallFuelMax : 1;
+  const fuel = Math.round(Math.min(1, Math.max(0, (player.slowfallFuel || 0) / fuelMax)) * METER_STEPS) / METER_STEPS;
+  const cd = Math.round(Math.min(1, Math.max(0, (player.dashCooldown || 0) / DASH_COOLDOWN)) * METER_STEPS) / METER_STEPS;
+  if (slowfallBtn && fuel !== shownFuel) {
+    shownFuel = fuel;
+    slowfallBtn.style.setProperty("--fuel", String(fuel));
+    const low = fuel < LOW_FUEL_FRAC;
+    if (low !== shownLow) {
+      shownLow = low;
+      slowfallBtn.classList.toggle("is-low", low);
+    }
+  }
+  if (dashBtn && cd !== shownCd) {
+    if ((cd > 0) !== (shownCd > 0)) dashBtn.classList.toggle("is-cooling", cd > 0);
+    shownCd = cd;
+    dashBtn.style.setProperty("--cd", String(cd));
+  }
+}
+
 // Main loop — fixed timestep for stable physics + smoother feel
 let last = performance.now();
 let acc = 0;
@@ -237,6 +268,8 @@ function tick(now) {
     cursorRunning = running;
     document.body.classList.toggle("is-running", running);
   }
+
+  updateButtonMeters(game.state?.player);
 
   const hideControls = Boolean(game.state?.gameOver);
   document.body.classList.toggle("hide-controls", hideControls);

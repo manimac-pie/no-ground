@@ -4,7 +4,7 @@
 
 import * as C from "./constants.js";
 import { clamp } from "./utils.js";
-import { awardBonus, beginAir, landAir, loseAir } from "./score.js";
+import { awardBonus, beginAir, countEvent, landAir, loseAir } from "./score.js";
 
 function getConst(name, fallback) {
   const v = C[name];
@@ -260,7 +260,7 @@ export function integratePlayer(state, dt, endGame) {
       const isDashing = p.dashImpulseT > 0.01;
       const isDiving = p.diving === true;
       if (b.reinforced === false && (isDashing || isDiving)) {
-        awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, "SMASH");
+        awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, "AD BREAK", "smash");
         state.billboardDashCount += 1;
         b.resolved = true;
         b.breaking = true;
@@ -281,6 +281,7 @@ export function integratePlayer(state, dt, endGame) {
           b.breakSpawned = false;
           b.hit = false;
           state.billboardDashCount += 1;
+          countEvent(state, "smash"); // diving down through it breaks it too (no SMASH bonus)
           billboardHit = true;
           break;
         }
@@ -313,7 +314,7 @@ export function integratePlayer(state, dt, endGame) {
       const rightGraceEdge = bx + bw * 0.70;
       if (px2 <= leftGraceEdge || px1 >= rightGraceEdge) continue;
       if (b.reinforced === false && isDashing) {
-        awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, "SMASH");
+        awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, "AD BREAK", "smash");
         state.billboardDashCount += 1;
         b.resolved = true;
         b.breaking = true;
@@ -377,7 +378,7 @@ export function integratePlayer(state, dt, endGame) {
         p.slowfallFuel = SLOWFALL_FUEL_MAX;
         // Only the front of Bob made it onto the roof (still airborne, so it goes into the pot).
         if (px2 - plat.x <= p.w * CLOSE_CALL_OVERLAP_FRAC) {
-          awardBonus(state, CLOSE_CALL_BONUS_SEC, "CLOSE CALL");
+          awardBonus(state, CLOSE_CALL_BONUS_SEC, "CLOSE CALL", "closeCall");
         }
         landAir(state);
         break;
@@ -402,7 +403,7 @@ export function integratePlayer(state, dt, endGame) {
       const by = plat.y - b.offsetY;
       if (bx + bw < centerX) {
         if (p.y + p.h <= by) {
-          awardBonus(state, BILLBOARD_OVER_BONUS_SEC, "OVER");
+          awardBonus(state, BILLBOARD_OVER_BONUS_SEC, "VAULT");
           b.resolved = true;
         } else if (p.ducking && hitTop(p) >= by + bh) {
           awardBonus(state, BILLBOARD_DUCK_BONUS_SEC, "DUCK");

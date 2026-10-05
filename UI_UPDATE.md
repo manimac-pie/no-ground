@@ -19,11 +19,11 @@ Each item gives where the change goes, its impact and its effort. Details are in
 - [x] **6. Faster restart** · `game.js`, `input.js`, `render/ui.js` · Impact: High · Effort: Low–Medium
 
 **Batch C: State at a glance**
-- [ ] **7. Clearer HUD meters** · `render/ui.js`, `render/playerFx.js` · Impact: Medium · Effort: Medium
-- [ ] **8. Fuel and cooldown on the mobile buttons** · `main.js`, `index.html` · Impact: Medium–High (mobile) · Effort: Low–Medium
+- [x] **7. Clearer HUD meters** · `render/ui.js`, `render/playerFx.js` · Impact: Medium · Effort: Medium
+- [x] **8. Fuel and cooldown on the mobile buttons** · `main.js`, `index.html` · Impact: Medium–High (mobile) · Effort: Low–Medium
 
 **Batch D: Polish**
-- [ ] **9. Run summary shows points** · `render/ui.js`, `game/state.js` · Impact: Medium · Effort: Low–Medium
+- [x] **9. Run summary shows points** · `render/ui.js`, `game/state.js` · Impact: Medium · Effort: Low–Medium
 - [ ] **10. First-run move hints** · `game/platforms.js`, `render/ui.js` · Impact: Medium (new players) · Effort: Medium
 - [ ] **11. Reduced motion and readable text** · `index.html`, `render/index.js`, `render/ui.js` · Impact: Medium (accessibility) · Effort: Low
 
@@ -107,6 +107,8 @@ It takes about 3.5 s from touching the ground to the RESET button, plus a 1.3 s 
 
 **Verify:** time from death to the next run with and without skipping. Check that the leaderboard claim prompt still opens when a run qualifies.
 
+*Done 2026-10-05, then revised:* the skip was removed. Instead, the run summary and leaderboard drop in as the arm grabs Bob (≈1 s after impact) while it drags him off, so nothing needs skipping. Death to RESET is now ≈2.7–3.5 s depending on how many score rows tally. RESET · SPACE stays.
+
 ## Batch C: State at a glance
 
 ### 7. Clearer HUD meters
@@ -141,6 +143,8 @@ The summary rows show counts but not points (`src/render/ui.js:1077`), so player
 - Backflips: either give them points or drop the row. This needs a design decision before it's built.
 
 **Verify:** the per-row points plus the slowfall-adjusted distance points add up to the total score.
+
+*Done 2026-10-05:* rows are DISTANCE, TRICK MULTIPLIER, BACKFLIPS, BILLBOARDS BROKEN, CLOSE CALLS and OTHER BONUSES, from `state.scoreBreakdown`. Airborne points wait in `state.airBreakdown` and are only banked on a safe landing, like the air pot, so the rows add up to the total. Backflips keep their row because they score since the scoring rework. SLOWFALL DISTANCE was dropped because slowfall no longer scores.
 
 ### 10. First-run move hints
 

@@ -278,37 +278,54 @@ export function diveStrengthFromVY(vy) {
   return clamp((vy - 250) / 1350, 0, 1);
 }
 
-function drawHaloFX(ctx, bodyW, bodyH, t, mode, vy = 0) {
+// Red halo while diving. (Slowfall's aura is drawSlowfallAura, which also shows fuel.)
+export function drawDiveFX(ctx, bodyW, bodyH, COLORS, t, vy) {
   ctx.save();
-  const diving = mode === "dive";
-  const k = diving ? diveStrengthFromVY(vy || 0) : 0;
-  const slowfalling = mode === "slowfall";
-
-  ctx.globalAlpha = diving ? (0.50 + 0.10 * k) : (slowfalling ? 0.78 : 0.55);
-  ctx.strokeStyle = diving ? "rgba(255,85,110,0.30)" : "rgba(120,205,255,0.30)";
-  ctx.lineWidth = slowfalling ? 3 : 2;
-
+  const k = diveStrengthFromVY(vy || 0);
+  ctx.globalAlpha = 0.50 + 0.10 * k;
+  ctx.strokeStyle = "rgba(255,85,110,0.30)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.ellipse(0, bodyH * 0.05, bodyW * 0.55, bodyH * 0.70, 0, 0, Math.PI * 2);
   ctx.stroke();
-
-  if (slowfalling) {
-    ctx.globalAlpha *= 0.55;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.ellipse(0, bodyH * 0.05, bodyW * 0.58, bodyH * 0.74, 0, 0, Math.PI * 2);
-    strokeSoft(ctx, 1.2);
-  }
-
   ctx.restore();
 }
 
-export function drawSlowfallFX(ctx, bodyW, bodyH, COLORS, t) {
-  drawHaloFX(ctx, bodyW, bodyH, t, "slowfall");
-}
+/* ------------------------------------------------------------
+   SLOWFALL AURA
+   One circular aura around Bob while slowfalling, which is also his fuel gauge: a faint full outline
+   (slowfall is on) with a bright arc that drains clockwise from the top as fuel runs out,
+   turning red and blinking when low. Drawn upright (outside the pose transform) so flips
+   don't spin the gauge.
+------------------------------------------------------------ */
+const AURA_LOW_FUEL_FRAC = 0.2; // same threshold as the HUD's low-fuel blink
 
-export function drawDiveFX(ctx, bodyW, bodyH, COLORS, t, vy) {
-  drawHaloFX(ctx, bodyW, bodyH, t, "dive", vy);
+export function drawSlowfallAura(ctx, cx, cy, radius, fuel01, t) {
+  const k = clamp(fuel01, 0, 1);
+  if (k <= 0) return;
+  const low = k < AURA_LOW_FUEL_FRAC;
+  const blinkOff = low && Math.floor(t * 8) % 2 === 1;
+
+  ctx.save();
+  ctx.lineCap = "round";
+
+  // Outline: the aura itself
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(0,255,208,0.18)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Fuel left
+  const start = -Math.PI / 2;
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = low
+    ? (blinkOff ? "rgba(255,70,100,0.45)" : "rgba(255,120,140,0.95)")
+    : "rgba(0,255,208,0.9)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, start, start + k * Math.PI * 2);
+  strokeSoft(ctx, 4);
+  ctx.restore();
 }
 
 /* ------------------------------------------------------------

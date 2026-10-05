@@ -22,7 +22,7 @@ import {
   drawDashStreaks,
   drawDiveFX,
   drawDiveStreaks,
-  drawSlowfallFX,
+  drawSlowfallAura,
   drawHeavyLandingBurst,
   drawHeavyLandingRing,
   drawLandingRubble,
@@ -226,7 +226,7 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     drawAfterimage(ctx, player, animTime, landed, state.running, state.speed || 0, poseRot, COLORS);
   }
 
-  // Slowfall/Dive FX (readability for W/S)
+  // Dive FX (slowfall's aura is drawn upright after the pose, below)
   if (diving && !suppressFx) {
     // Always draw the red dive halo so feedback is immediate, even during anticipation.
     drawDiveFX(ctx, bodyW, bodyH, COLORS, animTime || 0, vy);
@@ -235,8 +235,6 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     if (divePhase !== "anticipate") {
       drawDiveStreaks(ctx, bodyW, bodyH, animTime || 0, _diveK);
     }
-  } else if (slowfalling && !suppressFx) {
-    drawSlowfallFX(ctx, bodyW, bodyH, COLORS, animTime || 0);
   }
 
   if (!suppressFx && dashFxK > 0.01) {
@@ -294,4 +292,11 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   ctx.stroke();
 
   ctx.restore();
+
+  // Slowfall aura + fuel gauge (upright, outside the pose transform).
+  if (slowfalling && !diving && !suppressFx) {
+    const fuelMax = Number.isFinite(player.slowfallFuelMax) ? player.slowfallFuelMax : 0;
+    const fuel01 = fuelMax > 0 && Number.isFinite(player.slowfallFuel) ? player.slowfallFuel / fuelMax : 0;
+    drawSlowfallAura(ctx, cx, cy, Math.max(player.w, player.h) * 0.78, fuel01, animTime || 0);
+  }
 }
