@@ -406,7 +406,7 @@ export function integratePlayer(state, dt, endGame) {
           awardBonus(state, BILLBOARD_OVER_BONUS_SEC, "VAULT");
           b.resolved = true;
         } else if (p.ducking && hitTop(p) >= by + bh) {
-          awardBonus(state, BILLBOARD_DUCK_BONUS_SEC, "DUCK");
+          awardBonus(state, BILLBOARD_DUCK_BONUS_SEC, "DODGING ADS", "dodge");
           b.resolved = true;
         } else {
           b.resolved = true;

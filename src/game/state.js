@@ -34,6 +34,7 @@ export function createInitialState() {
     menuSmashArmed: false,
     menuSmashBroken: false,
     menuSmashRed: false,
+    menuSmashImpact: null, // where Bob hit the START text, relative to it: { x, y }
     restartSmashActive: false,
     restartSmashBroken: false,
     restartSmashRed: false,
@@ -97,6 +98,8 @@ export function createInitialState() {
     tallyRow: 0,   // row counting now (tallyRows.length once done)
     tallyRowT: 0,  // seconds into that row
     restartReady: false, // RESET is showing and a press may restart
+    restartReadyT: 0,    // seconds RESET has been showing (it types itself in)
+    iteration: 0,        // simulation iteration: runs started on this device (persisted, not reset)
 
     // Pause: while paused or counting down, update() freezes the run.
     paused: false,
@@ -187,6 +190,7 @@ export function resetRunState(state) {
   state.menuSmashArmed = false;
   state.menuSmashBroken = false;
   state.menuSmashRed = false;
+  state.menuSmashImpact = null;
   state.restartSmashActive = false;
   state.restartSmashBroken = false;
   state.restartSmashRed = false;
@@ -242,6 +246,7 @@ export function resetRunState(state) {
   state.tallyRow = 0;
   state.tallyRowT = 0;
   state.restartReady = false;
+  state.restartReadyT = 0;
   state.paused = false;
   state.pauseT = 0;
   state.resumeCountdownT = 0;

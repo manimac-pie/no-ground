@@ -173,6 +173,8 @@ export const BREAK_SHARDS = {
   DRAG: 0.93,
 };
 
+// Pressing RESET: the simulation glitches the screen out for this long, then the fly-by rebuilds it.
+export const RESET_GLITCH_SEC = 0.35;
 export const RESTART_FLYBY_SEC = 0.9;
 export const RESTART_FLYBY_HOLD_SEC = 0.18;
 export const RESTART_FLYBY_FADE_SEC = 0.22;

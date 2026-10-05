@@ -480,7 +480,7 @@
             <line x1="138" y1="96" x2="138" y2="110" stroke="#2a2d35" stroke-width="3" /><line x1="212" y1="96" x2="212" y2="110" stroke="#2a2d35" stroke-width="3" />
             <text x="175" y="50" text-anchor="middle" font-size="11" fill="#fff" font-family="Share Tech Mono">+60 under</text>
           </svg>
-          <div class="body"><b>Low billboard (hazard stripes)</b><span>Hangs at head height, 27 px above the roof, and is 120 px tall (taller than regular billboards), so a single jump can't clear it. Hold S to duck under it (+0.25 s) or double jump over it. Standing up underneath is fatal. 45% of billboards are low when the roof is wide enough (226 px or more).</span></div>
+          <div class="body"><b>Low billboard (hazard stripes)</b><span>Hangs at head height, 27 px above the roof, and is 160 px tall (taller than regular billboards; trimmed on the highest roofs so it stays on screen), so a single jump can't clear it. Hold S to duck under it (DODGING ADS, +0.25 s) or double jump over it. Standing up underneath is fatal. 45% of billboards are low when the roof is wide enough (226 px or more).</span></div>
         </div>
         <div class="hz">
           <svg viewBox="0 0 300 170" aria-hidden="true">
@@ -493,7 +493,7 @@
             <text x="270" y="96" font-size="11" fill="#6fe3a8" font-family="Share Tech Mono" text-anchor="end">+60</text>
             <line x1="0" y1="164" x2="300" y2="164" stroke="#ff556e" stroke-width="3" filter="url(#glow)" /><line x1="0" y1="164" x2="300" y2="164" stroke="#ff556e" />
           </svg>
-          <div class="body"><b>Billboard, reinforced (blue)</b><span>Go over it (+0.15 s) or duck under it (+0.25 s, only while ducking), or land on top: it works as a platform and gives 1.2× distance. Hitting its side is fatal.</span></div>
+          <div class="body"><b>Billboard, reinforced (blue)</b><span>Go over it (+0.15 s) or duck under it (DODGING ADS, +0.25 s, only while ducking), or land on top: it works as a platform and gives 1.2× distance. Hitting its side is fatal.</span></div>
         </div>
       </div>
       <p class="cap">About every 5th building has a 50% chance of a billboard above it.</p>
@@ -541,7 +541,7 @@
       <h2><span class="num">07</span>Scoring</h2>
       <p class="lead">Score is distance in pixels plus bonuses. Distance makes up most of it. Tricks and bonuses decide close runs.</p>
       <p><b>Bonuses are measured in seconds of running.</b> A bonus of 0.25 s is worth 0.25 × the current speed (dash boost not counted): 65 points at the start, 120 at top speed. That way bonuses keep the same weight against distance for the whole run. Points only go to moves with some risk or skill. A plain jump scores nothing, and a dash only scores in the air.</p>
-      <p><b>Air pot.</b> From takeoff to landing, distance and bonuses go into a pot for that jump instead of the score. A safe landing (roof or billboard top) pays out air distance × air multiplier + bonuses. The air multiplier is 1 + 0.5 per backflip + 0.5 per chain link, capped at ×4, and only applies to distance. A jump with no backflip is ×1. Dying before landing loses the pot. Each backflip pops up its new multiplier, and the HUD shows the pot and multiplier next to the score while airborne.</p>
+      <p><b>Air pot.</b> Distance always counts straight away, so the run summary's distance points equal the distance run. From takeoff to landing, bonuses go into a pot for that jump instead of the score. A safe landing (roof or billboard top) pays out the bonuses plus the air multiplier's extra copies of the jump's distance (distance × (multiplier − 1)). The air multiplier is 1 + 0.5 per backflip + 0.5 per chain link, capped at ×4, and only applies to distance. A jump with no backflip is ×1. Dying before landing loses the pot. Each backflip pops up its new multiplier, and the HUD shows the pot and multiplier next to the score while airborne.</p>
       <p><b>Chain.</b> A clean tricked landing (at least one backflip, none still spinning) adds a chain link. A plain landing or a mid-flip landing ("SLOPPY") resets it. A sloppy landing still pays its flips, but not the chain. The HUD shows CHAIN ×n between jumps.</p>
       <p><b>Slowfall has no multiplier.</b> Fuel refills on every landing, so a slowfall multiplier was a free ×2 on every jump. Slowfall earns through airtime instead: more distance in the pot, and room for another flip.</p>
       <div class="card">
@@ -567,7 +567,7 @@
             <rect x="140" y="208" width="80" height="24" rx="6" fill="none" stroke="#ff556e" />
             <text x="180" y="224" text-anchor="middle" font-family="Orbitron" font-weight="700" font-size="10" fill="#ff556e" letter-spacing="2">RESET</text>
           </svg>
-          <div class="cap">Mock-up with example values (the live panel now has six rows: distance, trick multiplier, backflips, billboards broken, close calls, other bonuses). The rows tally one at a time, 0.3 s each (0.1 s for a row worth nothing): each row counts up, then its points fly into the total. A press finishes the tally at once.</div>
+          <div class="cap">Mock-up with example values (the live panel now has seven rows: distance, trick multiplier, backflips, billboards broken, ads avoided, close calls, other bonuses). The rows tally one at a time, 0.3 s each (0.1 s for a row worth nothing): each row counts up, then its points fly into the total. A press finishes the tally at once.</div>
         </div>
         <div class="card">
           <svg viewBox="0 0 360 250" role="img" aria-label="Leaderboard submission flow">
@@ -922,7 +922,7 @@ function drawTimeline() {
 // ---------- bonus bars ----------
 function drawBonuses() {
   const b = [
-    ["Break a billboard (AD BREAK)", 0.4], ["Close call (barely on the roof)", 0.3], ["Clutch (flip ends just before landing)", 0.3], ["Backflip", 0.25], ["Duck under a billboard", 0.25], ["Break-jump (just in time)", 0.25], ["Pass over a billboard (VAULT)", 0.15], ["Air dash", 0.12], ["Dive", 0.1], ["Double jump", 0.05],
+    ["Break a billboard (AD BREAK)", 0.4], ["Close call (barely on the roof)", 0.3], ["Clutch (flip ends just before landing)", 0.3], ["Backflip", 0.25], ["Duck under a billboard (DODGING ADS)", 0.25], ["Break-jump (just in time)", 0.25], ["Pass over a billboard (VAULT)", 0.15], ["Air dash", 0.12], ["Dive", 0.1], ["Double jump", 0.05],
   ];
   const max = 0.4;
   document.getElementById("bonus-bars").innerHTML = b.map(([l, v]) =>

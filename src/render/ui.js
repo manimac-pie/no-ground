@@ -11,7 +11,8 @@ import {
   LEADERBOARD_SLIDE_DELAY_SEC,
   LEADERBOARD_SLIDE_SEC,
 } from "../game/constants.js";
-import { airMultiplier, buildSummaryRows, formatMult, tallyRowSec } from "../game/score.js";
+import { airMultiplier, airPotAtRisk, buildSummaryRows, formatMult, tallyRowSec } from "../game/score.js";
+import { formatIteration } from "../ui/iteration.js";
 import {
   getLeaderboardState,
   LEADERBOARD_MAX_ENTRIES,
@@ -19,6 +20,12 @@ import {
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
+}
+
+// Deterministic 0..1 noise from a number.
+function hash01(n) {
+  const x = Math.sin(n * 999.123) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 function easeOutCubic(t) {
@@ -875,6 +882,21 @@ export function drawRestartFlyby(ctx, state, COLORS, W, H) {
   ctx.fillStyle = "rgba(0,0,0,0.5)";
   ctx.fillRect(0, h * 0.72, w, h * 0.28);
 
+  // The simulation announces the next iteration while it rebuilds the world (flickers on).
+  const textIn = clamp(flybyT / 0.25, 0, 1);
+  const flicker = textIn < 1 && Math.floor(flybyT * 40) % 3 === 0 ? 0.25 : 1;
+  ctx.globalAlpha = fade * textIn * flicker;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
+  ctx.fillStyle = "rgba(150,170,190,0.8)";
+  ctx.fillText("REINITIALIZING", w / 2, h * 0.42);
+  ctx.font = "700 30px Share Tech Mono, Menlo, monospace";
+  ctx.shadowColor = "rgba(120,220,255,0.85)";
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = "rgba(170,235,255,1)";
+  ctx.fillText(`ITERATION ${formatIteration((state.iteration || 0) + 1)}`, w / 2, h * 0.42 + 36);
+
   ctx.restore();
   return true;
 }
@@ -1049,7 +1071,7 @@ export function drawHUD(ctx, state, danger01, COLORS) {
 
   // Air pot: points riding on this jump (paid out on a safe landing), plus its multiplier
   // (backflips + combo, on distance).
-  const airPot = state.airActive === true ? Math.floor(state.airPot || 0) : 0;
+  const airPot = airPotAtRisk(state);
   if (airPot > 0) {
     const mult = airMultiplier(state);
     ctx.save();
@@ -1271,6 +1293,7 @@ const SUMMARY_ROW_LOOK = {
   multiplier: { label: "TRICK MULTIPLIER",  rgb: "255,215,110" },
   backflip:   { label: "BACKFLIPS",         rgb: "255,165,80" },
   smash:      { label: "BILLBOARDS BROKEN", rgb: "255,110,180" },
+  dodge:      { label: "ADS AVOIDED",       rgb: "200,240,100" },
   closeCall:  { label: "CLOSE CALLS",       rgb: "120,255,170" },
   other:      { label: "OTHER BONUSES",     rgb: "190,150,255" },
 };
@@ -1455,15 +1478,17 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   const stringLeftX = panelX + panelW * 0.26 + sway;
   const stringRightX = panelX + panelW * 0.74 + sway;
 
+  const iterText = `ITERATION ${formatIteration(state.iteration)}`;
   const summary = {
     panelX, panelY, panelW, panelH, panelCenterX, stringTop, stringLeftX, stringRightX, rows,
+    title: iterText,
   };
 
   // Rig, panel and stat rows: drawn directly while dropping in, cached once landed.
   if (dropK < 1) {
     drawRunSummaryFrame(ctx, summary);
   } else {
-    const key = [panelX, panelY, panelW, panelH, tallyRow, ...rows.map((r) => `${r.points}/${r.count}`)].join("|");
+    const key = [panelX, panelY, panelW, panelH, iterText, tallyRow, ...rows.map((r) => `${r.points}/${r.count}`)].join("|");
     const top = stringTop - 22;
     const box = { x: panelX - 30, y: top, w: panelW + 60, h: panelY + panelH - top + 4 };
     drawCachedPanel(ctx, "runSummary", key, box, (pctx) => drawRunSummaryFrame(pctx, summary));
@@ -1516,13 +1541,20 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   state.restartHover = buttonEnabled ? resetHover : false;
 
   if (buttonEnabled) {
-    const button = { x: resetButtonX, y: resetButtonY, w: resetButtonWidth, h: resetButtonHeight, panelCenterX };
-    const keyHint = touchUi ? "" : "SPACE";
-    const key = [resetButtonX, resetButtonY, resetButtonWidth, resetHover, keyHint].join("|");
-    if (dropK >= 1) {
-      drawCachedPanel(ctx, "resetButton", key, button, (pctx) => drawResetButton(pctx, button, resetHover, keyHint));
+    // The simulation's RESET command: types itself in once ready, then idles with a blinking cursor.
+    const button = { x: resetButtonX, y: resetButtonY, w: resetButtonWidth, h: resetButtonHeight };
+    const keyHint = touchUi ? "[TAP]" : "[SPACE]";
+    const subline = `${iterText} TERMINATED`;
+    const typedK = clamp((state.restartReadyT || 0) / RESET_TYPE_SEC, 0, 1);
+    const red = resetHover || state.restartSmashRed === true;
+    if (typedK >= 1 && dropK >= 1) {
+      const key = [resetButtonX, resetButtonY, resetButtonWidth, red, keyHint, subline].join("|");
+      drawCachedPanel(ctx, "resetButton", key, button, (pctx) => drawResetButton(pctx, button, red, keyHint, subline, 1));
     } else {
-      drawResetButton(ctx, button, resetHover, keyHint);
+      drawResetButton(ctx, button, red, keyHint, subline, typedK);
+    }
+    if (typedK >= 1 && Math.floor((state.uiTime || 0) * 2.5) % 2 === 0) {
+      drawResetCursor(ctx, button, red);
     }
   }
 
@@ -1555,7 +1587,7 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
 // Run summary pieces that are fixed once the run has ended: hanging rig, panel,
 // header and the four stat rows.
 function drawRunSummaryFrame(ctx, summary) {
-  const { panelX, panelY, panelW, panelH, panelCenterX, stringTop, stringLeftX, stringRightX, rows } = summary;
+  const { panelX, panelY, panelW, panelH, panelCenterX, stringTop, stringLeftX, stringRightX, rows, title } = summary;
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
@@ -1695,7 +1727,7 @@ function drawRunSummaryFrame(ctx, summary) {
 
   ctx.fillStyle = "rgba(160,245,255,0.9)";
   ctx.font = "700 12px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("RUN SUMMARY", panelCenterX, panelY + 35);
+  ctx.fillText(title || "RUN SUMMARY", panelCenterX, panelY + 35);
 
   drawSummaryRows(ctx, summary);
 
@@ -1786,96 +1818,123 @@ function drawNewBestStamp(ctx, x, y, t) {
   ctx.restore();
 }
 
-// keyHint: optional key name drawn as a small key cap after RESET (e.g. "SPACE").
-function drawResetButton(ctx, button, resetHover, keyHint = "") {
-  const { x: resetButtonX, y: resetButtonY, w: resetButtonWidth, h: resetButtonHeight, panelCenterX } = button;
-  const baseGradient = ctx.createLinearGradient(
-    resetButtonX,
-    resetButtonY,
-    resetButtonX,
-    resetButtonY + resetButtonHeight
-  );
-  if (resetHover) {
-    baseGradient.addColorStop(0, "rgba(255,120,120,0.98)");
-    baseGradient.addColorStop(1, "rgba(240,60,60,0.96)");
-  } else {
-    baseGradient.addColorStop(0, "rgba(255,255,255,0.98)");
-    baseGradient.addColorStop(0.6, "rgba(228,236,248,0.96)");
-    baseGradient.addColorStop(1, "rgba(210,230,250,0.92)");
-  }
+// ---------------- RESET (the simulation's command) ----------------
+// Bob is trying to escape a simulation; RESET is the system putting him back. So the button is a
+// terminal prompt rather than a friendly arcade button: "> RESET" with a blinking cursor, the
+// iteration it just ended, and the key that confirms it.
+const RESET_TYPE_SEC = 0.35;   // "> RESET" types in over this long once RESET is ready
+const RESET_PROMPT = "> RESET";
+const RESET_PROMPT_FONT = "700 20px Share Tech Mono, Menlo, monospace";
 
-  ctx.save();
-  ctx.shadowColor = resetHover ? "rgba(255,80,80,0.8)" : "rgba(120,205,255,0.45)";
-  ctx.shadowBlur = resetHover ? 28 : 18;
-  ctx.fillStyle = baseGradient;
-  roundRect(ctx, resetButtonX, resetButtonY, resetButtonWidth, resetButtonHeight, 18);
-  ctx.restore();
+function resetPromptX(button) {
+  return button.x + 18;
+}
 
+// typedK 0..1: how much of the prompt has typed in; the sub-line and key hint follow it.
+function drawResetButton(ctx, button, red, keyHint, subline, typedK) {
+  const { x, y, w, h } = button;
+  const rgb = red ? "255,110,120" : "120,220,255";
   ctx.save();
-  ctx.strokeStyle = resetHover ? "rgba(255,210,210,0.7)" : "rgba(12,16,22,0.4)";
+
+  // Terminal panel
+  ctx.shadowColor = `rgba(${rgb},${red ? 0.75 : 0.45})`;
+  ctx.shadowBlur = red ? 22 : 14;
+  ctx.fillStyle = red ? "rgba(26,8,12,0.94)" : "rgba(6,10,16,0.94)";
+  roundRect(ctx, x, y, w, h, 10);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = `rgba(${rgb},0.85)`;
   ctx.lineWidth = 1.5;
-  roundedRectPath(
-    ctx,
-    resetButtonX + 0.7,
-    resetButtonY + 0.7,
-    resetButtonWidth - 1.4,
-    resetButtonHeight - 1.4,
-    16
-  );
+  roundedRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, 10);
   ctx.stroke();
+
+  // Faint scanlines
+  ctx.save();
+  roundedRectPath(ctx, x + 1, y + 1, w - 2, h - 2, 9);
+  ctx.clip();
+  ctx.fillStyle = `rgba(${rgb},0.05)`;
+  for (let sy = y + 3; sy < y + h; sy += 3) ctx.fillRect(x, sy, w, 1);
   ctx.restore();
 
-  ctx.save();
-  ctx.globalAlpha = 0.25;
-  const highlight = ctx.createLinearGradient(
-    resetButtonX,
-    resetButtonY,
-    resetButtonX,
-    resetButtonY + resetButtonHeight * 0.35
-  );
-  highlight.addColorStop(0, "rgba(255,255,255,0.9)");
-  highlight.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = highlight;
-  ctx.beginPath();
-  ctx.moveTo(resetButtonX + 6, resetButtonY + 4);
-  ctx.lineTo(resetButtonX + resetButtonWidth - 6, resetButtonY + 4);
-  ctx.lineTo(resetButtonX + resetButtonWidth - 8, resetButtonY + 12);
-  ctx.lineTo(resetButtonX + 8, resetButtonY + 12);
-  ctx.closePath();
-  ctx.fill();
+  // "> RESET", typed in
+  const shown = RESET_PROMPT.slice(0, Math.ceil(RESET_PROMPT.length * typedK));
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = RESET_PROMPT_FONT;
+  ctx.shadowColor = `rgba(${rgb},0.9)`;
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = `rgba(${rgb},1)`;
+  ctx.fillText(shown, resetPromptX(button), y + 24);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
+  if (typedK >= 1) {
+    // What just happened, in the system's words
+    ctx.font = "700 8px Orbitron, Share Tech Mono, Menlo, monospace";
+    ctx.fillStyle = "rgba(150,170,190,0.75)";
+    ctx.fillText(subline, resetPromptX(button), y + 37);
+
+    // The key that confirms it
+    ctx.textAlign = "right";
+    ctx.font = "700 12px Share Tech Mono, Menlo, monospace";
+    ctx.fillStyle = `rgba(${rgb},0.8)`;
+    ctx.fillText(keyHint, x + w - 16, y + h / 2 + 4);
+  }
   ctx.restore();
+}
+
+// Block cursor after "> RESET" (drawn live so the cached button doesn't rebuild on every blink).
+function drawResetCursor(ctx, button, red) {
+  ctx.save();
+  ctx.font = RESET_PROMPT_FONT;
+  const cx = resetPromptX(button) + ctx.measureText(RESET_PROMPT).width + 4;
+  ctx.fillStyle = red ? "rgba(255,110,120,0.95)" : "rgba(120,220,255,0.95)";
+  ctx.fillRect(cx, button.y + 10, 9, 16);
+  ctx.restore();
+}
+
+// Pressing RESET: the simulation glitches the frame out before the fly-by rebuilds the world.
+// k 0..1 over RESET_GLITCH_SEC. Post-process in device pixels: shifted slices of the frame
+// (copied from the canvas itself), colour-split bars, scanlines, then a cut to black.
+export function drawResetGlitch(ctx, k) {
+  const canvas = ctx.canvas;
+  if (!canvas) return;
+  const cw = canvas.width;
+  const ch = canvas.height;
+  const step = Math.floor(k * 24); // re-roll the glitch ~24 times over its run, not every frame
+  const r = (i) => hash01(step * 31.7 + i * 7.3);
+  const strength = 0.35 + 0.65 * k;
 
   ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const ink = resetHover ? "rgba(24,18,18,0.98)" : "rgba(24,26,32,0.94)";
-  const midY = resetButtonY + resetButtonHeight / 2;
-  ctx.font = "800 24px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillStyle = ink;
-  if (!keyHint) {
-    ctx.fillText("RESET", panelCenterX, midY + 2);
-    ctx.restore();
-    return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  // Slice tears
+  const slices = 6 + Math.floor(8 * k);
+  for (let i = 0; i < slices; i++) {
+    const sy = Math.floor(r(i) * ch);
+    const sh = Math.max(2, Math.floor(ch * (0.008 + 0.05 * r(i + 50))));
+    const dx = Math.round((r(i + 100) - 0.5) * cw * 0.14 * strength);
+    ctx.drawImage(canvas, 0, sy, cw, sh, dx, sy, cw, sh);
   }
 
-  // RESET plus a small key cap, centred together.
-  const labelW = ctx.measureText("RESET").width;
-  ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
-  const capW = ctx.measureText(keyHint).width + 14;
-  const capH = 18;
-  const gap = 12;
-  const startX = panelCenterX - (labelW + gap + capW) / 2;
-  ctx.font = "800 24px Share Tech Mono, Orbitron, Menlo, monospace";
-  ctx.fillText("RESET", startX + labelW / 2, midY + 2);
+  // Colour-split bars along some tears
+  ctx.globalCompositeOperation = "screen";
+  for (let i = 0; i < 4; i++) {
+    const by = Math.floor(r(i + 200) * ch);
+    const bh = Math.max(1, Math.floor(ch * 0.006));
+    ctx.fillStyle = i % 2 ? `rgba(255,60,120,${0.5 * strength})` : `rgba(60,220,255,${0.5 * strength})`;
+    ctx.fillRect(Math.round((r(i + 300) - 0.5) * cw * 0.1), by, cw, bh);
+  }
 
-  const capX = startX + labelW + gap;
-  const capY = midY - capH / 2;
-  ctx.strokeStyle = resetHover ? "rgba(40,20,20,0.6)" : "rgba(24,26,32,0.45)";
-  ctx.lineWidth = 1.25;
-  roundedRectPath(ctx, capX + 0.5, capY + 0.5, capW - 1, capH - 1, 5);
-  ctx.stroke();
-  ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText(keyHint, capX + capW / 2, midY + 1);
+  // Scanlines, then the cut to black
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = `rgba(0,0,0,${0.35 * strength})`;
+  const line = Math.max(2, Math.round(ch / 150));
+  for (let y = 0; y < ch; y += line * 2) ctx.fillRect(0, y, cw, line);
+  ctx.fillStyle = `rgba(4,6,10,${k * k})`;
+  ctx.fillRect(0, 0, cw, ch);
   ctx.restore();
 }
 

@@ -2,9 +2,10 @@
 // Bonus scoring, the per-jump air pot, the combo chain, and pop-up events for the renderer.
 //
 // Bonuses are measured in seconds of running (runPoints), so they keep their weight as speed rises.
-// While Bob is airborne, distance and bonuses go into state.airPot instead of the score.
-// A safe landing pays out air distance x air multiplier + bonuses, where the air multiplier is
-// 1 + one step per backflip + one step per combo link, capped (see airMultiplier).
+// Distance always counts straight away (you ran it). While Bob is airborne, bonuses go into
+// state.airPot instead of the score; a safe landing pays them out plus the air multiplier's extra
+// copies of this jump's distance, where the multiplier is 1 + one step per backflip + one step
+// per combo link, capped (see airMultiplier).
 // A clean tricked landing (a backflip, none still spinning) adds a combo link; any other landing resets it.
 // Dying before landing loses the pot.
 //
@@ -56,11 +57,11 @@ function pushScoreEvent(state, amount, text) {
 }
 
 // Sources: distance, multiplier (the air multiplier's extra distance), backflip, smash,
-// closeCall, other. The *N fields count events for the sources the summary shows a count for.
+// dodge (ducking under a billboard), closeCall, other. The *N fields count events for the sources the summary shows a count for.
 export function createBreakdown() {
   return {
-    distance: 0, multiplier: 0, backflip: 0, smash: 0, closeCall: 0, other: 0,
-    backflipN: 0, smashN: 0, closeCallN: 0,
+    distance: 0, multiplier: 0, backflip: 0, smash: 0, dodge: 0, closeCall: 0, other: 0,
+    backflipN: 0, smashN: 0, dodgeN: 0, closeCallN: 0,
   };
 }
 
@@ -98,11 +99,24 @@ export function addPoints(state, amount, kind = "other") {
   if (b && kind in b) b[kind] += amount;
 }
 
-// Distance points: like addPoints, but airborne distance is also tracked for the air multiplier.
+// Distance points: always banked at once, so the summary's distance points equal the distance run.
+// Airborne distance is also tracked for the air multiplier, whose extra copies wait for the landing.
 export function addDistancePoints(state, amount) {
   if (!(amount > 0)) return;
+  state.score += amount;
+  if (state.scoreBreakdown) state.scoreBreakdown.distance += amount;
   if (state.airActive) state.airDistance += amount;
-  addPoints(state, amount, "distance");
+}
+
+// The multiplier's extra copies of this jump's distance (paid on a safe landing).
+function airExtra(state, mult) {
+  return Math.round((state.airDistance || 0) * (mult - 1));
+}
+
+// Points riding on this jump right now: lost if Bob dies before landing.
+export function airPotAtRisk(state) {
+  if (!state.airActive) return 0;
+  return Math.floor((state.airPot || 0) + airExtra(state, airMultiplier(state)));
 }
 
 // A named bonus worth `sec` seconds of running: adds points and shows a pop-up.
@@ -169,16 +183,15 @@ export function landAir(state) {
 
   // A mid-flip landing still pays its flips, but not the combo.
   const mult = airMultiplier(state, clean);
-  // airPot already holds the distance once; the multiplier adds (mult - 1) more copies.
-  const payout = Math.round((state.airPot || 0) + (state.airDistance || 0) * (mult - 1));
+  const extra = airExtra(state, mult);
+  const payout = (state.airPot || 0) + extra;
   state.combo = clean ? (state.combo || 0) + 1 : 0;
   // Bank this jump's breakdown; the multiplier's extra copies of distance get their own row.
   const banked = state.scoreBreakdown;
   const pending = state.airBreakdown;
   if (banked && pending) {
     for (const k in pending) banked[k] += pending[k];
-    // payout - airPot is the multiplier's extra distance (or just rounding on a plain jump).
-    banked[mult > 1 ? "multiplier" : "distance"] += payout - (state.airPot || 0);
+    banked.multiplier += extra;
   }
   loseAir(state);
   if (payout <= 0) return;
@@ -212,7 +225,8 @@ export function tallyRowSec(row) {
 }
 
 // Summary rows in tally order: { key, points, count } (count is null for rows without one).
-// Bonus rows are rounded; DISTANCE takes the rest, so the rows add up to the shown total.
+// Bonus points are whole numbers and DISTANCE takes the rest, so the rows add up to the shown
+// total and DISTANCE's points equal the distance shown next to it.
 export function buildSummaryRows(state) {
   const b = state.scoreBreakdown || {};
   const pts = (k) => Math.max(0, Math.round(b[k] || 0));
@@ -220,15 +234,14 @@ export function buildSummaryRows(state) {
     { key: "multiplier", points: pts("multiplier"), count: null },
     { key: "backflip", points: pts("backflip"), count: b.backflipN || 0 },
     { key: "smash", points: pts("smash"), count: b.smashN || 0 },
+    { key: "dodge", points: pts("dodge"), count: b.dodgeN || 0 },
     { key: "closeCall", points: pts("closeCall"), count: b.closeCallN || 0 },
     { key: "other", points: pts("other"), count: null },
   ];
   const bonusTotal = rows.reduce((sum, r) => sum + r.points, 0);
   const score = Number.isFinite(state.score) ? state.score : 0;
-  rows.unshift({
-    key: "distance",
-    points: Math.max(0, Math.floor(score) - bonusTotal),
-    count: Math.floor(state.distance || 0),
-  });
+  // One distance point per pixel run, so the distance chip shows the same number as the points.
+  const distancePts = Math.max(0, Math.floor(score) - bonusTotal);
+  rows.unshift({ key: "distance", points: distancePts, count: distancePts });
   return rows;
 }

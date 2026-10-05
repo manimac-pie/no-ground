@@ -100,6 +100,88 @@ function neonTileStyle(useRed, glow, fade) {
   };
 }
 
+// ---------------- START smash ----------------
+// The word breaks into chunks (SHARD_CELL px squares of its tiles, so each keeps a piece of a
+// letter). Chunks burst away from where Bob hit, carried forward with him, spinning as they fall.
+// The break spreads outward from the impact like a crack, so far letters go a beat later.
+const SHARD_CELL = 6;            // px; chunk size
+const SMASH_CRACK_SPEED = 900;   // px/s the break spreads from the impact point
+const SMASH_GRAVITY = 900;
+const SMASH_FLASH_SEC = 0.07;    // a chunk glows white-hot this long after it breaks
+
+// Group the word's tiles into chunks once per tile cache.
+function getShards(cache) {
+  if (cache.shards) return cache.shards;
+  const cells = new Map();
+  for (const t of cache.tiles) {
+    const key = `${Math.floor(t.x / SHARD_CELL)},${Math.floor(t.y / SHARD_CELL)}`;
+    let shard = cells.get(key);
+    if (!shard) {
+      shard = { tiles: [], cx: 0, cy: 0, seed: cells.size };
+      cells.set(key, shard);
+    }
+    shard.tiles.push(t);
+  }
+  const shards = [...cells.values()];
+  for (const shard of shards) {
+    let sx = 0;
+    let sy = 0;
+    for (const t of shard.tiles) {
+      sx += t.x + t.w / 2;
+      sy += t.y + t.h / 2;
+    }
+    shard.cx = sx / shard.tiles.length;
+    shard.cy = sy / shard.tiles.length;
+  }
+  cache.shards = shards;
+  return shards;
+}
+
+// Chunks of one line of text. impact is relative to this line's top-left.
+function drawSmashShards(ctx, cache, lineX, lineY, impact, tSec, styles) {
+  for (const shard of getShards(cache)) {
+    const dx = shard.cx - impact.x;
+    const dy = shard.cy - impact.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const t = Math.max(0, tSec - dist / SMASH_CRACK_SPEED);
+    const r1 = hash01(shard.seed * 13.7 + 1);
+    const r2 = hash01(shard.seed * 97.3 + 2);
+    const r3 = hash01(shard.seed * 41.9 + 3);
+    const life = 0.8 + 0.45 * r2;
+    const k = t / life;
+    if (k >= 1) continue;
+
+    // Burst away from the impact (harder up close), plus Bob's forward carry and a pop upward.
+    const push = 240 * (0.5 + r1) * Math.min(1.4, Math.max(0.4, 1.4 - dist / 120));
+    const vx = (dx / dist) * push + 130 + 120 * r2;
+    const vy = (dy / dist) * push - (110 + 150 * r3);
+    const px = lineX + shard.cx + vx * t;
+    const py = lineY + shard.cy + vy * t + 0.5 * SMASH_GRAVITY * t * t;
+    const rot = (r1 - 0.5) * 14 * t;
+    const scale = 1 - 0.45 * k;
+    const hot = (t > 0 && t < SMASH_FLASH_SEC) || tSec < SMASH_FLASH_SEC;
+    const style = hot ? styles.hot : styles.normal;
+
+    ctx.save();
+    ctx.globalAlpha = 1 - k * k;
+    ctx.translate(px, py);
+    if (rot) ctx.rotate(rot);
+    if (scale !== 1) ctx.scale(scale, scale);
+    // One glowing fill per chunk (its tiles as one path), then the hot core lines.
+    ctx.beginPath();
+    for (const tile of shard.tiles) ctx.rect(tile.x - shard.cx, tile.y - shard.cy, tile.w, tile.h);
+    ctx.shadowColor = style.shadowColor;
+    ctx.shadowBlur = style.shadowBlur;
+    ctx.fillStyle = style.fill;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+    ctx.fillStyle = style.core;
+    for (const tile of shard.tiles) ctx.fillRect(tile.x - shard.cx, tile.y - shard.cy, tile.w, 1);
+    ctx.restore();
+  }
+}
+
 // One neon tile: glowing body, dark base line, hot core line. Leaves shadows off.
 function drawNeonTile(ctx, px, py, t, style) {
   ctx.shadowColor = style.shadowColor;
@@ -296,9 +378,6 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   // Sit on the roof: place text so its bottom touches the roof, with a small lift.
   const baseY = roofY - totalHeight - 2;
 
-  // Impact sim: deterministic velocities per tile, no per-frame allocations.
-  const gravity = 720;
-  const smashDuration = 1.4;
 
   // Compute overall bounds and draw line by line.
   let accY = 0;
@@ -335,29 +414,24 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
       ctx.setTransform(m);
       accY += c.height + lineGap;
     });
-  } else {
-    // Smashing: each tile flies on its own path. Style is shared by all tiles this frame.
-    const tSec = smashActive ? Math.min(smashDuration, smashT) : 0;
-    const fade = smashActive ? Math.max(0, 1 - tSec / smashDuration) : 1;
-    const style = neonTileStyle(useRed, glow, fade * pulse);
-    style.base = `rgba(30,40,52,${0.4 * fade})`;
-
-    caches.forEach((c, idx) => {
+  } else if (smashActive) {
+    // Smashed: chunks burst from where Bob hit (default: middle of the left edge).
+    const impact = state.menuSmashImpact || { x: 0, y: totalHeight / 2 };
+    const styles = {
+      normal: neonTileStyle(useRed, 1, 1),
+      hot: { shadowColor: "rgba(255,255,255,0.95)", shadowBlur: 18, fill: "rgba(255,255,255,1)", core: "rgba(255,255,255,1)" },
+    };
+    caches.forEach((c) => {
       const lineY = baseY + accY;
-      c.tiles.forEach((t, i) => {
-        let px = baseX + t.x; // left aligned
-        let py = lineY + t.y;
-
-        if (smashActive) {
-          const globalIndex = idx * 10000 + i; // stable-ish hash index
-          const vx = 80 + 220 * hash01(globalIndex * 13.7);
-          const vy = -(90 + 160 * hash01(globalIndex * 97.3));
-          px += vx * tSec;
-          py += vy * tSec + 0.5 * gravity * tSec * tSec;
-        }
-
-        drawNeonTile(ctx, px, py, t, style);
-      });
+      drawSmashShards(ctx, c, baseX, lineY, { x: impact.x, y: impact.y - accY }, smashT, styles);
+      accY += c.height + lineGap;
+    });
+  } else {
+    // At rest but zooming (scale changes every frame): draw the tiles directly.
+    const style = neonTileStyle(useRed, glow, pulse);
+    caches.forEach((c) => {
+      const lineY = baseY + accY;
+      c.tiles.forEach((t) => drawNeonTile(ctx, baseX + t.x, lineY + t.y, t, style));
       accY += c.height + lineGap;
     });
   }
@@ -374,7 +448,14 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
       px + pw > baseX &&
       py < baseY + totalHeight &&
       py + ph > baseY;
-    if (hit) onSmashTrigger(hover);
+    if (hit) {
+      // Impact point relative to the text: Bob's front edge, at his middle height.
+      const impact = {
+        x: Math.min(maxWidth, Math.max(0, px + pw - baseX)),
+        y: Math.min(totalHeight, Math.max(0, py + ph / 2 - baseY)),
+      };
+      onSmashTrigger(hover, impact);
+    }
   }
 
   ctx.restore();

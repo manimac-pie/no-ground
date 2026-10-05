@@ -19,6 +19,7 @@ import {
   START_PUSH_TOTAL,
   MENU_START_ZOOM,
   RUN_SUMMARY_DROP_SEC,
+  RESET_GLITCH_SEC,
   LEADERBOARD_SLIDE_DELAY_SEC,
   LEADERBOARD_SLIDE_SEC,
 } from "./game/constants.js";
@@ -36,18 +37,21 @@ import { startSpin, updateTricks } from "./game/tricks.js";
 import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "./ui/layout.js";
 import { onGameFinished } from "./ui/leaderboardView.js";
 import { getMyBest } from "./ui/leaderboardState.js";
+import { loadIteration, saveIteration } from "./ui/iteration.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
 const SMASH_APPROACH = 0.90;    // delay before smash to let Bob reach the text
 const SMASH_VISIBLE = 1.4;      // how long shards stay visible after impact
-const RESTART_SMASH_LEAD = 0; // no delay before restart flyby after reset breaks
+const RESTART_SMASH_LEAD = RESET_GLITCH_SEC; // RESET glitches the screen out, then the fly-by starts
 const HUD_SLIDE_SEC = 0.55;
 const RESTART_READY_DELAY_SEC = 0.5; // pause after the score tally before RESET appears
 const RESUME_COUNTDOWN_SEC = 3;      // 3-2-1 after unpausing
 
 export function createGame() {
   const state = createInitialState();
+
+  state.iteration = loadIteration();
 
   function reset() {
     resetRunState(state);
@@ -88,6 +92,7 @@ export function createGame() {
       state.tallyRow = 0;
       state.tallyRowT = 0;
       state.restartReady = false;
+      state.restartReadyT = 0;
       return;
     }
 
@@ -104,6 +109,7 @@ export function createGame() {
     advanceTally();
     // RESET appears (and the leaderboard name prompt may open) once the tally has settled.
     state.restartReady = state.scoreTallyDone && state.scoreTallyDoneT >= RESTART_READY_DELAY_SEC;
+    state.restartReadyT = state.restartReady ? state.scoreTallyDoneT - RESTART_READY_DELAY_SEC : 0;
   }
 
   // Walk the tally clock through the summary rows. Finished rows are banked into scoreTally;
@@ -499,12 +505,17 @@ export function createGame() {
             if (onRestartScreen) finishSummary();
             return state;
           }
+          if (state.restartSmashActive) return state; // already resetting
           state.restartSmashActive = true;
           state.restartSmashBroken = true;
           state.restartSmashRed = state.restartHover === true;
           state.restartSmashT = 0;
           return state;
         }
+        // A new run: the simulation counts another iteration.
+        state.iteration += 1;
+        saveIteration(state.iteration);
+
         state.menuZooming = true;
         state.menuZoomK = 0;
         state.menuSmashT = 0;
@@ -512,6 +523,7 @@ export function createGame() {
         state.menuSmashArmed = false; // collision will trigger smash
         state.menuSmashBroken = false;
         state.menuSmashRed = false;
+        state.menuSmashImpact = null;
 
         // Let Bob move immediately during the zoom-out.
         state.running = true;

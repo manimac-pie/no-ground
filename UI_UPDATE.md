@@ -144,7 +144,7 @@ The summary rows show counts but not points (`src/render/ui.js:1077`), so player
 
 **Verify:** the per-row points plus the slowfall-adjusted distance points add up to the total score.
 
-*Done 2026-10-05:* rows are DISTANCE, TRICK MULTIPLIER, BACKFLIPS, BILLBOARDS BROKEN, CLOSE CALLS and OTHER BONUSES, from `state.scoreBreakdown`. Airborne points wait in `state.airBreakdown` and are only banked on a safe landing, like the air pot, so the rows add up to the total. Backflips keep their row because they score since the scoring rework. SLOWFALL DISTANCE was dropped because slowfall no longer scores.
+*Done 2026-10-05:* rows are DISTANCE, TRICK MULTIPLIER, BACKFLIPS, BILLBOARDS BROKEN, ADS AVOIDED, CLOSE CALLS and OTHER BONUSES, from `state.scoreBreakdown`. Airborne points wait in `state.airBreakdown` and are only banked on a safe landing, like the air pot, so the rows add up to the total. Backflips keep their row because they score since the scoring rework. SLOWFALL DISTANCE was dropped because slowfall no longer scores.
 
 ### 10. First-run move hints
 

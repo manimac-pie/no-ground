@@ -15,6 +15,7 @@ import {
   START_PUSH_TOTAL,
   BREAK_SHARDS,
   MENU_START_ZOOM,
+  RESET_GLITCH_SEC,
 } from "../game/constants.js";
 
 import {
@@ -36,6 +37,7 @@ import {
   drawControlsButton,
   drawControlsPanel,
   drawPauseOverlay,
+  drawResetGlitch,
 } from "./ui.js";
 import { drawStartPrompt } from "./menu.js";
 import {
@@ -519,6 +521,10 @@ export function setMaxDpr(value) {
   maxDpr = value;
 }
 
+// START smash screen shake
+const SMASH_SHAKE_SEC = 0.22;
+const SMASH_SHAKE_PX = 4;
+
 // Touch screen or not (main.js decides): picks "TAP" or key wording in on-screen hints.
 let touchUi = false;
 
@@ -730,6 +736,13 @@ export function render(ctx, state) {
   const startPush = computeStartPush(state, focusX);
 
   ctx.save();
+  // START smash: a short, decaying screen shake (driven by the game's smash timer, so it pauses too).
+  const smashT = state.menuSmashT || 0;
+  if (state.menuSmashActive && smashT < SMASH_SHAKE_SEC) {
+    const k = 1 - smashT / SMASH_SHAKE_SEC;
+    const amp = SMASH_SHAKE_PX * k * k;
+    ctx.translate(Math.sin(smashT * 97) * amp, Math.cos(smashT * 83) * amp * 0.7);
+  }
   ctx.translate(focusX, focusY);
   ctx.scale(zoom, zoom);
   ctx.translate(-focusX, -focusY);
@@ -859,12 +872,13 @@ export function render(ctx, state) {
   // Start prompt stays in-world (moves with camera/zoom, fixed world size).
   resetCtx(ctx);
   drawStartPrompt(ctx, state, uiTime, COLORS, W, H, {
-    onSmashTrigger: (hovered) => {
+    onSmashTrigger: (hovered, impact) => {
       if (!state.menuSmashActive) {
         state.menuSmashActive = true;
         state.menuSmashBroken = true;
         state.menuSmashT = 0;
         state.menuSmashRed = hovered === true;
+        state.menuSmashImpact = impact || null;
       }
     },
     onBounds: (bounds) => {
@@ -982,6 +996,11 @@ export function render(ctx, state) {
     if (state.controlsPanelOpen) {
       drawControlsPanel(ctx, panelRect, COLORS);
     }
+  }
+
+  // Pressing RESET: glitch the finished frame out, until the fly-by takes over.
+  if (state.restartSmashActive && !state.restartFlybyActive) {
+    drawResetGlitch(ctx, clamp((state.restartSmashT || 0) / RESET_GLITCH_SEC, 0, 1));
   }
 
   // Pause screen / resume countdown covers everything, HUD included.
