@@ -406,7 +406,8 @@ export function integratePlayer(state, dt, endGame) {
         p.divePhaseT = 0;
         p.slowfallFuel = SLOWFALL_FUEL_MAX;
         // Only the front of Bob made it onto the roof (still airborne, so it goes into the pot).
-        if (px2 - plat.x <= p.w * CLOSE_CALL_OVERLAP_FRAC) {
+        // This block also runs on every step he's already standing here, so only the landing counts.
+        if (!wasOnGround && px2 - plat.x <= p.w * CLOSE_CALL_OVERLAP_FRAC) {
           awardBonus(state, CLOSE_CALL_BONUS_SEC, "CLOSE CALL", "closeCall");
         }
         landAir(state);

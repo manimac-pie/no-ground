@@ -67,4 +67,5 @@ Numbered from lowest effort to highest.
 ## Also done (not on the list)
 - [x] Landing from a dive throws a small burst of sparks off the wheel (`src/render/player/dashFx.js`).
 - [x] Fixed: Bob could fall straight through an intact roof after smashing a low glass billboard with a dash or dive. A smash now lets him land on the roof in the same step (`src/game/player.js`).
+- [x] Fixed: one landing on a roof's edge could give up to 4 CLOSE CALLs. The landing check also runs on every step Bob stands there, so it kept awarding until enough of him had scrolled onto the roof. Now only the landing step counts (`src/game/player.js`).
 - [x] Checked: Bob can dash again in the air as soon as the dash bar refills (0.45 s cooldown). There's no limit on air dashes per jump.
