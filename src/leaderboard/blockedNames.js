@@ -1,29 +1,22 @@
 // src/leaderboard/blockedNames.js
-// Names the leaderboard won't accept. Edit this list freely.
+// Names the leaderboard won't accept. The list is in blocked-names.json (repo root): edit it freely.
+// The game checks it here; the leaderboard Worker reads the same file from the live site
+// (https://manimac-pie.github.io/no-ground/blocked-names.json, re-read every 5 minutes) and refuses
+// those names on /api/claim too, so a push is all a change needs.
 //
 // Each entry is either:
-//   "name"                                  blocked, shows DEFAULT_BLOCKED_MESSAGE
-//   { name: "name", message: "..." }        blocked, shows its own pop-up message
-//   { name: "name", contains: true, ... }   also blocks any name with it inside ("xbobx")
+//   "name"                                       blocked, shows DEFAULT_BLOCKED_MESSAGE
+//   { "name": "name", "message": "..." }         blocked, shows its own pop-up message
+//   { "name": "name", "contains": true, ... }    also blocks any name with it inside ("xbobx")
 //
 // Matching ignores case, spaces and _ - . so "Ad_Min" and "a d m i n" both match "admin".
-//
-// This check runs in the browser only. To also stop names sent straight to the API,
-// the Worker's /api/claim needs the same list (see docs/WORKER_TODO.md).
+// The Worker matches the same way (worker/src/worker.js), so keep the two in step.
+
+import BLOCKED_NAMES from "../../blocked-names.json";
+
+export { BLOCKED_NAMES };
 
 export const DEFAULT_BLOCKED_MESSAGE = "This name is reserved by the system. Pick another.";
-
-export const BLOCKED_NAMES = [
-  { name: "admin", contains: true, message: "ADMIN is a system account. Bob doesn't get admin rights." },
-  { name: "system", contains: true, message: "You are not the system. The system is watching you." },
-  { name: "root", message: "Root access denied. Nice try." },
-  { name: "67", contains: true,message: "There will be no 67s here." },
-  { name: "69", message: "69. Nice. Try again." },
-  { name: "Bob", contains: true, message: "You are all Bob to the system. Pick a different name."},
-  "null",
-  "undefined",
-];
-
 
 function normalize(name) {
   return String(name || "").toLowerCase().replace(/[\s_.-]/g, "");

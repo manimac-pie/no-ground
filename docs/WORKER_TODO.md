@@ -1,10 +1,14 @@
 # Leaderboard Worker: changes still needed
 
-The Worker (`no-ground-leaderboard-api`, not in this repo) still needs three changes. The game already handles each one, and keeps working without them in the meantime.
+The Worker is `no-ground-leaderboard-api`. Its code is in `worker/` (kept out of git, since this repo is public): `worker/src/worker.js`, with the config in `worker/wrangler.jsonc` and the SQL in `worker/sql/`. Deploy it by pasting `worker.js` into the dashboard editor (Edit code, then Deploy), or with `npx wrangler deploy` from `worker/`.
+
+All three items are done (2026-10-06). Item 3 needs the game pushed and the Worker deployed to go live.
 
 ---
 
-## 1. Score scale ÷2. Do this first
+## 1. Score scale ÷2. ✅ Done: the board was wiped
+
+> **Done 2026-10-06.** Both tables were cleared (`worker/sql/2026-10-06-wipe.sql`), so every score is on the new scale. The old board can be restored from D1 Time Travel if ever needed. `SCORE_MAX` is still 2,000,000,000 and there's no client version check.
 
 The client now scores **1 point per 2 px** (it used to be 1 per px). Every bonus is ÷2 too, so a run that used to score 20,000 now scores about 10,000.
 
@@ -22,7 +26,9 @@ Things to check in the Worker while you're there:
 
 ---
 
-## 2. A separate weekly top 10
+## 2. A separate weekly top 10. ✅ Done
+
+> **Done 2026-10-06.** `/api/top10` returns `weekly` (each device's best claim since Monday 00:00 UTC, top 10), and `/api/mybest` and `/api/submit` return `week_best`. That's kept in two new `device_best` columns, `week_best` and `week_start` (`worker/sql/2026-10-06-weekly.sql`). The claim times were already stored in `leaderboard_entries.created_at`, so no new column was needed for them. A score qualifies for the name prompt when it makes the all-time top 3, or this week's top 10 and beats that device's own entry this week; `/api/claim` re-checks it. Tested locally with `wrangler dev`; live since 2026-10-06 and returning `weekly: []` on the empty board.
 
 The leaderboard panel shows two boards: **ALL-TIME** (the top 3, kept forever) and **THIS WEEK** (this week's best runs, ranked 1–10). This replaces the earlier plan of wiping ranks 4–10 every Monday: nothing has to be deleted, and no cron job is needed.
 
@@ -43,12 +49,14 @@ The leaderboard panel shows two boards: **ALL-TIME** (the top 3, kept forever) a
 
 ---
 
-## 3. Blocked names on `/api/claim`
+## 3. Blocked names on `/api/claim`. ✅ Done (once the steps below are deployed)
 
-The client refuses the names in `src/leaderboard/blockedNames.js` and shows a pop-up. Anyone can still call `/api/claim` directly, so the Worker should check the same list.
-
-- Match the same way the client does: lowercase, strip spaces and `_ - .`, then compare exactly (or as a substring for entries marked `contains: true`).
-- Return an error such as `{ ok: false, error: "name_blocked" }`.
-- Keep the two lists in sync. Another option is a `GET /api/blocked-names` that the client fetches, so the list only lives in one place. Tell me if you go that way and I'll switch the client over.
-
-Note: if the Worker refuses a name today, the client logs the error and drops the claim (`src/leaderboard/claimFlow.js`, the `catch` in `maybePromptForPendingClaim`). If you add the server check, the client should show the pop-up for `name_blocked` and let the player try again. That's a small client change I can make once the error code exists.
+> **Done 2026-10-06.** There's one list: `blocked-names.json` at the root of the game repo, with the same names and pop-up messages as before. The game imports it (`src/leaderboard/blockedNames.js`), and the build publishes it at `https://manimac-pie.github.io/no-ground/blocked-names.json`.
+>
+> - **Worker:** `/api/claim` reads that file (at most every 5 minutes) and returns `{ ok: false, error: "name_blocked" }` (400) for a blocked name. It matches the way the game does: lowercase, ignore spaces and `_ - .`, then exact, or substring for `"contains": true`. If the site can't be reached it keeps the last list it read; before it has read one, nothing is blocked server-side (the game still checks in the browser).
+> - **Game:** a `name_blocked` refusal reopens the name prompt with that name's pop-up, so the player can pick another name instead of losing the claim. After a claim the game now also refreshes THIS WEEK and `week_best`.
+> - **Tested:** 20 names against the local Worker (`Ad_Min`, `6.9` and `xbobx` blocked; `rooty`, `1690` and `nullx` allowed), the weekly checks again, and the game's prompt in headless Chrome with the API faked.
+>
+> **To change the list:** edit `blocked-names.json` and push. The Worker picks it up within about 5 minutes.
+>
+> **To deploy:** push the game first (so the file is on the live site), then deploy the Worker (`worker/src/worker.js`, via the dashboard editor or `npx wrangler deploy` from `worker/`).

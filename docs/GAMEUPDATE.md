@@ -23,7 +23,7 @@ Numbered from lowest effort to highest.
     > ![Game Controls Menu](image.png)
     > Something easier to understand
 
-7. [ ] Top three all time + Top 10 of the week (that resets every week). Allow the same person and score to be shown in both all time and this week
+7. [x] Top three all time + Top 10 of the week (that resets every week). Allow the same person and score to be shown in both all time and this week
 
     > All Time
     > 1. Player 1 765432
@@ -37,25 +37,25 @@ Numbered from lowest effort to highest.
     > 4. -
     > 5. -
     > etc. 
+    > ✅ Done (2026-10-06): the leaderboard Worker now sends this week's top 10 separately, so THIS WEEK is its own 1–10 ranking (each player's best since Monday 00:00 UTC) next to the all-time top 3, and the same player can be on both. The board was wiped for the new score scale. Worker code: `worker/src/worker.js` (see `docs/WORKER_TODO.md`).
 
 8. [ ] I notice that if i replay muptiple times in a row, it starts getting a bit laggy.
     > How to measure: record about 10 s of play in the Chrome DevTools Performance panel, with 4× CPU throttling to mimic a phone. Compare a first run with a run after several replays, and measure again after each fix.
     > If the console shows `[perf] Average frame … ms; rendering at 1x resolution.`, frames were slow enough that the game dropped to 1× resolution (`watchFrameTime` in `src/main.js`).
     > Optional: a debug overlay, toggled with a key, showing the average `game.update` and `render` times.
-    > Found and fixed one cause (2026-10-06): every glass billboard kept ~40 pre-cut shard images, and up to 24 billboards' worth piled up over the first runs (about 1,000 canvases). Now only the next 4 keep theirs, and the images are reused. Retest to see if the lag is gone.
+
 
 9. [ ] (POTENTIAL) Smoother motion on 120 Hz screens
     > Physics runs at 60 Hz, and `main.js` only redraws after a physics step, so a 120 Hz screen shows about 60 fps.
     > Fix: pass `acc / FIXED_DT` to the renderer and blend between the previous and current positions.
     > Not measured on a 120 Hz screen yet.
 
-10. [ ] Better billboard breaking physics
-
 11. [ ] Mix and match billboards to buildings
     > allow blue billboards on red buildings (if the building collapses, the billboard stays on the ground still standing)
     > red billboards should still work the same on blue 
     
-12. [ ] Jumping right after releasing from duck (s) gives a bit of extra jump height
+12. [x] Jumping right after releasing from duck (s) gives a bit of extra jump height
+    > Already in the game: a jump while ducking, or up to 0.15 s after letting go of S, goes ×1.08 (about 17% higher). Should it be stronger or last longer? Tune `DUCK_JUMP_VELOCITY_MULT` and `DUCK_JUMP_WINDOW_SEC` in `src/game/constants.js`.
 
 13. [ ] the claw that takes bob out of the ending scene seems a bit wierd. can you make it fit bob better. and maybe when bob crashes, the wheel bobs off and some screws get loose?
 
@@ -63,3 +63,8 @@ Numbered from lowest effort to highest.
 
 15. [x] better dash trail?
     > ✅ Done (option G from the demo): sparks from the wheel on a roof dash and wind lines across the whole screen (roof or air). No trail on Bob. The old streaks are gone. Code: `src/render/player/dashFx.js`.
+
+## Also done (not on the list)
+- [x] Landing from a dive throws a small burst of sparks off the wheel (`src/render/player/dashFx.js`).
+- [x] Fixed: Bob could fall straight through an intact roof after smashing a low glass billboard with a dash or dive. A smash now lets him land on the roof in the same step (`src/game/player.js`).
+- [x] Checked: Bob can dash again in the air as soon as the dash bar refills (0.45 s cooldown). There's no limit on air dashes per jump.

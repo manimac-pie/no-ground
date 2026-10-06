@@ -79,7 +79,7 @@ let _camX = 0;
 const poseView = { player: null, slowfallHeld: false, heavyLandT: 0, speedImpulse: 0, running: false, speed: 0 };
 const posePlayer = {};
 const LIMP = { vy: 0, diving: false, divePhase: "", divePhaseT: 0, ducking: false, spinning: false }; // in the claw
-const STANDING = { onGround: true, dashImpulseT: 0, ducking: false }; // on the starter roof
+const STANDING = { onGround: true, ducking: false }; // on the starter roof
 
 function poseFor(state, deathActive, onStartScreen) {
   if (!deathActive && !onStartScreen) return state;

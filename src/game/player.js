@@ -476,9 +476,6 @@ export function updateDash(state, dt) {
     p.dashCooldown = Math.max(0, p.dashCooldown - dt);
   }
 
-  if (p.dashImpulseT > 0) {
-    p.dashImpulseT = Math.max(0, p.dashImpulseT - dt);
-  }
   p.dashAgeSec += dt; // time since the last dash press (perfect ad break)
 
   // DASH RULES:
@@ -487,7 +484,6 @@ export function updateDash(state, dt) {
   if (state.dashPressed === true && p.dashCooldown <= 0) {
     state.speedImpulse += DASH_SPEED_BOOST;
     p.dashCooldown = DASH_COOLDOWN;
-    p.dashImpulseT = DASH_IMPULSE_FX_SEC;
     p.dashAgeSec = 0;
     // Only an air dash scores (into the pot, so it pays only if Bob lands). A roof dash is risk-free.
     if (state.airActive) awardBonus(state, AIR_DASH_BONUS_SEC, "DASH");

@@ -1,6 +1,6 @@
 import { claimName, loadLeaderboard } from "./api.js";
 import { getLeaderboardState, setLeaderboardState } from "./state.js";
-import { blockedNameMessage } from "./blockedNames.js";
+import { blockedNameMessage, DEFAULT_BLOCKED_MESSAGE } from "./blockedNames.js";
 
 const NAME_PROMPT_MAX = 10;
 const NAME_VALIDATION = /^[A-Za-z0-9 _\-.]{1,10}$/;
@@ -62,14 +62,16 @@ function ensurePromptElements() {
   return elements;
 }
 
-function openNamePrompt() {
+// denied: { name, message } to reopen with that name already refused (the server blocked it).
+function openNamePrompt(denied = null) {
   const elements = ensurePromptElements();
   if (!elements) return Promise.resolve(null);
   elements.overlay.classList.add("active");
-  elements.input.value = "";
+  elements.input.value = denied ? denied.name : "";
   if (elements.error) elements.error.textContent = "";
   if (elements.denied) elements.denied.hidden = true;
-  setTimeout(() => elements.input?.focus(), 10);
+  if (denied) showDenied(denied.name, denied.message);
+  else setTimeout(() => elements.input?.focus(), 10);
   emitPromptState(true);
   return new Promise((resolve) => {
     promptResolver = resolve;
@@ -137,8 +139,7 @@ function submitCancel() {
 
 async function refreshTop10() {
   try {
-    const { entries, myBest } = await loadLeaderboard();
-    setLeaderboardState({ entries, myBest });
+    setLeaderboardState(await loadLeaderboard()); // both boards and both bests
   } catch (err) {
     console.error("Leaderboard refresh failed:", err);
   }
@@ -163,19 +164,32 @@ export async function maybePromptForPendingClaim({ allowPrompt = true } = {}) {
   markPendingClaim(pendingClaim);
 
   try {
-    const name = await openNamePrompt();
+    let name = await openNamePrompt();
+    let claimed = null;
+    // The Worker checks the same blocked names (blocked-names.json). If it refuses one this game
+    // let through (an older copy of the list), show the pop-up and let the player pick again.
+    while (name) {
+      try {
+        claimed = await claimName(pendingClaim.deviceId, pendingClaim.score, name);
+        break;
+      } catch (error) {
+        if (error?.message !== "name_blocked") throw error;
+        name = await openNamePrompt({ name, message: blockedNameMessage(name) || DEFAULT_BLOCKED_MESSAGE });
+      }
+    }
     if (!name) {
       setLeaderboardState({ pendingClaim: null });
       return;
     }
 
-    const claimed = await claimName(pendingClaim.deviceId, pendingClaim.score, name);
     if (Number.isFinite(claimed.my_best)) {
       const updates = {
         myBest: claimed.my_best,
         pendingClaim: null,
       };
       if (Array.isArray(claimed.entries)) updates.entries = claimed.entries;
+      if (Array.isArray(claimed.weekly)) updates.weekly = claimed.weekly;
+      if (Number.isFinite(claimed.week_best)) updates.weekBest = claimed.week_best;
       setLeaderboardState(updates);
       await refreshTop10();
     } else {

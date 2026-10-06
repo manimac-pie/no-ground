@@ -139,23 +139,12 @@ export const PLAYER_H = 34;
 export const PLAYER_X = 160;
 
 // Dash (D)
-export const DASH_DISTANCE = 140;       // how far the player jumps ahead (px)
-export const DASH_CATCHUP_SPEED = 520;  // how fast the camera catches up after landing (px/sec)
 export const DASH_COOLDOWN = 0.45;      // seconds between dashes
 export const DASH_SPEED_BOOST = 820;    // added to world speed on dash (keep peak speed)
 export const DASH_IMPULSE_DECAY = 2.4;  // decay rate for dash impulse (lower = longer)
-export const DASH_OFFSET_SNAP_SPEED = 1800; // max dash offset speed (px/sec)
-export const DASH_OFFSET_SMOOTH = 18;   // smoothing rate for dash offset
 export const DASH_CAM_SMOOTH = 12;      // smoothing rate for camera offset
-export const DASH_CAM_CATCHUP_BOOST = 3.0; // multiplier for camera smooth after landing
-export const DASH_CAM_CATCHUP_SEC = 0.10;  // duration of post-landing catchup boost
 export const DASH_PARALLAX_CAM_FACTOR = 0.2; // parallax camera influence (0 = fixed)
-export const DASH_SLOWFALL_GRAVITY_BOOST = 0.18; // slight slowfall weakening during dash
-export const DASH_CATCHUP_DELAY = 0.08; // delay after landing before camera catches up
 export const DASH_MAX_CAM_LAG = 160;    // cap camera lag while airborne
-export const DASH_VY_SCALE_START = 200; // start reducing dash distance above this |vy|
-export const DASH_VY_SCALE_END = 1200;  // max reduction at this |vy|
-export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
 export const DASH_IMPULSE_FX_SEC = 0.20; // a dash's burst: it breaks ads for this long (plus DASH_BREAK_GRACE_SEC)
 export const DASH_BREAK_GRACE_SEC = 0.10; // a dash still breaks ads this long after the burst ends (half of it)
 

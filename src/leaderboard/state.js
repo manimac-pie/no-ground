@@ -12,7 +12,7 @@ const listeners = new Set();
 
 // The two sections of the leaderboard panel. With a weekly list from the Worker, THIS WEEK is its
 // own ranking, 1-10. Without one (the Worker before docs/WORKER_TODO.md item 2), it's ranks 4-10
-// of the single list, which the Worker wipes every Monday.
+// of the single list.
 function buildBoards() {
   const separate = Array.isArray(cachedWeekly);
   return {

@@ -160,10 +160,6 @@ export function createInitialState() {
       unduckAgeSec: Infinity, // time since the last duck ended (duck jump)
 
       dashCooldown: 0,
-      dashOffset: 0,
-      dashTarget: 0,
-      dashOffsetV: 0,
-      dashImpulseT: 0,
       dashAgeSec: Infinity, // time since the last dash press (perfect ad break)
       jumpImpulseT: 0,
       billboardDeath: false,
@@ -295,10 +291,6 @@ export function resetRunState(state) {
   p.slowfallFuel = SLOWFALL_FUEL_MAX;
   p.slowfallFuelMax = SLOWFALL_FUEL_MAX;
   p.dashCooldown = 0;
-  p.dashOffset = 0;
-  p.dashTarget = 0;
-  p.dashOffsetV = 0;
-  p.dashImpulseT = 0;
   p.dashAgeSec = Infinity;
   p.jumpImpulseT = 0;
   p.billboardDeath = false;

@@ -1,0 +1,10 @@
+[
+  { "name": "admin", "contains": true, "message": "ADMIN is a system account. Bob doesn't get admin rights." },
+  { "name": "system", "contains": true, "message": "You are not the system. The system is watching you." },
+  { "name": "root", "message": "Root access denied. Nice try." },
+  { "name": "67", "contains": true, "message": "There will be no 67s here." },
+  { "name": "69", "message": "69. Nice. Try again." },
+  { "name": "Bob", "contains": true, "message": "You are all Bob to the system. Pick a different name." },
+  "null",
+  "undefined"
+]

@@ -43,7 +43,7 @@ let spawnAcc = 0;
 let lastHeavyLandT = 0;
 
 // 0..1: how much of a dash's speed boost is left.
-export function dashFxStrength(view) {
+function dashFxStrength(view) {
   const impulse = Number.isFinite(view.speedImpulse) ? view.speedImpulse : 0;
   return clamp(impulse / DASH_SPEED_BOOST, 0, 1);
 }

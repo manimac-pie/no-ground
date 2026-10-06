@@ -4,3 +4,6 @@
 # Tooling (Batch B)
 node_modules/
 dist/
+
+# Leaderboard Worker (deployed with wrangler from worker/, kept out of the public repo)
+worker/
