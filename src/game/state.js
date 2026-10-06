@@ -57,14 +57,7 @@ export function createInitialState() {
     hudIntroT: 0,
 
     distance: 0,
-    _nextAirReq: "none",
-    _nextAirReqDist: 0,
-    _breakableStreak: 0,
-    _buildingCount: 0,
-    _worldRight: 0,      // billboard director (game/platforms.js): right edge of the last roof along the level
-    _bbNextAt: 0,        // ...level position the next billboard may go at
-    _bbCount: 0,         // ...billboards placed this run (the first few are the intro)
-    _bbLastKind: null,   // ...kind of the last one
+    gen: null,           // level generator state (game/generator.js), set by resetPlatforms
 
     combo: 0, // clean tricked landings in a row (adds to the air multiplier)
 
@@ -217,10 +210,6 @@ export function resetRunState(state) {
   state.animTime = 0;
   state.hudIntroT = 0;
   state.distance = 0;
-  state._nextAirReq = "none";
-  state._nextAirReqDist = 0;
-  state._breakableStreak = 0;
-  state._buildingCount = 0;
 
   state.combo = 0;
   state.score = 0;

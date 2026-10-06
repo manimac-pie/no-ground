@@ -1,11 +1,36 @@
 export const LEADERBOARD_MAX_ENTRIES = 10;
-export const LEADERBOARD_COLLAPSED_ROWS = 3; // rows the start-screen board shows until expanded
+export const LEADERBOARD_ALL_TIME_ROWS = 3; // the panel shows the all-time top 3; they never reset
 const MAX_ENTRIES = LEADERBOARD_MAX_ENTRIES;
 
-let cachedEntries = [];
+let cachedEntries = [];   // the all-time board
+let cachedWeekly = null;  // this week's top 10, once the Worker sends one (null until then)
 let cachedMyBest = 0;
+let cachedWeekBest = null;
 let pendingClaim = null;
+let boards = buildBoards();
 const listeners = new Set();
+
+// The two sections of the leaderboard panel. With a weekly list from the Worker, THIS WEEK is its
+// own ranking, 1-10. Without one (the Worker before docs/WORKER_TODO.md item 2), it's ranks 4-10
+// of the single list, which the Worker wipes every Monday.
+function buildBoards() {
+  const separate = Array.isArray(cachedWeekly);
+  return {
+    allTime: cachedEntries.slice(0, LEADERBOARD_ALL_TIME_ROWS),
+    weekly: separate ? cachedWeekly : cachedEntries.slice(LEADERBOARD_ALL_TIME_ROWS),
+    weeklyFirstRank: separate ? 1 : LEADERBOARD_ALL_TIME_ROWS + 1,
+    weeklySlots: separate ? MAX_ENTRIES : MAX_ENTRIES - LEADERBOARD_ALL_TIME_ROWS,
+    separate,
+    weekBest: cachedWeekBest,
+  };
+}
+
+function cleanEntries(list) {
+  return list.slice(0, MAX_ENTRIES).map((entry) => ({
+    name: typeof entry?.name === "string" && entry.name.length > 0 ? entry.name : "—",
+    score: Number.isFinite(entry?.score) ? entry.score : 0,
+  }));
+}
 
 function notify() {
   const snapshot = {
@@ -35,21 +60,26 @@ export function getMyBest() {
   return cachedMyBest;
 }
 
-export function getLeaderboardEntryCount() {
-  return cachedEntries.length;
+// The panel's two sections; rebuilt only when the data changes.
+export function getBoards() {
+  return boards;
 }
 
 export function setLeaderboardState(state = {}) {
   if (Array.isArray(state.entries)) {
-    cachedEntries = state.entries.slice(0, MAX_ENTRIES).map((entry) => ({
-      name: typeof entry?.name === "string" && entry.name.length > 0 ? entry.name : "—",
-      score: Number.isFinite(entry?.score) ? entry.score : 0,
-    }));
+    cachedEntries = cleanEntries(state.entries);
+  }
+  if ("weekly" in state) {
+    cachedWeekly = Array.isArray(state.weekly) ? cleanEntries(state.weekly) : null;
   }
 
   if (Number.isFinite(state.myBest)) {
     cachedMyBest = state.myBest;
   }
+  if ("weekBest" in state) {
+    cachedWeekBest = Number.isFinite(state.weekBest) ? state.weekBest : null;
+  }
+  boards = buildBoards();
 
   if ("pendingClaim" in state) {
     if (state.pendingClaim && typeof state.pendingClaim === "object") {

@@ -25,7 +25,8 @@ import {
 import { clamp } from "../shared/math.js";
 import { createInitialState, isSummaryShowing, resetRunState } from "./state.js";
 import { addDistancePoints, buildSummaryRows, tallyRowSec } from "./score.js";
-import { resetPlatforms, scrollWorld, updatePlatforms } from "./platforms.js";
+import { resetPlatforms } from "./generator.js";
+import { scrollWorld, updatePlatforms } from "./platforms.js";
 import {
   tryConsumeBufferedJump,
   integratePlayer,
@@ -36,7 +37,7 @@ import { spawnBreakShards, updateBreakShards } from "./breakShards.js";
 import { START_PANE_H, START_PANE_W, START_PANE_Y, checkStartSmash, startPaneX } from "./firewall.js";
 import { getControlsButtonRect, getControlsPanelRect, hitAreas, pointInRect } from "../ui/layout.js";
 import { onGameFinished } from "../leaderboard/view.js";
-import { getLeaderboardEntryCount, getMyBest, LEADERBOARD_COLLAPSED_ROWS } from "../leaderboard/state.js";
+import { getBoards, getMyBest } from "../leaderboard/state.js";
 import { loadIteration, saveIteration } from "../ui/iteration.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
@@ -405,9 +406,9 @@ export function createGame() {
       state.controlsPanelOpen = false;
     }
 
-    // The start-screen board only stays expanded while it has more rows than it shows collapsed
-    // (the list can shrink, e.g. at the weekly reset).
-    if (state.leaderboardExpanded && getLeaderboardEntryCount() <= LEADERBOARD_COLLAPSED_ROWS) {
+    // The start-screen board only stays expanded while THIS WEEK has ranks to show
+    // (it empties when a new week starts).
+    if (state.leaderboardExpanded && getBoards().weekly.length === 0) {
       state.leaderboardExpanded = false;
     }
 

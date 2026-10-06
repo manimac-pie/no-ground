@@ -1,10 +1,10 @@
-# Leaderboard Worker: changes needed for Update_5oct
+# Leaderboard Worker: changes still needed
 
-The game client is done for these items. The Worker (`no-ground-leaderboard-api`, not in this repo) still needs three changes. Without them, the countdown counts down to nothing, and old scores sit 2× above new ones.
+The Worker (`no-ground-leaderboard-api`, not in this repo) still needs three changes. The game already handles each one, and keeps working without them in the meantime.
 
 ---
 
-## 1. Score scale ÷2 (item 8). Do this first
+## 1. Score scale ÷2. Do this first
 
 The client now scores **1 point per 2 px** (it used to be 1 per px). Every bonus is ÷2 too, so a run that used to score 20,000 now scores about 10,000.
 
@@ -22,32 +22,28 @@ Things to check in the Worker while you're there:
 
 ---
 
-## 2. Weekly reset of ranks 4–10 (item 6)
+## 2. A separate weekly top 10
 
-The client shows **"RANKS 4-10 RESET IN …"** in the leaderboard header. It counts down to **Monday 00:00 UTC**. The schedule is in `src/leaderboard/reset.js` (`RESET_WEEKDAY_UTC`, `RESET_HOUR_UTC`, `RESET_FIRST_RANK`), and the Worker has to use the same one.
+The leaderboard panel shows two boards: **ALL-TIME** (the top 3, kept forever) and **THIS WEEK** (this week's best runs, ranked 1–10). This replaces the earlier plan of wiping ranks 4–10 every Monday: nothing has to be deleted, and no cron job is needed.
 
-**Trigger:** a Cloudflare cron trigger. In `wrangler.toml`:
+**The week** starts every Monday 00:00 UTC. The client counts down to it, using `RESET_WEEKDAY_UTC` and `RESET_HOUR_UTC` in `src/leaderboard/reset.js`, so the Worker has to use the same boundary.
 
-```toml
-[triggers]
-crons = ["0 0 * * 1"]   # Mondays 00:00 UTC, same as RESET_WEEKDAY_UTC / RESET_HOUR_UTC
-```
+**API changes.** All of them only add fields, so the current game keeps working before and after.
 
-Then add a `scheduled(event, env, ctx)` handler next to the Worker's `fetch` handler. The cron calls it.
+- `GET /api/top10`: keep `entries` as the all-time board (best claimed score per player; the panel shows its top 3). Add `weekly`: up to 10 `{ name, score }`, each player's best claimed score since the week started, highest first, with ties broken the same way as `entries`. Right after Monday 00:00 UTC it's an empty array `[]`, not missing.
+- `GET /api/mybest`: add `week_best`, the device's best score this week (`0` if none yet).
+- `POST /api/submit`: return `qualified: true` when the score would make this week's top 10 **or** the all-time top 3, so the name prompt opens. Returning `week_best` here too is optional; the client uses it if it's there.
+- `POST /api/claim`: the claimed name and score count on both boards.
 
-**What it should do:** find the entries currently ranked 4–10, using the same ordering `/api/top10` uses (including how it breaks ties), and remove them from the board. Ranks 1–3 stay.
+**Storage.** If every claim is stored with its time (for example a `claimed_at` column), the weekly board is a query over the claims since the last Monday 00:00 UTC, best per player. The all-time board and each device's best don't change.
 
-Decide these before you write the query:
+**On the client:** as soon as `/api/top10` includes `weekly`, THIS WEEK shows that list ranked 1–10, and the panel's goal line ("#5 THIS WEEK · 3,391 TO BEAT #4") uses `week_best`. Until then, THIS WEEK shows ranks 4–10 of the single list, as it does now (`getBoards()` in `src/leaderboard/state.js`).
 
-- **Does a reset touch personal bests?** The client's "Best Score" comes from `/api/mybest`. If that reads the same rows as the board, deleting them also wipes those players' bests. You'll probably want to keep bests and only remove the board entries (for example a `season` column, or an `on_board` flag the reset clears).
-- **What fills ranks 4–10 afterwards?** If the board is "best claimed score per player", the next-best older scores will move straight up into the empty slots and nothing will look reset. A week stamp on each entry (only this week's claims count for 4–10) avoids that.
-- **Is it safe to run twice?** Cron can retry. Running the reset twice in a row shouldn't remove ranks 4–10 of the *new* board.
-
-**Done when:** after triggering it by hand (`wrangler dev --test-scheduled`, then request `/__scheduled?cron=0+0+*+*+1`), `/api/top10` returns only the old top 3, and `/api/mybest` is unchanged for the players who were removed.
+**Done when:** `/api/top10` returns `weekly` (and `[]` just after Monday 00:00 UTC), `/api/mybest` returns `week_best`, and a run that makes this week's top 10 but not the all-time top 3 still opens the name prompt.
 
 ---
 
-## 3. Blocked names on `/api/claim` (item 12)
+## 3. Blocked names on `/api/claim`
 
 The client refuses the names in `src/leaderboard/blockedNames.js` and shows a pop-up. Anyone can still call `/api/claim` directly, so the Worker should check the same list.
 

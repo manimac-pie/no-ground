@@ -24,7 +24,7 @@ import { drawPlayerShadow, drawPlayer } from "./player/index.js";
 import { drawControlsButton, drawControlsPanel } from "./hud/controls.js";
 import { drawRestartFlyby } from "./hud/flyby.js";
 import { computeHudDanger, drawDangerVignette, drawHUD, drawScorePopups } from "./hud/hud.js";
-import { drawLeaderboardPanel, leaderboardPanelHeight } from "./hud/leaderboardPanel.js";
+import { drawLeaderboardPanel, hasWeeklyLabel, leaderboardPanelHeight, leaderboardRowHeight } from "./hud/leaderboardPanel.js";
 import { drawPauseOverlay } from "./hud/pause.js";
 import { drawResetGlitch } from "./hud/reset.js";
 import { drawCenterScore } from "./hud/summary.js";
@@ -39,11 +39,7 @@ import {
   pointInRect,
 } from "../ui/layout.js";
 import { clamp } from "../shared/math.js";
-import {
-  getLeaderboardState,
-  LEADERBOARD_COLLAPSED_ROWS,
-  LEADERBOARD_MAX_ENTRIES,
-} from "../leaderboard/state.js";
+import { getBoards, getMyBest } from "../leaderboard/state.js";
 import { maybePromptForPendingClaim } from "../leaderboard/claimFlow.js";
 import { weeklyResetIn } from "../leaderboard/reset.js";
 
@@ -402,36 +398,25 @@ export function render(ctx, state) {
     const hover =
       state.pointerInViewport === true
       && pointInRect(state.pointerUiX, state.pointerUiY, btnRect);
-    const leaderboardState = getLeaderboardState();
-    const entriesLen = Array.isArray(leaderboardState.entries)
-      ? leaderboardState.entries.length
-      : 0;
-    const rowHeight = 22;
-    const rowCount = state.leaderboardExpanded ? LEADERBOARD_MAX_ENTRIES : LEADERBOARD_COLLAPSED_ROWS;
-    // THIS WEEK expands the board once there are weekly ranks to show.
-    const canExpand = entriesLen > LEADERBOARD_COLLAPSED_ROWS;
+    const boards = getBoards();
+    // THIS WEEK expands the board once there's a weekly rank to show.
+    const canExpand = boards.weekly.length > 0;
+    const weeklyRows = state.leaderboardExpanded ? boards.weeklySlots : 0;
     const boardW = Math.min(300, W * 0.32);
     const boardX = W - boardW - 16;
     const boardY = 18;
-    // As tall as its rows need, but clear of the GAME CONTROLS button below it.
-    const boardH = Math.min(leaderboardPanelHeight(rowCount, rowHeight, canExpand), btnRect.y - 10 - boardY);
-    const meta = drawLeaderboardPanel(
-      ctx,
-      leaderboardState.entries,
-      leaderboardState.myBest,
-      boardX,
-      boardY,
-      boardW,
-      boardH,
-      1,
-      {
-        glow: true,
-        toggle: canExpand,
-        rowCount,
-        rowHeight,
-        resetIn: weeklyResetIn(),
-      }
-    );
+    // As tall as its rows need, but clear of the GAME CONTROLS button below it (rows shrink to fit).
+    const maxH = btnRect.y - 10 - boardY;
+    const weeklyLabel = hasWeeklyLabel(boards, weeklyRows, canExpand);
+    const rowHeight = leaderboardRowHeight(maxH, weeklyRows, weeklyLabel, 22);
+    const boardH = leaderboardPanelHeight(weeklyRows, rowHeight, weeklyLabel);
+    const meta = drawLeaderboardPanel(ctx, boards, getMyBest(), boardX, boardY, boardW, boardH, 1, {
+      glow: true,
+      toggle: canExpand,
+      expanded: state.leaderboardExpanded === true,
+      rowHeight,
+      resetIn: weeklyResetIn(),
+    });
 
     hitAreas.leaderboardToggle = meta?.toggleRect ?? null;
     drawControlsButton(ctx, btnRect, state.controlsPanelOpen === true, hover);

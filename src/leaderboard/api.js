@@ -34,7 +34,12 @@ export async function loadLeaderboard() {
     apiGet("/api/top10"),
     apiGet(`/api/mybest?device_id=${encodeURIComponent(deviceId)}`),
   ]);
-  return { entries: top.entries, myBest: mine.best_score };
+  return {
+    entries: top.entries,
+    weekly: Array.isArray(top.weekly) ? top.weekly : null, // this week's top 10 (newer Worker only)
+    myBest: mine.best_score,
+    weekBest: Number.isFinite(mine.week_best) ? mine.week_best : null,
+  };
 }
 
 export async function submitFinalScore(finalScore) {

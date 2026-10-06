@@ -31,14 +31,17 @@ function updateLeaderboardDom(state) {
 subscribeLeaderboardState(updateLeaderboardDom);
 
 export async function refreshLeaderboard() {
-  const { entries, myBest } = await loadLeaderboard();
-  setLeaderboardState({ entries, myBest });
-  return { entries, myBest };
+  const board = await loadLeaderboard();
+  setLeaderboardState(board);
+  return board;
 }
 
 export async function onGameFinished(finalScore) {
   const result = await submitFinalScore(finalScore);
-  setLeaderboardState({ myBest: result.my_best });
+  setLeaderboardState({
+    myBest: result.my_best,
+    ...(Number.isFinite(result.week_best) ? { weekBest: result.week_best } : {}),
+  });
 
   if (result.qualified) {
     setLeaderboardState({

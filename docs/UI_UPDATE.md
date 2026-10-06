@@ -150,7 +150,7 @@ The summary rows show counts but not points (`src/render/ui.js:1077`), so player
 
 ### 10. First-run move hints
 
-New players are never taught Slowfall or Dive, even though the generator already builds slowfall gaps and dive gaps (`GAME_DESIGN.html`, "Guided air challenges").
+New players are never taught Slowfall or Dive, even though the generator builds gaps that need them: long gaps and dive ledges (`GAME_DESIGN.html`, "Guided air challenges"). Their landing roofs are tagged `challenge: "long"` or `"ledge"` (`game/generator.js`), which a hint can key off.
 
 **Fix:**
 - When a guided gap is about to appear and that hint hasn't been shown yet, show a one-off prompt near Bob ("HOLD W TO SLOWFALL", or "SLOWFALL" on mobile).

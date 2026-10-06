@@ -93,6 +93,34 @@ export const GAP_MAX_HARD = 220;
 
 export const HEIGHT_LEVELS = [0, 30, 60, 90, 120];
 export const MAX_PLATFORM_STEP = 60;
+export const ROOF_Y_TOP = 180;            // highest a roof rests (moving roofs can rise to 160)
+export const ROOF_Y_BOTTOM = GROUND_Y - 40; // lowest a roof rests
+
+// Pacing (game/generator.js). The early ramp, difficulty01, is full at DIFFICULTY_FULL_AT px of
+// distance (about 29 s in). A slower late ramp then keeps tightening things until
+// LATE_DIFFICULTY_FULL_AT px (about 90 s in), so long runs don't settle into one difficulty.
+export const DIFFICULTY_FULL_AT = 10000;
+export const LATE_DIFFICULTY_FULL_AT = 40000;
+export const LATE_GAP_EXTRA = 60;          // px added to the widest normal gap
+export const LATE_CHALLENGE_EXTRA = 0.10;  // added to the challenge-gap chance
+export const LATE_MOTION_EXTRA = 0.10;     // added to the moving-roof chance
+export const LATE_COLLAPSE_CUT = 0.10;     // s taken off the roof collapse time
+export const LATE_BILLBOARD_SQUEEZE = 0.2; // billboard spacing shrinks by up to this share
+
+// Challenge gaps: now and then a gap needs more than a plain jump. Checked against game/reach.js.
+//   Long gap:   too far for any single jump (coyote time included); a double jump or slowfall clears it.
+//   Dive ledge: a low, narrow roof. Rolling off falls short, a plain jump overshoots, a dive lands it.
+export const CHALLENGE_SPACING = [900, 1600]; // level px from one challenge to the next, at least
+export const CHALLENGE_CHANCE_EASY = 0.08;    // chance per roof once that spacing has passed...
+export const CHALLENGE_CHANCE_HARD = 0.22;    // ...rising to this at full difficulty
+export const DIVE_LEDGE_FROM = 0.4;           // difficulty before dive ledges can appear
+export const DIVE_WINDOW_MIN_SEC = 0.2;       // a ledge needs at least this long a window to start the dive
+
+// Patterns (game/generator.js): short planned runs of roofs between the random ones.
+//   Stairs: three roofs, each a step up (or down). Hops: four short roofs with short gaps.
+//   Breather: two wide solid roofs with nothing on them, a rest after the hard bits.
+export const PATTERN_SPACING = [4000, 6500];  // level px between stairs/hops, at least
+export const BREATHER_SPACING = [6000, 9000]; // level px between breathers
 
 // Collapsing rooftops
 export const ROOF_COLLAPSE_TIME_EASY = 1.05;
@@ -158,7 +186,7 @@ export const COMBO_MULT_STEP = 0.5;
 export const AIR_MULT_MAX = 4;
 export const BILLBOARD_BOUNCE_VY = 900; // downward kick when bouncing off a billboard
 
-// Billboard placement (see placeBillboard in game/platforms.js). Distances are px of level.
+// Billboard placement (see placeBillboard in game/generator.js). Distances are px of level.
 // Kinds: "high-glass" / "high-steel" hang above head height (jump hazards: break, vault or land on
 // top); "low-glass" / "low-steel" hang at head height (duck under, or dash through the glass).
 export const BILLBOARD_FIRST_AT = 1800;            // nothing before this, so the run can get going

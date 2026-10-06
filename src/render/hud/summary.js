@@ -8,12 +8,12 @@ import {
 } from "../../game/constants.js";
 import { buildSummaryRows, tallyRowSec } from "../../game/score.js";
 import { weeklyResetIn } from "../../leaderboard/reset.js";
-import { LEADERBOARD_MAX_ENTRIES, getLeaderboardState } from "../../leaderboard/state.js";
+import { getBoards, getMyBest } from "../../leaderboard/state.js";
 import { roundedRectPath } from "../../shared/canvas.js";
 import { clamp, easeOutCubic } from "../../shared/math.js";
 import { formatIteration } from "../../ui/iteration.js";
 import { hitAreas } from "../../ui/layout.js";
-import { drawLeaderboardPanel, drawLeaderboardPanelDirect } from "./leaderboardPanel.js";
+import { drawLeaderboardPanel, drawLeaderboardPanelDirect, leaderboardRowHeight } from "./leaderboardPanel.js";
 import { drawCachedPanel } from "./panelCache.js";
 import { easeOutBack, formatNumber, roundRect } from "./primitives.js";
 import { RESET_TYPE_SEC, drawResetButton, drawResetCursor } from "./reset.js";
@@ -178,8 +178,6 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   // Intro progress: summary drop, then leaderboard slide (each 0..1).
   const dropK = clamp(boardT / RUN_SUMMARY_DROP_SEC, 0, 1);
   const slideK = clamp((boardT - LEADERBOARD_SLIDE_DELAY_SEC) / LEADERBOARD_SLIDE_SEC, 0, 1);
-  const rowHeightVal = 18;
-  const leaderboardRowCount = LEADERBOARD_MAX_ENTRIES;
 
   ctx.save();
   ctx.textAlign = "center";
@@ -293,24 +291,15 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
 
   // Leaderboard: drawn directly while sliding, cached once in place.
   if (slideK > 0) {
-    const leaderboardState = getLeaderboardState();
+    const boards = getBoards();
     const draw = slideK < 1 ? drawLeaderboardPanelDirect : drawLeaderboardPanel;
-    draw(
-      ctx,
-      leaderboardState.entries,
-      leaderboardState.myBest,
-      leaderboardX,
-      leaderboardY,
-      leaderboardW,
-      leaderboardH,
-      1,
-      {
-        rowCount: leaderboardRowCount,
-        rowHeight: rowHeightVal,
-        glow: true,
-        resetIn: weeklyResetIn(),
-      }
-    );
+    draw(ctx, boards, getMyBest(), leaderboardX, leaderboardY, leaderboardW, leaderboardH, 1, {
+      glow: true,
+      expanded: true,
+      // Every rank, sized to the summary panel's height (a separate weekly board has 13 rows).
+      rowHeight: leaderboardRowHeight(leaderboardH, boards.weeklySlots, true, 18),
+      resetIn: weeklyResetIn(),
+    });
   }
 
   ctx.restore();

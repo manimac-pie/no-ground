@@ -150,7 +150,7 @@
 </head>
 <body>
 
-<!-- Shared symbols: Bob, drawn to match src/render/playerBody.js (34×34 hitbox, capsule body, visor, single cyan eye, wheel) -->
+<!-- Shared symbols: Bob, drawn to match src/render/player/body.js (34×34 hitbox, capsule body, visor, single cyan eye, wheel) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <symbol id="bob" viewBox="-18 -18 36 40">
@@ -217,8 +217,8 @@
         <tr><th>Platform</th><td>Web, desktop and mobile. Installable as a PWA.</td></tr>
         <tr><th>Orientation</th><td>Landscape first. 800×450 base, widens up to 1600 on wide screens.</td></tr>
         <tr><th>Session</th><td>Short runs with an instant restart</td></tr>
-        <tr><th>Tech</th><td>Vanilla JS and Canvas 2D, no build step</td></tr>
-        <tr><th>Online</th><td>Anonymous Top 10 leaderboard on a Cloudflare Worker</td></tr>
+        <tr><th>Tech</th><td>Vanilla JS and Canvas 2D, bundled with Vite for GitHub Pages</td></tr>
+        <tr><th>Online</th><td>Anonymous leaderboard on a Cloudflare Worker: the all-time top 3 and this week's top 10 (the week starts Monday 00:00 UTC)</td></tr>
       </table></div>
 
       <h3>Design pillars</h3>
@@ -226,7 +226,7 @@
         <div class="pillar"><b>Keep moving</b><span>Roofs build up stress while you stand on them and then collapse. Standing still is never safe.</span></div>
         <div class="pillar"><b>Readable danger</b><span>Every threat has a tell: cracks, sinking roofs, and billboards marked "reinforced" or not.</span></div>
         <div class="pillar"><b>Expressive air</b><span>Five verbs let skilled players do more than survive. They can add style and extra score.</span></div>
-        <div class="pillar"><b>Fair randomness</b><span>The generator checks every gap can be cleared at the current speed. Grace windows make deaths feel earned.</span></div>
+        <div class="pillar"><b>Fair randomness</b><span>The generator checks every gap against Bob's real jump physics: a normal gap fits a plain jump, and a challenge gap fits the move it asks for. Grace windows make deaths feel earned.</span></div>
       </div>
     </section>
 
@@ -285,7 +285,7 @@
             <text x="405" y="302">if qualified</text>
           </g>
         </svg>
-        <figcaption>Input is locked during the death cinematic. The name prompt opens on its own when a run qualifies for the Top 10.</figcaption>
+        <figcaption>Input is locked during the death cinematic. The name prompt opens on its own when a run makes this week's top 10 or the all-time top 3.</figcaption>
       </figure>
 
       <h3>Death and restart timing</h3>
@@ -330,7 +330,7 @@
             <text x="820" y="190" fill="#e9ebef" font-weight="600">Backflip</text>
           </g>
         </svg>
-        <div class="cap">Bob is drawn in code (<code>src/render/playerBody.js</code>) inside a 34×34 hitbox: a white capsule body, a dark visor with one cyan eye that darts around, and a spoked wheel whose speed follows the world speed.</div>
+        <div class="cap">Bob is drawn in code (<code>src/render/player/body.js</code>) inside a 34×34 hitbox: a white capsule body, a dark visor with one cyan eye that darts around, and a spoked wheel whose speed follows the world speed.</div>
       </div>
 
       <h3>Controls</h3>
@@ -411,7 +411,7 @@
     <!-- 5 WORLD -->
     <section id="world">
       <h2><span class="num">05</span>World &amp; hazards</h2>
-      <p class="lead">Rooftops are 160–360 px wide, with gaps of 56 px up to 150–220 px. Roofs sit on five height levels above a glowing red ground line. The generator never makes more than two breakable roofs in a row, or more than two solid ones.</p>
+      <p class="lead">Rooftops are 160–360 px wide (narrower in hops and dive ledges), with gaps of 56 px up to 150–220 px, and up to 280 px late in a run. Roofs sit on five height levels above a glowing red ground line, and a step up is never more than a single jump can climb. The generator never makes more than two breakable roofs in a row, or more than two solid ones, billboards included.</p>
 
       <div class="grid3">
         <div class="hz">
@@ -496,10 +496,10 @@
           <div class="body"><b>Billboard, reinforced (steel, cyan screen)</b><span>A solid steel panel ("SECURE") that never breaks. Go over it (+0.15 s) or duck under it (DODGING ADS, +0.25 s, only while ducking), or land on top: it works as a platform and gives 1.2× distance. Hitting its side is fatal.</span></div>
         </div>
       </div>
-      <p class="cap">Billboards are spaced by distance: 1,300–2,000 px apart at the start, closing to 700–1,050 px at full difficulty, none in the first 1,800 px. The first three teach one thing each (glass to break, steel to avoid, a low steel one to duck). After that the kind is a weighted pick that leans toward low billboards as the run gets harder, and the kind just used is less likely to repeat. Moving roofs and the landing roof of a forced slowfall/dive gap never get one; the billboard moves to the next building.</p>
+      <p class="cap">Billboards are spaced by distance: 1,300–2,000 px apart at the start, closing to 700–1,050 px at full difficulty and up to 20% closer by the end of the late ramp, none in the first 1,800 px. The first three teach one thing each (glass to break, steel to avoid, a low steel one to duck). After that the kind is a weighted pick that leans toward low billboards as the run gets harder, and the kind just used is less likely to repeat. Glass goes on breakable roofs and steel on solid ones. A billboard waits for the next building when it lands on a moving roof, a roof in a challenge or pattern, or a roof whose material would make three of a kind in a row. High billboards leave 25–50 px of headroom, so Bob rolls under them.</p>
 
       <h3>Guided air challenges</h3>
-      <p>Every 650–1,170 px, the generator may shape the next gap (10–28% chance) so that it needs a particular move.</p>
+      <p>From about 10 s in, at least 900–1,600 px apart, the generator may shape the next gap (an 8–22% chance per roof, up to 32% late) so that a plain jump doesn't work. Each one is checked against the jump physics at the slowest and fastest speed Bob can arrive at (<code>src/game/reach.js</code>), and is skipped if it wouldn't be fair.</p>
       <div class="grid2">
         <div class="hz">
           <svg viewBox="0 0 400 170" aria-hidden="true">
@@ -511,21 +511,25 @@
             <use href="#bob" x="170" y="20" width="26" height="29" />
             <line x1="0" y1="164" x2="400" y2="164" stroke="#ff556e" stroke-width="3" filter="url(#glow)" /><line x1="0" y1="164" x2="400" y2="164" stroke="#ff556e" />
           </svg>
-          <div class="body"><b>Slowfall gap</b><span>The gap is 78–98% of the maximum, with a slight drop. Slowfalling keeps Bob in the air long enough to reach the far roof.</span></div>
+          <div class="body"><b>Long gap</b><span>At least 8% wider than the farthest single jump, coyote time included, with a slight drop, and at most 85% of a double jump or a slowfall jump. Double jump, slowfall or dash.</span></div>
         </div>
         <div class="hz">
           <svg viewBox="0 0 400 170" aria-hidden="true">
             <rect x="0" y="50" width="170" height="130" fill="#1a1c22" /><rect x="0" y="50" width="170" height="5" fill="#383a40" />
-            <rect x="215" y="140" width="185" height="40" fill="#1a1c22" /><rect x="215" y="140" width="185" height="5" fill="#383a40" />
+            <rect x="215" y="140" width="85" height="40" fill="#1a1c22" /><rect x="215" y="140" width="85" height="5" fill="#383a40" />
+            <rect x="350" y="112" width="50" height="70" fill="#1a1c22" /><rect x="350" y="112" width="50" height="5" fill="#383a40" />
             <path d="M150 48 Q 175 20 195 40 L 240 138" stroke="#ff556e" stroke-width="2" fill="none" />
             <path d="M150 48 Q 200 0 250 60 T 330 150" stroke="#9aa3b2" stroke-dasharray="3 5" fill="none" />
-            <text x="290" y="30" font-size="11" fill="#6b7383" font-family="Share Tech Mono">no dive: overshoots or</text>
-            <text x="290" y="44" font-size="11" fill="#6b7383" font-family="Share Tech Mono">lands as the roof breaks</text>
+            <text x="270" y="30" font-size="11" fill="#6b7383" font-family="Share Tech Mono">plain jump overshoots</text>
+            <text x="270" y="44" font-size="11" fill="#6b7383" font-family="Share Tech Mono">into the gap after it</text>
             <line x1="0" y1="164" x2="400" y2="164" stroke="#ff556e" stroke-width="3" filter="url(#glow)" /><line x1="0" y1="164" x2="400" y2="164" stroke="#ff556e" />
           </svg>
-          <div class="body"><b>Dive gap</b><span>A short gap (66–106 px) with a steep drop of 90–170 px. Diving gets Bob down onto the low roof quickly.</span></div>
+          <div class="body"><b>Dive ledge</b><span>A narrow solid ledge (70–120 px) 100–170 px below. Rolling off falls short, a plain jump overshoots into the gap after it, and a dive lands it (a window of at least 0.2 s to start the dive). Only at speeds where such a ledge fits, so mostly later in a run.</span></div>
         </div>
       </div>
+
+      <h3>Patterns and breathers</h3>
+      <p>Between the random roofs, short planned runs give the level a rhythm. <b>Stairs</b>: three roofs, each a step up (or down when there's no room above). <b>Hops</b>: four short roofs (110–140 px) with short gaps. Stairs or hops come every 4,000–6,500 px. <b>Breathers</b>: two wide, solid, still roofs with nothing on them, every 6,000–9,000 px, a rest after the hard bits. None of them carry billboards or move.</p>
     </section>
 
     <!-- 6 DIFFICULTY -->
@@ -533,7 +537,7 @@
       <h2><span class="num">06</span>Difficulty</h2>
       <p class="lead">Two ramps run together. World speed rises with <b>time</b>: +6 px/s every second, reaching the 480 cap at about <span id="t-top">37</span> s. Every other lever follows a 0–1 difficulty value based on <b>distance</b>, which peaks at 10,000 px, about <span id="t-full">29</span> s into a run without dashes.</p>
       <div class="grid2" id="diff-charts"></div>
-      <p class="cap">Dashing covers distance faster, so players who dash a lot reach full difficulty sooner. There are no levels or unlocks: the player's own skill and the leaderboard are the only progression.</p>
+      <p class="cap">A second, slower ramp then runs from 10,000 to 40,000 px (about 90 s in), so long runs keep getting harder: normal gaps grow by up to 60 px, challenge gaps and moving roofs get more common, roofs collapse 0.1 s sooner, and billboards come up to 20% closer together. Dashing covers distance faster, so players who dash a lot reach full difficulty sooner. There are no levels or unlocks: the player's own skill and the leaderboard are the only progression.</p>
     </section>
 
     <!-- 7 SCORING -->
@@ -647,8 +651,8 @@
           <g text-anchor="middle" fill="#e9ebef" font-size="13.5" font-weight="600">
             <text x="95" y="122">main.js</text>
             <text x="305" y="47">input.js</text>
-            <text x="305" y="197">ui/ (leaderboard)</text>
-            <text x="535" y="122">game.js + game/</text>
+            <text x="305" y="197">leaderboard/</text>
+            <text x="535" y="122">game/</text>
             <text x="780" y="47">render/</text>
             <text x="780" y="197">Leaderboard API</text>
           </g>
@@ -656,7 +660,7 @@
             <text x="95" y="140">loop · scaling · fullscreen</text>
             <text x="305" y="65">keys · pointer · touch buttons</text>
             <text x="305" y="215">claim flow · state store</text>
-            <text x="535" y="140">state · physics · platforms</text>
+            <text x="535" y="140">state · physics · level generator</text>
             <text x="780" y="65">world · player · HUD · menu</text>
             <text x="780" y="215">Cloudflare Worker · Top 10</text>
           </g>
@@ -665,11 +669,14 @@
       <div class="table-wrap"><table>
         <tr><th>Module</th><th>Owns</th></tr>
         <tr><td><code>src/game/constants.js</code></td><td>All tuning values: physics, speed, generation, timings</td></tr>
-        <tr><td><code>src/game/platforms.js</code></td><td>Roof spawning, fair-gap check, motion, stress, breaking</td></tr>
+        <tr><td><code>src/game/generator.js</code></td><td>Roof spawning: gaps, heights, billboards, challenge gaps, patterns, pacing</td></tr>
+        <tr><td><code>src/game/reach.js</code></td><td>How far each move reaches, stepping the same physics as the player</td></tr>
+        <tr><td><code>src/game/platforms.js</code></td><td>Roofs at run time: motion, stress, breaking, collapse</td></tr>
         <tr><td><code>src/game/player.js</code></td><td>Gravity, jump, dive, dash, collisions, billboard rules</td></tr>
         <tr><td><code>src/game/tricks.js</code></td><td>Spin and backflip timing</td></tr>
-        <tr><td><code>src/render/*</code></td><td>Backdrop, buildings, ground, Bob, effects, HUD, menu, summary</td></tr>
-        <tr><td><code>src/ui/*</code></td><td>Hit-tests, API client, leaderboard store, name prompt</td></tr>
+        <tr><td><code>src/render/*</code></td><td>world/ (backdrop, buildings, billboards), player/, hud/, camera, effects, menu</td></tr>
+        <tr><td><code>src/leaderboard/*</code></td><td>API client, leaderboard store, name prompt, blocked names, weekly reset</td></tr>
+        <tr><td><code>src/ui/*</code></td><td>Hit-tests and the run counter</td></tr>
       </table></div>
     </section>
 

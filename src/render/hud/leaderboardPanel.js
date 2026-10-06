@@ -1,17 +1,18 @@
 // src/render/hud/leaderboardPanel.js
 // The leaderboard panel: start screen and run summary.
 //
-// Top to bottom: the title; ALL-TIME (ranks 1-3, kept forever); THIS WEEK (ranks 4-10, wiped
-// every Monday, with the countdown), which is also the expand/collapse toggle on the start screen;
+// Top to bottom: the title; ALL-TIME (the top 3, kept forever); THIS WEEK (this week's ranking,
+// with the countdown to Monday), which is also the expand/collapse toggle on the start screen;
 // and the player's best, with what it takes to climb, pinned to the bottom.
+// The two sections come from getBoards() in leaderboard/state.js.
 
-import { RESET_FIRST_RANK } from "../../leaderboard/reset.js";
-import { LEADERBOARD_MAX_ENTRIES } from "../../leaderboard/state.js";
+import { LEADERBOARD_ALL_TIME_ROWS, LEADERBOARD_MAX_ENTRIES } from "../../leaderboard/state.js";
 import { roundedRectPath } from "../../shared/canvas.js";
+import { clamp } from "../../shared/math.js";
 import { drawCachedPanel } from "./panelCache.js";
 import { formatNumber, roundRect } from "./primitives.js";
 
-const ALL_TIME_ROWS = RESET_FIRST_RANK - 1; // ranks 1-3 never reset; the weekly reset starts at 4
+const ALL_TIME_ROWS = LEADERBOARD_ALL_TIME_ROWS;
 
 // Layout, in UI units.
 const TITLE_TOP = 10;
@@ -34,45 +35,51 @@ const GOAL_FONT = "600 9px Share Tech Mono, Menlo, monospace";
 const ALL_TIME_LOOK = { label: "255,190,120", name: "rgba(255,235,220,0.95)", rank: "rgba(255,205,150,0.55)" };
 const WEEKLY_LOOK = { label: "120,205,255", name: "rgba(220,240,255,0.82)", rank: "rgba(150,195,225,0.5)" };
 
-function hasWeeklyRow(rowCount, toggle) {
-  return rowCount > ALL_TIME_ROWS || toggle;
+// The THIS WEEK label shows over its rows, as the toggle, or always with a separate weekly board
+// (so its countdown shows even while the new week is empty).
+export function hasWeeklyLabel(boards, weeklyRows, toggle) {
+  return weeklyRows > 0 || toggle || boards.separate;
 }
 
-// Height the panel needs for `rowCount` rows (the start screen sizes its board with this).
-export function leaderboardPanelHeight(rowCount, rowHeight, toggle = false) {
-  const weekly = hasWeeklyRow(rowCount, toggle) ? WEEKLY_H : 0;
-  return LIST_TOP + SECTION_H + rowCount * rowHeight + weekly + FOOTER_H;
+// Height the panel needs with `weeklyRows` rows under THIS WEEK (0 when collapsed).
+export function leaderboardPanelHeight(weeklyRows, rowHeight, weeklyLabel) {
+  return LIST_TOP + SECTION_H + (ALL_TIME_ROWS + weeklyRows) * rowHeight + (weeklyLabel ? WEEKLY_H : 0) + FOOTER_H;
 }
 
-// opts: glow; toggle (THIS WEEK expands/collapses the list, start screen only);
-// rowCount (3 collapsed, 10 expanded); rowHeight; resetIn (countdown text, "5D 20H").
+// The tallest rows, up to `preferred`, that fit the panel in maxH.
+export function leaderboardRowHeight(maxH, weeklyRows, weeklyLabel, preferred) {
+  const fixed = leaderboardPanelHeight(weeklyRows, 0, weeklyLabel);
+  return clamp(Math.floor((maxH - fixed) / (ALL_TIME_ROWS + weeklyRows)), 14, preferred);
+}
+
+// boards: getBoards() from leaderboard/state.js. opts: glow; toggle (THIS WEEK expands/collapses
+// the list, start screen only); expanded; rowHeight; resetIn (countdown text, "5D 20H").
 // Returns { toggleRect }: where to click to expand/collapse, or null.
-export function drawLeaderboardPanel(ctx, entries, myBest, x, y, w, h, alpha = 1, opts = {}) {
+export function drawLeaderboardPanel(ctx, boards, myBest, x, y, w, h, alpha = 1, opts = {}) {
   if (alpha <= 0 || !Number.isFinite(w) || !Number.isFinite(h)) return;
   // Fading in: draw directly (group alpha on a cached image would blend differently).
-  if (alpha < 1) return drawLeaderboardPanelDirect(ctx, entries, myBest, x, y, w, h, alpha, opts);
+  if (alpha < 1) return drawLeaderboardPanelDirect(ctx, boards, myBest, x, y, w, h, alpha, opts);
 
-  const list = Array.isArray(entries) ? entries : [];
   const key = [
-    x, y, w, h, myBest,
-    opts.glow, opts.toggle, opts.rowCount, opts.rowHeight, opts.resetIn,
-    ...list.map((e) => `${e?.name}:${e?.score}`),
+    x, y, w, h, myBest, boards.weekBest, boards.weeklyFirstRank,
+    opts.glow, opts.toggle, opts.expanded, opts.rowHeight, opts.resetIn,
+    ...boards.allTime.map((e) => `${e.name}:${e.score}`), "|",
+    ...boards.weekly.map((e) => `${e.name}:${e.score}`),
   ].join("|");
   return drawCachedPanel(ctx, "leaderboard", key, { x, y, w, h }, (pctx) =>
-    drawLeaderboardPanelDirect(pctx, entries, myBest, x, y, w, h, 1, opts)
+    drawLeaderboardPanelDirect(pctx, boards, myBest, x, y, w, h, 1, opts)
   );
 }
 
-export function drawLeaderboardPanelDirect(ctx, entries, myBest, x, y, w, h, alpha = 1, opts = {}) {
+export function drawLeaderboardPanelDirect(ctx, boards, myBest, x, y, w, h, alpha = 1, opts = {}) {
   const {
     glow = false,
     toggle = false,
-    rowCount = ALL_TIME_ROWS,
+    expanded = false,
     rowHeight = 22,
     resetIn = "",
   } = opts;
-  const list = Array.isArray(entries) ? entries : [];
-  const visibleRows = Math.max(1, Math.min(LEADERBOARD_MAX_ENTRIES, Math.floor(rowCount)));
+  const weeklyRows = expanded ? boards.weeklySlots : 0;
 
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -95,28 +102,28 @@ export function drawLeaderboardPanelDirect(ctx, entries, myBest, x, y, w, h, alp
   let top = y + LIST_TOP;
   drawSectionLabel(ctx, "ALL-TIME", left, right, top, SECTION_H, ALL_TIME_LOOK.label);
   top += SECTION_H;
-  for (let i = 0; i < Math.min(visibleRows, ALL_TIME_ROWS); i++) {
-    drawRow(ctx, list[i], i + 1, top, rowHeight, cols, ALL_TIME_LOOK);
+  for (let i = 0; i < ALL_TIME_ROWS; i++) {
+    drawRow(ctx, boards.allTime[i], i + 1, top, rowHeight, cols, ALL_TIME_LOOK);
     top += rowHeight;
   }
 
   let toggleRect = null;
-  if (hasWeeklyRow(visibleRows, toggle)) {
+  if (hasWeeklyLabel(boards, weeklyRows, toggle)) {
     const label = resetIn ? `THIS WEEK · RESETS IN ${resetIn}` : "THIS WEEK";
     const chevronW = toggle ? 14 : 0;
     drawSectionLabel(ctx, label, left, right - chevronW, top, WEEKLY_H, WEEKLY_LOOK.label);
     if (toggle) {
-      drawChevron(ctx, right - 5, top + WEEKLY_H / 2, visibleRows > ALL_TIME_ROWS);
+      drawChevron(ctx, right - 5, top + WEEKLY_H / 2, weeklyRows > 0);
       toggleRect = { x: x + 10, y: top, w: w - 20, h: WEEKLY_H };
     }
     top += WEEKLY_H;
-    for (let i = ALL_TIME_ROWS; i < visibleRows; i++) {
-      drawRow(ctx, list[i], i + 1, top, rowHeight, cols, WEEKLY_LOOK);
+    for (let i = 0; i < weeklyRows; i++) {
+      drawRow(ctx, boards.weekly[i], boards.weeklyFirstRank + i, top, rowHeight, cols, WEEKLY_LOOK);
       top += rowHeight;
     }
   }
 
-  drawFooter(ctx, list, myBest, x, w, left, right, y + h);
+  drawFooter(ctx, boards, myBest, x, w, left, right, y + h);
 
   ctx.restore();
   return { toggleRect };
@@ -213,8 +220,9 @@ function fitText(ctx, text, maxW) {
   return `${s}…`;
 }
 
-// Your best, pinned to the bottom, with what it takes to climb.
-function drawFooter(ctx, entries, myBest, x, w, left, right, bottom) {
+// Your best, pinned to the bottom, with what it takes to climb: this week's board when there's a
+// separate one, else the single list.
+function drawFooter(ctx, boards, myBest, x, w, left, right, bottom) {
   const best = Number.isFinite(myBest) ? myBest : 0;
   const dividerY = bottom - (FOOTER_H - 8);
 
@@ -236,7 +244,12 @@ function drawFooter(ctx, entries, myBest, x, w, left, right, bottom) {
   ctx.textAlign = "right";
   ctx.fillText(formatNumber(best), right, lineY);
 
-  const goal = bestGoal(entries, best);
+  // A separate weekly list is always loaded (empty means a new week); an empty single list hasn't loaded.
+  const goal = boards.separate
+    ? boards.weekly.length === 0
+      ? { rank: "", text: "ANY RUN MAKES THIS WEEK" }
+      : bestGoal(boards.weekly, boards.weekBest ?? best, " THIS WEEK", "THIS WEEK")
+    : bestGoal(boards.allTime.concat(boards.weekly), best, "", "THE BOARD");
   if (!goal) return;
   const goalY = dividerY + 38;
   ctx.font = GOAL_FONT;
@@ -251,10 +264,11 @@ function drawFooter(ctx, entries, myBest, x, w, left, right, bottom) {
   ctx.fillText(goal.text, gx, goalY);
 }
 
-// Where your best stands, and what it takes to climb: "#4 · 25,731 TO BEAT #3".
+// Where your best stands on a board, and what it takes to climb: "#4 · 25,731 TO BEAT #3".
 // The board doesn't say which entry is yours, so it's found by score. Returns null when there's
 // nothing useful to say (board not loaded, or you qualify but aren't listed yet).
-function bestGoal(entries, best) {
+// rankSuffix follows the rank ("#4 THIS WEEK"); boardName ends the other lines ("TO MAKE THIS WEEK").
+function bestGoal(entries, best, rankSuffix, boardName) {
   const n = entries.length;
   if (n === 0) return null;
 
@@ -268,12 +282,12 @@ function bestGoal(entries, best) {
 
   if (listed) {
     const rank = ahead + 1;
-    if (rank === 1) return { rank: "#1", text: " · TOP OF THE BOARD" };
+    if (rank === 1) return { rank: `#1${rankSuffix}`, text: " · TOP OF THE BOARD" };
     const gap = entries[rank - 2].score - best + 1;
-    return { rank: `#${rank}`, text: ` · ${formatNumber(gap)} TO BEAT #${rank - 1}` };
+    return { rank: `#${rank}${rankSuffix}`, text: ` · ${formatNumber(gap)} TO BEAT #${rank - 1}` };
   }
-  if (n < LEADERBOARD_MAX_ENTRIES) return { rank: "", text: "ANY RUN MAKES THE BOARD" };
+  if (n < LEADERBOARD_MAX_ENTRIES) return { rank: "", text: `ANY RUN MAKES ${boardName}` };
   const last = entries[n - 1].score;
   if (best >= last) return null;
-  return { rank: "", text: `${formatNumber(last - best + 1)} TO MAKE THE BOARD` };
+  return { rank: "", text: `${formatNumber(last - best + 1)} TO MAKE ${boardName}` };
 }
