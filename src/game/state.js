@@ -62,6 +62,10 @@ export function createInitialState() {
     _nextAirReqDist: 0,
     _breakableStreak: 0,
     _buildingCount: 0,
+    _worldRight: 0,      // billboard director (game/platforms.js): right edge of the last roof along the level
+    _bbNextAt: 0,        // ...level position the next billboard may go at
+    _bbCount: 0,         // ...billboards placed this run (the first few are the intro)
+    _bbLastKind: null,   // ...kind of the last one
 
     combo: 0, // clean tricked landings in a row (adds to the air multiplier)
 
@@ -161,12 +165,16 @@ export function createInitialState() {
       divePhaseT: 0,
       ducking: false,
       duckLandT: 0,
+      duckingPrev: false,
+      duckAgeSec: 0,          // how long the current duck has lasted
+      unduckAgeSec: Infinity, // time since the last duck ended (duck jump)
 
       dashCooldown: 0,
       dashOffset: 0,
       dashTarget: 0,
       dashOffsetV: 0,
       dashImpulseT: 0,
+      dashAgeSec: Infinity, // time since the last dash press (perfect ad break)
       jumpImpulseT: 0,
       billboardDeath: false,
       billboardDeathT: 0,
@@ -298,6 +306,9 @@ export function resetRunState(state) {
   p.divePhaseT = 0;
   p.ducking = false;
   p.duckLandT = 0;
+  p.duckingPrev = false;
+  p.duckAgeSec = 0;
+  p.unduckAgeSec = Infinity;
   p.slowfallFuel = SLOWFALL_FUEL_MAX;
   p.slowfallFuelMax = SLOWFALL_FUEL_MAX;
   p.dashCooldown = 0;
@@ -305,6 +316,7 @@ export function resetRunState(state) {
   p.dashTarget = 0;
   p.dashOffsetV = 0;
   p.dashImpulseT = 0;
+  p.dashAgeSec = Infinity;
   p.jumpImpulseT = 0;
   p.billboardDeath = false;
   p.billboardDeathT = 0;

@@ -20,7 +20,14 @@ import {
   FALL_GRAVITY_MULT,
   JUMP_VELOCITY,
   PLAYER_H,
-  LOW_BILLBOARD_CHANCE,
+  BILLBOARD_FIRST_AT,
+  BILLBOARD_SPACING_EASY,
+  BILLBOARD_SPACING_HARD,
+  BILLBOARD_INTRO,
+  BILLBOARD_WEIGHTS_EASY,
+  BILLBOARD_WEIGHTS_HARD,
+  BILLBOARD_REPEAT_DAMP,
+  LOW_BILLBOARD_LEAD_SEC,
   SPEED_START,
   BREAK_JUMP_GRACE_SEC,
 } from "./constants.js";
@@ -60,6 +67,39 @@ export function difficulty01(state) {
   return clamp(state.distance / 10000, 0, 1);
 }
 
+// ---------------- billboard director ----------------
+// Billboards are placed by distance along the level, not by building count, so they don't fall
+// into a fixed rhythm. The gap to the next one shrinks with difficulty. The first three teach one
+// lesson each (BILLBOARD_INTRO); after that the kind is a weighted pick that leans toward low
+// billboards as the run gets harder, with the kind just used damped so the same kind rarely repeats.
+// A roof that can't carry one fairly (moving roof, the landing of a forced dive/slowfall gap)
+// pushes it to the next building instead of skipping it.
+
+function lerpRange(easy, hard, d) {
+  const lo = easy[0] + (hard[0] - easy[0]) * d;
+  const hi = easy[1] + (hard[1] - easy[1]) * d;
+  return randRange(lo, hi);
+}
+
+function pickBillboardKind(state, d) {
+  const n = state._bbCount || 0;
+  if (n < BILLBOARD_INTRO.length) return BILLBOARD_INTRO[n];
+  const weights = {};
+  let total = 0;
+  for (const kind of Object.keys(BILLBOARD_WEIGHTS_EASY)) {
+    let wt = BILLBOARD_WEIGHTS_EASY[kind] + (BILLBOARD_WEIGHTS_HARD[kind] - BILLBOARD_WEIGHTS_EASY[kind]) * d;
+    if (kind === state._bbLastKind) wt *= BILLBOARD_REPEAT_DAMP;
+    weights[kind] = wt;
+    total += wt;
+  }
+  let r = Math.random() * total;
+  for (const kind of Object.keys(weights)) {
+    r -= weights[kind];
+    if (r <= 0) return kind;
+  }
+  return "high-glass";
+}
+
 export function spawnNextPlatform(state) {
   const d = difficulty01(state);
   const lastRight = rightmostPlatformX(state);
@@ -82,7 +122,7 @@ export function spawnNextPlatform(state) {
 
   const wMin = PLATFORM_MIN_W + 10 * d;
   const wMax = PLATFORM_MAX_W + 20 * d;
-  const w = randRange(wMin, wMax);
+  let w = randRange(wMin, wMax);
 
   const baseY = GROUND_Y - SAFE_CLEARANCE;
 
@@ -100,7 +140,9 @@ export function spawnNextPlatform(state) {
 
   y = clamp(y, 180, GROUND_Y - 40);
 
+  let airReqLanding = false; // this roof is the landing of a forced slowfall/dive gap
   if (prev && state._nextAirReq !== "none") {
+    airReqLanding = true;
     const prevY = Number.isFinite(prev.baseY) ? prev.baseY : prev.y;
     if (state._nextAirReq === "slowfall") {
       // Longer gap + mild drop: slowfall extends airtime to reach the far platform.
@@ -122,6 +164,9 @@ export function spawnNextPlatform(state) {
     const cap = Math.min(gapMax, Number.isFinite(maxFair) ? maxFair : gapMax);
     gap = clamp(gap, GAP_MIN, cap);
   }
+  // Where this roof starts along the level (px), for billboard spacing.
+  const worldLeft = (Number.isFinite(state._worldRight) ? state._worldRight : 0) + gap;
+  state._worldRight = worldLeft + w;
 
   // Dynamic rooftops: some platforms rise up (from below) or crumble (sink) while you're mid-air.
   // We *arm* motion on spawn, but we only *start* it once the player is airborne and the platform is approaching.
@@ -183,13 +228,32 @@ export function spawnNextPlatform(state) {
   // Kept toward the right of the roof so there's room to land and react.
   const LOW_BB_W = 110;
   const LOW_BB_TOP_MARGIN = 12; // min gap between the sign's top and the top of the screen
-  const LOW_BB_LEAD = 110; // min roof run before the billboard
+  // Min roof run before a low billboard: time to land and react, so it grows with speed.
+  const speedNow = Number.isFinite(state.speed) ? state.speed : SPEED_START;
+  const LOW_BB_LEAD = clamp(speedNow * LOW_BILLBOARD_LEAD_SEC, 110, 200);
   const LOW_BB_CLEAR = 27; // roof -> billboard bottom (standing collides, ducking clears)
   // baseYRest is the highest this roof ever sits (moving roofs rise to it or sink from it).
   const LOW_BB_H = Math.min(160, baseYRest - LOW_BB_CLEAR - LOW_BB_TOP_MARGIN);
-  const wantBillboard = buildingIndex % 5 === 0 && Math.random() < 0.5;
-  const canLow = w >= LOW_BB_LEAD + LOW_BB_W + 6;
-  if (wantBillboard && canLow && Math.random() < LOW_BILLBOARD_CHANCE) {
+
+  if (!Number.isFinite(state._bbNextAt)) state._bbNextAt = BILLBOARD_FIRST_AT;
+  const fairRoof = !hasMotion && !airReqLanding;
+  const wantBillboard = worldLeft >= state._bbNextAt && fairRoof;
+  let bbKind = wantBillboard ? pickBillboardKind(state, d) : null;
+  // A low billboard needs a run-up plus its own width: widen a roof that's too short for one.
+  const lowMinW = LOW_BB_LEAD + LOW_BB_W + 6;
+  if (bbKind && bbKind.startsWith("low") && w < lowMinW) {
+    w = lowMinW + 40 * Math.random();
+    state._worldRight = worldLeft + w;
+  }
+  if (bbKind) {
+    state._bbCount = (state._bbCount || 0) + 1;
+    state._bbLastKind = bbKind;
+    state._bbNextAt = worldLeft + lerpRange(BILLBOARD_SPACING_EASY, BILLBOARD_SPACING_HARD, d);
+    // The billboard's material follows its building: glass on breakable, steel on unbreakable.
+    breakable = bbKind.endsWith("glass");
+  }
+
+  if (bbKind && bbKind.startsWith("low")) {
     const bbX = LOW_BB_LEAD + (w - LOW_BB_LEAD - LOW_BB_W - 6) * Math.random();
     billboard = {
       offsetX: bbX,
@@ -198,6 +262,7 @@ export function spawnNextPlatform(state) {
       h: LOW_BB_H,
       low: true,
       reinforced: !breakable,
+      duckLeadSec: -1, // how long Bob had been ducking when he reached it (-1 until he does)
       resolved: false,
       broken: false,
       hit: false,
@@ -205,7 +270,7 @@ export function spawnNextPlatform(state) {
       breakT: 0,
       breakSpawned: false,
     };
-  } else if (wantBillboard) {
+  } else if (bbKind) {
     const maxW = Math.max(70, w - 24);
     const bbW = clamp(160, 70, maxW);
     const bbH = 96;
@@ -223,6 +288,7 @@ export function spawnNextPlatform(state) {
       w: bbW,
       h: bbH,
       reinforced: !breakable,
+      duckLeadSec: -1,
       resolved: false,
       broken: false,
       hit: false,
@@ -287,6 +353,11 @@ export function resetPlatforms(state) {
   state.platforms.length = 0;
 
   const startY = GROUND_Y - SAFE_CLEARANCE;
+  // Billboard director: a fresh run starts its intro again.
+  state._worldRight = INTERNAL_WIDTH * 1.35; // right edge of the starter roof below
+  state._bbNextAt = BILLBOARD_FIRST_AT;
+  state._bbCount = 0;
+  state._bbLastKind = null;
 
   state.platforms.push({
     x: 0,
@@ -364,6 +435,7 @@ export function updatePlatforms(state, dt) {
 
   for (let i = 0; i < state.platforms.length; i++) {
     const plat = state.platforms[i];
+    plat.prevY = plat.y; // roof top before this step's motion (player landing checks use it)
     const prevPlat = i > 0 ? state.platforms[i - 1] : null;
     const prevJustBroke = !!(
       prevPlat &&
@@ -575,7 +647,7 @@ export function updatePlatforms(state, dt) {
     // Advance breaking animation and trigger collapse when done.
     if (plat.breakable && plat.breaking === true && plat.collapsing !== true) {
       plat.breakT += dt;
-      const BREAK_ANIM_SEC = 0.22;
+      const BREAK_ANIM_SEC = 0.45; // long enough for the cracks to read before it drops
       plat.break01 = clamp(plat.breakT / BREAK_ANIM_SEC, 0, 1);
       plat.crack01 = Math.max(plat.crack01, 0.65 + 0.35 * plat.break01);
 
@@ -638,7 +710,10 @@ export function updatePlatforms(state, dt) {
       plat.breakT = 0;
       plat.break01 = 0;
     } else {
-      plat.crack01 = clamp(plat.stress / collapseTime, 0, 1);
+      // Cracks follow stress, but a roof that's breaking keeps the cracks its break gave it
+      // (otherwise this reset them to 0 every step and it fell away uncracked).
+      const stressCrack = clamp(plat.stress / collapseTime, 0, 1);
+      plat.crack01 = plat.breakTriggered ? Math.max(stressCrack, plat.crack01) : stressCrack;
     }
 
     if (plat.breakable && plat.stress >= collapseTime) {

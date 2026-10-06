@@ -509,6 +509,65 @@
         transform: translateY(-1px) scale(1.01);
         box-shadow: 0 0 22px rgba(120, 205, 255, 0.65);
       }
+      /* Blocked name: the system refuses it (names live in src/ui/blockedNames.js). */
+      #leaderboard-prompt .prompt-panel {
+        position: relative;
+      }
+      #leaderboard-prompt .prompt-denied {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 28px 32px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 85, 110, 0.85);
+        background:
+          repeating-linear-gradient(0deg, rgba(255, 85, 110, 0.05) 0 2px, transparent 2px 4px),
+          rgb(18, 6, 12);
+        box-shadow: 0 0 32px rgba(255, 85, 110, 0.45);
+        text-align: center;
+        animation: prompt-denied-in 0.32s steps(4, end);
+      }
+      #leaderboard-prompt .prompt-denied[hidden] {
+        display: none;
+      }
+      #leaderboard-prompt .prompt-denied-title {
+        font: 800 20px "Orbitron", "Share Tech Mono", sans-serif;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #ff6f88;
+        text-shadow: 0 0 12px rgba(255, 85, 110, 0.8);
+      }
+      #leaderboard-prompt .prompt-denied-name {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.15em;
+        color: rgba(255, 190, 200, 0.75);
+      }
+      #leaderboard-prompt .prompt-denied-copy {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.45;
+        color: #ffd9df;
+      }
+      #leaderboard-prompt button[data-action="denied-ok"] {
+        flex: 0 0 auto;
+        padding: 10px 28px;
+        background: rgba(30, 8, 14, 0.95);
+        border: 1px solid rgba(255, 85, 110, 0.7);
+        color: #ffd9df;
+      }
+      #leaderboard-prompt button[data-action="denied-ok"]:hover {
+        box-shadow: 0 0 22px rgba(255, 85, 110, 0.6);
+      }
+      @keyframes prompt-denied-in {
+        0% { opacity: 0; transform: translateX(-6px) skewX(-8deg); }
+        50% { opacity: 1; transform: translateX(5px) skewX(6deg); }
+        100% { opacity: 1; transform: none; }
+      }
     </style>
   </head>
   <body>
@@ -683,6 +742,12 @@
           <div class="prompt-actions">
             <button type="button" data-action="submit">Submit</button>
             <button type="button" data-action="cancel">Skip</button>
+          </div>
+          <div class="prompt-denied" role="alertdialog" aria-live="assertive" hidden>
+            <div class="prompt-denied-title">Access Denied</div>
+            <p class="prompt-denied-name"></p>
+            <p class="prompt-denied-copy"></p>
+            <button type="button" data-action="denied-ok">Try again</button>
           </div>
         </div>
       </div>

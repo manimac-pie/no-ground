@@ -28,6 +28,9 @@ const DOUBLE_JUMP_BONUS_SEC = getConst("DOUBLE_JUMP_BONUS_SEC", 0);
 
 const DUCK_HEIGHT_FRAC = getConst("DUCK_HEIGHT_FRAC", 0.5);
 const DUCK_LAND_SQUAT_SEC = getConst("DUCK_LAND_SQUAT_SEC", 0.2);
+const DUCK_JUMP_WINDOW_SEC = getConst("DUCK_JUMP_WINDOW_SEC", 0.15);
+const DUCK_JUMP_VELOCITY_MULT = getConst("DUCK_JUMP_VELOCITY_MULT", 1.08);
+const LEDGE_CATCH_PX = getConst("LEDGE_CATCH_PX", 6);
 
 const DASH_COOLDOWN = getConst("DASH_COOLDOWN", 0.45);
 const DASH_SPEED_BOOST = getConst("DASH_SPEED_BOOST", 520);
@@ -48,6 +51,8 @@ const BREAK_JIT_BONUS_SEC = getConst("BREAK_JIT_BONUS_SEC", 0);
 const BILLBOARD_OVER_BONUS_SEC = getConst("BILLBOARD_OVER_BONUS_SEC", 0);
 const BILLBOARD_DUCK_BONUS_SEC = getConst("BILLBOARD_DUCK_BONUS_SEC", 0);
 const BILLBOARD_SMASH_BONUS_SEC = getConst("BILLBOARD_SMASH_BONUS_SEC", 0);
+const PERFECT_BREAK_WINDOW_SEC = getConst("PERFECT_BREAK_WINDOW_SEC", 0.1);
+const PERFECT_DODGE_WINDOW_SEC = getConst("PERFECT_DODGE_WINDOW_SEC", 0.3);
 const CLOSE_CALL_BONUS_SEC = getConst("CLOSE_CALL_BONUS_SEC", 0);
 const CLOSE_CALL_OVERLAP_FRAC = getConst("CLOSE_CALL_OVERLAP_FRAC", 0.6);
 const BILLBOARD_BOUNCE_VY = getConst("BILLBOARD_BOUNCE_VY", 0);
@@ -81,11 +86,17 @@ export function performJump(state) {
   }
 
   const isDoubleJump = state.airActive === true && p.jumpsRemaining < 2;
+  // Jumping out of a duck (S held, or just let go) springs a little higher. First jump only.
+  const duckJump = p.jumpsRemaining === 2
+    && (p.ducking === true || p.unduckAgeSec <= DUCK_JUMP_WINDOW_SEC);
   beginAir(state);
   // A plain jump scores nothing itself: crossing the gap is the job, and the distance pays for it.
   if (isDoubleJump) awardBonus(state, DOUBLE_JUMP_BONUS_SEC, "DOUBLE JUMP");
 
-  p.vy = JUMP_VELOCITY;
+  p.vy = duckJump ? JUMP_VELOCITY * DUCK_JUMP_VELOCITY_MULT : JUMP_VELOCITY;
+  p.ducking = false;
+  p.duckingPrev = false; // so the next step doesn't count this as letting go of a duck
+  p.unduckAgeSec = Infinity;
   p.onGround = false;
   p.onBillboard = false;
   p.coyote = 0;
@@ -158,6 +169,29 @@ function updateDuck(state, dt) {
   const canDuck = p.onGround && p.billboardDeath !== true;
   if (!canDuck) p.duckLandT = 0;
   p.ducking = canDuck && (state.diveHeld === true || p.duckLandT > 0);
+
+  // How long the current duck has lasted (perfect dodge), and how long since the last one ended (duck jump).
+  if (p.ducking) {
+    p.duckAgeSec = p.duckingPrev ? p.duckAgeSec + dt : 0;
+  } else {
+    p.unduckAgeSec = p.duckingPrev ? 0 : p.unduckAgeSec + dt;
+  }
+  p.duckingPrev = p.ducking;
+}
+
+// Break an unreinforced billboard. A dash pressed just before impact is a PERFECT break (double).
+function smashBillboard(state, b, byDash) {
+  const p = state.player;
+  const perfect = byDash && p.dashAgeSec <= PERFECT_BREAK_WINDOW_SEC;
+  awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, perfect ? "PERFECT AD BREAK" : "AD BREAK", "smash", perfect ? 2 : 1);
+  state.billboardDashCount += 1;
+  b.perfect = perfect; // the renderer gives a perfect break a brighter shatter
+  b.resolved = true;
+  b.breaking = true;
+  b.breakT = 0.28;
+  b.broken = true;
+  b.breakSpawned = false;
+  b.hit = false;
 }
 
 // Top of the hitbox; lower while ducking (feet stay planted).
@@ -260,14 +294,7 @@ export function integratePlayer(state, dt, endGame) {
       const isDashing = p.dashImpulseT > 0.01;
       const isDiving = p.diving === true;
       if (b.reinforced === false && (isDashing || isDiving)) {
-        awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, "AD BREAK", "smash");
-        state.billboardDashCount += 1;
-        b.resolved = true;
-        b.breaking = true;
-        b.breakT = 0.28;
-        b.broken = true;
-        b.breakSpawned = false;
-        b.hit = false;
+        smashBillboard(state, b, isDashing);
         billboardHit = true;
         break;
       }
@@ -314,14 +341,7 @@ export function integratePlayer(state, dt, endGame) {
       const rightGraceEdge = bx + bw * 0.70;
       if (px2 <= leftGraceEdge || px1 >= rightGraceEdge) continue;
       if (b.reinforced === false && isDashing) {
-        awardBonus(state, BILLBOARD_SMASH_BONUS_SEC, "AD BREAK", "smash");
-        state.billboardDashCount += 1;
-        b.resolved = true;
-        b.breaking = true;
-        b.breakT = 0.28;
-        b.broken = true;
-        b.breakSpawned = false;
-        b.hit = false;
+        smashBillboard(state, b, true);
       } else {
         b.hit = true;
         p.billboardDeath = true;
@@ -347,13 +367,23 @@ export function integratePlayer(state, dt, endGame) {
     if (billboardHit) {
       // Skip roof landing this frame so billboard hit forces a drop.
     } else {
+    // How far the roofs scrolled left this step: a roof whose front edge is within this of Bob's
+    // front only reached him this step.
+    const scrollDx = Math.max(0, (state.speed || 0) * dt);
     for (const plat of state.platforms) {
       if (plat.collapsing) continue;
 
       const overlapsX = px2 > plat.x && px1 < plat.x + plat.w;
-      const crossedTop = prevBottom <= plat.y && bottom >= plat.y;
+      // A rising roof moves up this step too, so test against where its top was before it moved.
+      const topBefore = Math.max(plat.y, Number.isFinite(plat.prevY) ? plat.prevY : plat.y);
+      const crossedTop = prevBottom <= topBefore && bottom >= plat.y;
+      // Ledge catch: the roof's edge only scrolled under Bob this step, and last step his feet were
+      // still at (or just under) its top. Between steps a fast roof can slide in under him after he
+      // has dropped past its top, and he'd fall past an edge he visibly reached.
+      const justReached = px2 - plat.x <= scrollDx + 1;
+      const ledgeCatch = justReached && bottom >= plat.y && prevBottom <= topBefore + LEDGE_CATCH_PX;
 
-      if (overlapsX && crossedTop) {
+      if (overlapsX && (crossedTop || ledgeCatch)) {
         p.y = plat.y - p.h;
         p.vy = 0;
         p.onGround = true;
@@ -401,12 +431,17 @@ export function integratePlayer(state, dt, endGame) {
       const bh = b.h;
       const bx = plat.x + b.offsetX;
       const by = plat.y - b.offsetY;
+      // The moment Bob's front reaches the ad: how long has he been ducking? (perfect dodge)
+      if (b.duckLeadSec < 0 && p.x + p.w >= bx) {
+        b.duckLeadSec = p.ducking ? p.duckAgeSec : Infinity;
+      }
       if (bx + bw < centerX) {
         if (p.y + p.h <= by) {
           awardBonus(state, BILLBOARD_OVER_BONUS_SEC, "VAULT");
           b.resolved = true;
         } else if (p.ducking && hitTop(p) >= by + bh) {
-          awardBonus(state, BILLBOARD_DUCK_BONUS_SEC, "DODGING ADS", "dodge");
+          const perfect = b.low === true && b.duckLeadSec <= PERFECT_DODGE_WINDOW_SEC;
+          awardBonus(state, BILLBOARD_DUCK_BONUS_SEC, perfect ? "PERFECT DODGE" : "DODGING ADS", "dodge", perfect ? 2 : 1);
           b.resolved = true;
         } else {
           b.resolved = true;
@@ -445,6 +480,7 @@ export function updateDash(state, dt) {
   if (p.dashImpulseT > 0) {
     p.dashImpulseT = Math.max(0, p.dashImpulseT - dt);
   }
+  p.dashAgeSec += dt; // time since the last dash press (perfect ad break)
 
   // DASH RULES:
   // - one press of D
@@ -453,6 +489,7 @@ export function updateDash(state, dt) {
     state.speedImpulse += DASH_SPEED_BOOST;
     p.dashCooldown = DASH_COOLDOWN;
     p.dashImpulseT = DASH_IMPULSE_FX_SEC;
+    p.dashAgeSec = 0;
     // Only an air dash scores (into the pot, so it pays only if Bob lands). A roof dash is risk-free.
     if (state.airActive) awardBonus(state, AIR_DASH_BONUS_SEC, "DASH");
   }

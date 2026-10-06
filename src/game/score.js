@@ -25,6 +25,7 @@ const SPEED_MAX = getConst("SPEED_MAX", 480);
 const FLIP_MULT_STEP = getConst("FLIP_MULT_STEP", 0.5);
 const COMBO_MULT_STEP = getConst("COMBO_MULT_STEP", 0.5);
 const AIR_MULT_MAX = getConst("AIR_MULT_MAX", 4);
+const SCORE_PX_PER_POINT = getConst("SCORE_PX_PER_POINT", 2);
 const BACKFLIP_BONUS_SEC = getConst("BACKFLIP_BONUS_SEC", 0.25);
 const CLUTCH_FLIP_BONUS_SEC = getConst("CLUTCH_FLIP_BONUS_SEC", 0.3);
 const CLUTCH_FLIP_WINDOW_SEC = getConst("CLUTCH_FLIP_WINDOW_SEC", 0.12);
@@ -86,7 +87,7 @@ export function countEvent(state, kind) {
 export function runPoints(state, sec) {
   if (!(sec > 0)) return 0;
   const speed = Math.min(SPEED_MAX, Math.max(SPEED_START, state.speed || 0));
-  return Math.round(sec * speed);
+  return Math.round((sec * speed) / SCORE_PX_PER_POINT);
 }
 
 // Add points: into the air pot while airborne, straight to the score on a roof.
@@ -99,10 +100,12 @@ export function addPoints(state, amount, kind = "other") {
   if (b && kind in b) b[kind] += amount;
 }
 
-// Distance points: always banked at once, so the summary's distance points equal the distance run.
-// Airborne distance is also tracked for the air multiplier, whose extra copies wait for the landing.
-export function addDistancePoints(state, amount) {
-  if (!(amount > 0)) return;
+// Distance points (px run / SCORE_PX_PER_POINT): always banked at once, so the summary's distance
+// points equal the distance run. Airborne distance is also tracked for the air multiplier, whose
+// extra copies wait for the landing.
+export function addDistancePoints(state, px) {
+  if (!(px > 0)) return;
+  const amount = px / SCORE_PX_PER_POINT;
   state.score += amount;
   if (state.scoreBreakdown) state.scoreBreakdown.distance += amount;
   if (state.airActive) state.airDistance += amount;
@@ -120,9 +123,9 @@ export function airPotAtRisk(state) {
 }
 
 // A named bonus worth `sec` seconds of running: adds points and shows a pop-up.
-// kind: the breakdown source (counted once per award).
-export function awardBonus(state, sec, label, kind = "other") {
-  const amount = runPoints(state, sec);
+// kind: the breakdown source (counted once per award). mult: e.g. 2 for a PERFECT (exactly double).
+export function awardBonus(state, sec, label, kind = "other", mult = 1) {
+  const amount = runPoints(state, sec) * mult;
   if (!(amount > 0)) return;
   addPoints(state, amount, kind);
   countEvent(state, kind);
@@ -240,7 +243,7 @@ export function buildSummaryRows(state) {
   ];
   const bonusTotal = rows.reduce((sum, r) => sum + r.points, 0);
   const score = Number.isFinite(state.score) ? state.score : 0;
-  // One distance point per pixel run, so the distance chip shows the same number as the points.
+  // One distance point per metre run, so the distance chip shows the same number as the points.
   const distancePts = Math.max(0, Math.floor(score) - bonusTotal);
   rows.unshift({ key: "distance", points: distancePts, count: distancePts });
   return rows;

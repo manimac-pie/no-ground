@@ -60,8 +60,11 @@ export const DIVE_MAX_FALL_SPEED = 4200;         // faster terminal speed when d
 // Duck (S held on a roof; a dive landing flows into it)
 export const DUCK_HEIGHT_FRAC = 0.5;    // hitbox height while ducking (fraction of PLAYER_H)
 export const DUCK_LAND_SQUAT_SEC = 0.2; // brief squat after a dive landing when S is already released
+export const DUCK_JUMP_WINDOW_SEC = 0.15;   // jump while ducking, or this soon after letting go of S...
+export const DUCK_JUMP_VELOCITY_MULT = 1.08; // ...for a slightly higher jump (x1.08 speed ≈ 17% higher)
 
 export const LAND_GRACE_SEC = 0.06;
+export const LEDGE_CATCH_PX = 6; // land on a roof edge that scrolls in under Bob's feet up to this far below its top
 
 // Runner speed
 export const SPEED_START = 260;
@@ -117,9 +120,11 @@ export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
 export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash streaks
 
 // Scoring
-// Bonuses are measured in seconds of running: points = seconds x current speed (dash boost
-// not counted), so they keep the same weight against distance as the run speeds up.
-// (At 260 px/s 0.1 s = 26 points; at 480 px/s it is 48.)
+// One point per SCORE_PX_PER_POINT px run (a "metre"). Bonuses are measured in seconds of running:
+// points = seconds x current speed (dash boost not counted) / SCORE_PX_PER_POINT, so they keep
+// the same weight against distance as the run speeds up.
+// (At 260 px/s 0.1 s = 13 points; at 480 px/s it is 24.)
+export const SCORE_PX_PER_POINT = 2;
 export const DOUBLE_JUMP_BONUS_SEC = 0.05;     // air pot
 export const BACKFLIP_BONUS_SEC = 0.25;        // air pot
 export const DIVE_BONUS_SEC = 0.10;            // air pot
@@ -128,6 +133,8 @@ export const BREAK_JIT_BONUS_SEC = 0.25;       // jump off a collapsing roof at 
 export const BILLBOARD_OVER_BONUS_SEC = 0.15;
 export const BILLBOARD_DUCK_BONUS_SEC = 0.25;
 export const BILLBOARD_SMASH_BONUS_SEC = 0.40;
+export const PERFECT_BREAK_WINDOW_SEC = 0.10;  // dash pressed at most this long before breaking an ad: double
+export const PERFECT_DODGE_WINDOW_SEC = 0.30;  // duck started at most this long before reaching the ad: double
 export const CLOSE_CALL_BONUS_SEC = 0.30;      // land with only the front of Bob on the roof
 export const CLOSE_CALL_OVERLAP_FRAC = 0.6;    // ...at most this share of his width
 export const CLUTCH_FLIP_BONUS_SEC = 0.30;     // a backflip that finishes just before landing
@@ -141,7 +148,18 @@ export const FLIP_MULT_STEP = 0.5;
 export const COMBO_MULT_STEP = 0.5;
 export const AIR_MULT_MAX = 4;
 export const BILLBOARD_BOUNCE_VY = 900; // downward kick when bouncing off a billboard
-export const LOW_BILLBOARD_CHANCE = 0.45; // share of billboards hung at head height (duck under / jump over)
+
+// Billboard placement (see placeBillboard in game/platforms.js). Distances are px of level.
+// Kinds: "high-glass" / "high-steel" hang above head height (jump hazards: break, vault or land on
+// top); "low-glass" / "low-steel" hang at head height (duck under, or dash through the glass).
+export const BILLBOARD_FIRST_AT = 1800;            // nothing before this, so the run can get going
+export const BILLBOARD_SPACING_EASY = [1300, 2000]; // from one billboard's roof to the next at the start...
+export const BILLBOARD_SPACING_HARD = [700, 1050];  // ...shrinking to this at full difficulty
+export const BILLBOARD_INTRO = ["high-glass", "high-steel", "low-steel"]; // first three: one of each lesson
+export const BILLBOARD_WEIGHTS_EASY = { "high-glass": 3, "high-steel": 2, "low-glass": 2, "low-steel": 1.5 };
+export const BILLBOARD_WEIGHTS_HARD = { "high-glass": 2, "high-steel": 2, "low-glass": 2.5, "low-steel": 2.5 };
+export const BILLBOARD_REPEAT_DAMP = 0.4;          // weight kept by the kind just used (variety)
+export const LOW_BILLBOARD_LEAD_SEC = 0.4;         // roof run before a low billboard, in seconds at current speed
 
 // Input grace
 export const COYOTE_TIME_SEC = 0.2;

@@ -269,7 +269,7 @@
           </g>
           <g font-size="11.5" fill="#9aa3b2" text-anchor="middle">
             <text x="117" y="96">2.8× zoom · arm pushes Bob</text>
-            <text x="397" y="96">0.85 s · Bob smashes START</text>
+            <text x="397" y="96">0.85 s · Bob breaks the START firewall</text>
             <text x="690" y="96">auto-scroll · score builds</text>
             <text x="690" y="266">shatter · arm drags Bob · 2.3 s</text>
             <text x="397" y="266">stats · row-by-row score tally</text>
@@ -338,8 +338,8 @@
         <tr><th>Action</th><th>Desktop</th><th>Mobile</th><th>Behaviour</th></tr>
         <tr><td><b>Jump / double jump</b></td><td class="mono" style="white-space:nowrap">Space / ↑ / click</td><td>Jump button, tap</td><td>Velocity −630. Two jumps per landing. Letting go early makes the jump shorter.</td></tr>
         <tr><td><b>Slowfall</b></td><td class="mono">hold W</td><td>Slowfall button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. No score multiplier: it pays through longer airtime.</td></tr>
-        <tr><td><b>Duck / Dive</b></td><td class="mono">S</td><td>Duck/Dive button</td><td>In the air: dive. Gravity ×4.2, terminal speed 4,200. Cancels tricks. A diving landing is "heavy" and adds stress to the roof. On a roof: duck while held (hitbox drops to half height). A dive landing flows straight into a duck if S is still held, otherwise a 0.2 s squat.</td></tr>
-        <tr><td><b>Dash</b></td><td class="mono">D</td><td>Dash button</td><td>+820 world speed that fades quickly. 0.45 s cooldown. Breaks non-reinforced billboards. Scores only in the air.</td></tr>
+        <tr><td><b>Duck / Dive</b></td><td class="mono">S</td><td>Duck/Dive button</td><td>In the air: dive. Gravity ×4.2, terminal speed 4,200. Cancels tricks. A diving landing is "heavy" and adds stress to the roof. On a roof: duck while held (hitbox drops to half height). A dive landing flows straight into a duck if S is still held, otherwise a 0.2 s squat. Jumping while ducking, or up to 0.15 s after letting go, springs ×1.08 harder (about 17% higher).</td></tr>
+        <tr><td><b>Dash</b></td><td class="mono">D</td><td>Dash button</td><td>+820 world speed that fades quickly. 0.45 s cooldown. Breaks non-reinforced billboards for 0.2 s after the press; pressed 0.1 s or less before impact it's a PERFECT AD BREAK (double). Scores only in the air.</td></tr>
         <tr><td><b>Backflip</b></td><td class="mono">A</td><td>Backflip button</td><td>A 0.30 s flip in the air. +0.5 to the air multiplier. Landing mid-flip is SLOPPY and breaks the chain.</td></tr>
       </table></div>
 
@@ -470,7 +470,7 @@
             <text x="165" y="58" text-anchor="middle" font-size="11" fill="#fff" font-family="Share Tech Mono">+130</text>
             <line x1="0" y1="164" x2="300" y2="164" stroke="#ff556e" stroke-width="3" filter="url(#glow)" /><line x1="0" y1="164" x2="300" y2="164" stroke="#ff556e" />
           </svg>
-          <div class="body"><b>Billboard, non-reinforced (red)</b><span>Dash or dive through it to smash it for +130. Hitting its side without dashing is fatal.</span></div>
+          <div class="body"><b>Billboard, breakable (magenta glass)</b><span>A glass ad screen ("SPONSORED"). Dash or dive through it and it shatters into glass shards (AD BREAK, +0.4 s; a PERFECT break adds a white burst). Hitting its side without dashing is fatal.</span></div>
         </div>
         <div class="hz">
           <svg viewBox="0 0 300 170" aria-hidden="true">
@@ -480,7 +480,7 @@
             <line x1="138" y1="96" x2="138" y2="110" stroke="#2a2d35" stroke-width="3" /><line x1="212" y1="96" x2="212" y2="110" stroke="#2a2d35" stroke-width="3" />
             <text x="175" y="50" text-anchor="middle" font-size="11" fill="#fff" font-family="Share Tech Mono">+60 under</text>
           </svg>
-          <div class="body"><b>Low billboard (hazard stripes)</b><span>Hangs at head height, 27 px above the roof, and is 160 px tall (taller than regular billboards; trimmed on the highest roofs so it stays on screen), so a single jump can't clear it. Hold S to duck under it (DODGING ADS, +0.25 s) or double jump over it. Standing up underneath is fatal. 45% of billboards are low when the roof is wide enough (226 px or more).</span></div>
+          <div class="body"><b>Low billboard (hazard stripes)</b><span>Hangs at head height, 27 px above the roof, and is 160 px tall (taller than regular billboards; trimmed on the highest roofs so it stays on screen), so a single jump can't clear it. Hold S to duck under it (DODGING ADS, +0.25 s; PERFECT DODGE, double, if the duck started 0.3 s or less before Bob reached it) or double jump over it. Standing up underneath is fatal. The roof under a low billboard always has a run-up of 0.4 s at current speed (110–200 px) before it.</span></div>
         </div>
         <div class="hz">
           <svg viewBox="0 0 300 170" aria-hidden="true">
@@ -493,10 +493,10 @@
             <text x="270" y="96" font-size="11" fill="#6fe3a8" font-family="Share Tech Mono" text-anchor="end">+60</text>
             <line x1="0" y1="164" x2="300" y2="164" stroke="#ff556e" stroke-width="3" filter="url(#glow)" /><line x1="0" y1="164" x2="300" y2="164" stroke="#ff556e" />
           </svg>
-          <div class="body"><b>Billboard, reinforced (blue)</b><span>Go over it (+0.15 s) or duck under it (DODGING ADS, +0.25 s, only while ducking), or land on top: it works as a platform and gives 1.2× distance. Hitting its side is fatal.</span></div>
+          <div class="body"><b>Billboard, reinforced (steel, cyan screen)</b><span>A solid steel panel ("SECURE") that never breaks. Go over it (+0.15 s) or duck under it (DODGING ADS, +0.25 s, only while ducking), or land on top: it works as a platform and gives 1.2× distance. Hitting its side is fatal.</span></div>
         </div>
       </div>
-      <p class="cap">About every 5th building has a 50% chance of a billboard above it.</p>
+      <p class="cap">Billboards are spaced by distance: 1,300–2,000 px apart at the start, closing to 700–1,050 px at full difficulty, none in the first 1,800 px. The first three teach one thing each (glass to break, steel to avoid, a low steel one to duck). After that the kind is a weighted pick that leans toward low billboards as the run gets harder, and the kind just used is less likely to repeat. Moving roofs and the landing roof of a forced slowfall/dive gap never get one; the billboard moves to the next building.</p>
 
       <h3>Guided air challenges</h3>
       <p>Every 650–1,170 px, the generator may shape the next gap (10–28% chance) so that it needs a particular move.</p>
@@ -539,14 +539,14 @@
     <!-- 7 SCORING -->
     <section id="scoring">
       <h2><span class="num">07</span>Scoring</h2>
-      <p class="lead">Score is distance in pixels plus bonuses. Distance makes up most of it. Tricks and bonuses decide close runs.</p>
-      <p><b>Bonuses are measured in seconds of running.</b> A bonus of 0.25 s is worth 0.25 × the current speed (dash boost not counted): 65 points at the start, 120 at top speed. That way bonuses keep the same weight against distance for the whole run. Points only go to moves with some risk or skill. A plain jump scores nothing, and a dash only scores in the air.</p>
+      <p class="lead">Score is distance in metres (1 point per 2 px) plus bonuses. Distance makes up most of it. Tricks and bonuses decide close runs.</p>
+      <p><b>Bonuses are measured in seconds of running.</b> A bonus of 0.25 s is worth 0.25 × the current speed ÷ 2 (dash boost not counted): 33 points at the start, 60 at top speed. That way bonuses keep the same weight against distance for the whole run. Points only go to moves with some risk or skill. A plain jump scores nothing, and a dash only scores in the air.</p>
       <p><b>Air pot.</b> Distance always counts straight away, so the run summary's distance points equal the distance run. From takeoff to landing, bonuses go into a pot for that jump instead of the score. A safe landing (roof or billboard top) pays out the bonuses plus the air multiplier's extra copies of the jump's distance (distance × (multiplier − 1)). The air multiplier is 1 + 0.5 per backflip + 0.5 per chain link, capped at ×4, and only applies to distance. A jump with no backflip is ×1. Dying before landing loses the pot. Each backflip pops up its new multiplier, and the HUD shows the pot and multiplier next to the score while airborne.</p>
       <p><b>Chain.</b> A clean tricked landing (at least one backflip, none still spinning) adds a chain link. A plain landing or a mid-flip landing ("SLOPPY") resets it. A sloppy landing still pays its flips, but not the chain. The HUD shows CHAIN ×n between jumps.</p>
       <p><b>Slowfall has no multiplier.</b> Fuel refills on every landing, so a slowfall multiplier was a free ×2 on every jump. Slowfall earns through airtime instead: more distance in the pot, and room for another flip.</p>
       <div class="card">
         <div class="bars" id="bonus-bars"></div>
-        <div class="cap">Bonus per event, in seconds of running. Air bonuses go into the pot. For scale, one second at top speed is worth 480 distance points.</div>
+        <div class="cap">Bonus per event, in seconds of running. Air bonuses go into the pot. For scale, one second at top speed is worth 240 distance points. PERFECT AD BREAK and PERFECT DODGE pay exactly double.</div>
       </div>
 
       <h3>Run summary and leaderboard</h3>
@@ -616,7 +616,8 @@
         <tr><td>Jump / dash</td><td>Short trail bursts (0.18 s / 0.20 s)</td></tr>
         <tr><td>Slowfall</td><td>Blue halo around Bob</td></tr>
         <tr><td>Roof stress</td><td>Red-tinted cracks spread as stress builds</td></tr>
-        <tr><td>Roof or billboard break</td><td>Debris shards, and the roof falls</td></tr>
+        <tr><td>Roof break</td><td>Debris shards, and the roof falls</td></tr>
+        <tr><td>Billboard break</td><td>The glass shatters from where Bob hit; PERFECT adds a white burst and ring</td></tr>
         <tr><td>Death</td><td>18 spark, plate and chip shards. The camera zooms in and a mechanical arm drags Bob away.</td></tr>
         <tr><td>Cursor</td><td>Custom cursor that throws sparks</td></tr>
         <tr><td>Audio</td><td><span class="pill bad">none yet</span></td></tr>
@@ -935,7 +936,7 @@ function drawSwatches() {
     ["Sky top", "#0f1116"], ["Sky bottom", "#07080b"], ["Bob", "#f2f2f2"], ["Accent / eye", "rgba(120,205,255,0.95)"],
     ["Lethal ground", "rgba(255,85,110,0.95)"], ["Roof top", "rgba(56,58,64,0.85)"], ["Building", "rgba(26,28,34,0.95)"],
     ["Warm window", "rgba(255,200,120,0.25)"], ["Cool window", "rgba(120,205,255,0.22)"], ["Warning", "rgba(255,180,70,0.65)"],
-    ["Billboard, reinforced", "rgba(120,205,255,0.35)"], ["Billboard, breakable", "rgba(255,120,110,0.45)"],
+    ["Billboard, reinforced", "rgba(120,205,255,0.35)"], ["Billboard, breakable", "rgba(255,80,150,0.45)"],
   ];
   document.getElementById("swatches").innerHTML = sw.map(([n, c]) =>
     `<div class="sw"><div class="chip"><i style="background:${c}"></i></div><div class="t">${n}<code>${c}</code></div></div>`).join("");

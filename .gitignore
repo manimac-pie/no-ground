@@ -1,0 +1,7 @@
+<details>
+  <summary>Git Ignore</summary>
+  <p>This file contains the list of files and directories that should be ignored by Git.</p>
+</details>
+git rm --cached src/.DS_Store
+git rm --cached node_modules/
+git rm --cached dist/

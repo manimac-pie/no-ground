@@ -217,6 +217,14 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
 
   ctx.save();
   ctx.translate(cx, cy);
+
+  // Dash trail stays level behind Bob: it shows his travel, so it doesn't turn with a flip or tilt.
+  if (!suppressFx && dashFxK > 0.01) {
+    ctx.save();
+    drawDashStreaks(ctx, bodyW, bodyH, animTime || 0, dashFxK);
+    ctx.restore();
+  }
+
   ctx.rotate(poseRot);
   ctx.scale(poseSx, poseSy);
   if (poseTx || poseTy) ctx.translate(poseTx, poseTy);
@@ -235,10 +243,6 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     if (divePhase !== "anticipate") {
       drawDiveStreaks(ctx, bodyW, bodyH, animTime || 0, _diveK);
     }
-  }
-
-  if (!suppressFx && dashFxK > 0.01) {
-    drawDashStreaks(ctx, bodyW, bodyH, animTime || 0, dashFxK);
   }
 
   // Glow (stronger tint during slowfall/dive)

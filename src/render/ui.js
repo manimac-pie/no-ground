@@ -17,6 +17,7 @@ import {
   getLeaderboardState,
   LEADERBOARD_MAX_ENTRIES,
 } from "../ui/leaderboardState.js";
+import { weeklyResetLabel } from "../ui/leaderboardReset.js";
 
 function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
@@ -307,6 +308,7 @@ export function drawLeaderboardPanel(ctx, entries, myBest, x, y, w, h, alpha = 1
   const key = [
     x, y, w, h, myBest,
     opts.glow, opts.arrow, opts.arrowDirection, opts.rowCount, opts.rowHeight, opts.bestLabel, opts.collapsedLayout,
+    opts.resetLabel,
     ...list.map((e) => `${e?.name}:${e?.score}`),
   ].join("|");
   return drawCachedPanel(ctx, "leaderboard", key, { x, y, w, h }, (pctx) =>
@@ -336,6 +338,7 @@ function drawLeaderboardPanelDirect(
     rowHeight = 24,
     bestLabel = "Best Score",
     collapsedLayout = false,
+    resetLabel = "", // weekly reset countdown under the title (empty: none)
   } = opts;
 
   // Base panel (dark with soft bevel like run summary)
@@ -372,9 +375,14 @@ function drawLeaderboardPanelDirect(
   ctx.fillStyle = "rgba(160,245,255,0.95)";
   ctx.font = "700 14px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.textAlign = "center";
-  ctx.fillText("LEADERBOARD", x + w / 2, headerY + 24);
+  ctx.fillText("LEADERBOARD", x + w / 2, headerY + (resetLabel ? 18 : 24));
+  if (resetLabel) {
+    ctx.font = "600 9px Share Tech Mono, Menlo, monospace";
+    ctx.fillStyle = "rgba(255,190,120,0.8)";
+    ctx.fillText(resetLabel, x + w / 2, headerY + 30);
+  }
 
-  const entryYStart = headerY + headerHeight + 6;
+  const entryYStart = headerY + headerHeight + (resetLabel ? 12 : 6);
   const rowHeightVal = Number.isFinite(rowHeight) ? rowHeight : 24;
   const maxRows = Math.max(
     Math.ceil(rowCount),
@@ -965,7 +973,7 @@ export function drawDangerVignette(ctx, W, H, danger) {
   ctx.restore();
 }
 
-// Rising "+130 AD BREAK" text above Bob (world space). Reads state.scoreEvents only.
+// Rising "+52 AD BREAK" text above Bob (world space). Reads state.scoreEvents only.
 export function drawScorePopups(ctx, state) {
   const events = state.scoreEvents;
   if (!events) return;
@@ -1577,6 +1585,7 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
         glow: true,
         arrow: false,
         bestLabel: "Best Score",
+        resetLabel: weeklyResetLabel(),
       }
     );
   }

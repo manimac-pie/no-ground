@@ -51,6 +51,7 @@ import {
   LEADERBOARD_MAX_ENTRIES,
 } from "../ui/leaderboardState.js";
 import { maybePromptForPendingClaim } from "../ui/leaderboardClaimFlow.js";
+import { weeklyResetLabel } from "../ui/leaderboardReset.js";
 
 export const COLORS = {
   bgTop: "#0f1116",
@@ -63,30 +64,8 @@ export const COLORS = {
   roofTop: "rgba(56,58,64,0.85)",
   roofSide: "rgba(32,34,40,0.95)",
   roofDetail: "rgba(242,242,242,0.10)",
-  crack: "rgba(0,0,0,0.38)",
-  crackHi: "rgba(255,85,110,0.35)",
-  buildingA: "rgba(26,28,34,0.95)",
-  buildingB: "rgba(20,22,28,0.95)",
-  buildingRib: "rgba(12,14,18,0.65)",
-  buildingPanel: "rgba(70,74,86,0.20)",
-  buildingPanelDark: "rgba(8,10,14,0.40)",
-  buildingWashTop: "rgba(242,242,242,0.06)",
-  buildingWashBot: "rgba(0,0,0,0.25)",
-  buildingEdge: "rgba(242,242,242,0.05)",
-  buildingEdgeDark: "rgba(0,0,0,0.22)",
-  neonLine: "rgba(120,205,255,0.25)",
-  signal: "rgba(255,85,110,0.55)",
-  concreteStain: "rgba(0,0,0,0.18)",
-  concreteDust: "rgba(242,242,242,0.06)",
-  patchPanel: "rgba(32,36,44,0.85)",
   warning: "rgba(255,180,70,0.65)",
   gantry: "rgba(20,22,28,0.85)",
-  coreShadow: "rgba(0,0,0,0.22)",
-  ledge: "rgba(0,0,0,0.25)",
-  ledgeLite: "rgba(242,242,242,0.06)",
-  windowOn: "rgba(120,205,255,0.22)",
-  windowWarm: "rgba(255,200,120,0.25)",
-  windowOff: "rgba(242,242,242,0.06)",
   player: "#f2f2f2",
   hudBg: "rgba(0,0,0,0.35)",
   hudText: "#f2f2f2",
@@ -988,6 +967,7 @@ export function render(ctx, state) {
         rowCount,
         rowHeight,
         bestLabel: "Best Score",
+        resetLabel: weeklyResetLabel(),
       }
     );
 
