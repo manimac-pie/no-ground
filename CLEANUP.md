@@ -9,7 +9,7 @@ Drawing speed is in good shape: all 11 items in `PERFORMANCE.md` are done and me
 Each item gives where the change goes, its impact and its effort. Details are in the numbered sections below.
 
 **Batch A: Housekeeping**
-- [ ] **1. Add a `.gitignore`** · root · Impact: Low · Effort: Low
+- [x] **1. Add a `.gitignore`** · root · Impact: Low · Effort: Low · *Done 2026-10-06*
 - [ ] **2. Move the docs into `docs/`** · root · Impact: Low · Effort: Low
 - [ ] **3. Delete dead code** · `render/worldBackdrop.js`, `render/world.js` · Impact: Low · Effort: Low
 - [ ] **4. Move the CSS out of `index.html`** · `index.html` → `styles.css` · Impact: Medium · Effort: Low
