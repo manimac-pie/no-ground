@@ -34,7 +34,7 @@ Each item gives where the change goes, its impact and its effort. Details are in
 - [x] **15. Stop copying the state every frame** · `render/index.js` · Impact: Low–Medium · Effort: Medium · *Done 2026-10-06*
 
 **Batch F: Ship (optional)**
-- [ ] **16. Deploy the Vite build** · hosting, `dist/` · Impact: Medium (first load on mobile) · Effort: Medium
+- [x] **16. Deploy the Vite build** · hosting, `dist/` · Impact: Medium (first load on mobile) · Effort: Medium · *Done 2026-10-06*
 
 ### Target layout
 
@@ -129,6 +129,7 @@ Both items add a `package.json` and `node_modules/` (item 1 should already ignor
 > - `npm run build`: checks every import and writes `dist/`. Run it after every file move in Batches C and D.
 > - `npm run preview`: plays the built `dist/`.
 > - `npm run lint`: ESLint over the project.
+> - **Deploying:** every push to `main` lints, builds and publishes `dist/` to the live site (item 16). There's nothing to run by hand.
 >
 > `vite.config.js` copies `manifest.webmanifest` and `assets/favicon.svg` into `dist/` unchanged. The manifest's `<link>` in `index.html` has a `vite-ignore` attribute so Vite doesn't rename it. Nothing moved into `public/`, so the plain-file site still works as before.
 >
@@ -365,3 +366,13 @@ It comes last because it's the only item that changes what players get. Everythi
 - Does the leaderboard Worker check the page's origin (CORS)? If the deployed address changes, the Worker has to allow the new one.
 
 **Done when:** the deployed site serves `dist/`, the Network tab shows a handful of requests instead of 33, and a score posted from the live site appears on the board.
+
+> **Done (2026-10-06).** The game is on GitHub Pages (`https://manimac-pie.github.io/no-ground/`), which used to serve the `main` branch as-is.
+> - **`.github/workflows/deploy.yml`** runs on every push to `main` (or from the Actions tab): `npm ci`, `npm run lint`, `npm run build`, then publishes `dist/`. If lint or the build fails, nothing is published and the live site stays as it was.
+> - **Settings → Pages → Source** is now "GitHub Actions" instead of "Deploy from a branch".
+> - **The Worker needed no change:** the site's address, and so its origin, stayed the same.
+> - **Load, measured before the switch:** 47 JS modules and `styles.css` (116 KB gzipped, an import chain 7 files deep) became one JS and one CSS file (50 KB gzipped).
+> - **Pages caches every file for 10 minutes.** With plain files, a returning player could briefly get new and old modules mixed together. The built files have a content hash in their names, so that can't happen.
+> - **No longer published:** `docs/` and `src/` aren't on the live site any more (only `dist/` is). They're still in the public repo on GitHub.
+> - **Verified:** the first workflow run deployed. Loading the live site in headless Chrome got 12 responses: the page, its JS and CSS, the manifest and icons, Google Fonts, and the two leaderboard reads. There were no errors, and the real top 10 showed. Requests other than reads to the leaderboard API were blocked for the check, so nothing was posted.
+> - **Not checked by me:** posting a score from the live site. The next real run will show it on the board.
