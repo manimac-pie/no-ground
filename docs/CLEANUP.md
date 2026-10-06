@@ -15,19 +15,19 @@ Each item gives where the change goes, its impact and its effort. Details are in
 - [x] **4. Move the CSS out of `index.html`** · `index.html` → `styles.css` · Impact: Medium · Effort: Low · *Done 2026-10-06*
 
 **Batch B: Tooling (optional, but do it before Batch C)**
-- [ ] **5. Set up Vite locally** · new `package.json`, `vite.config.js` · Impact: Medium (safety net for C–E) · Effort: Low–Medium
-- [ ] **6. Add ESLint** · `package.json`, new `eslint.config.js` · Impact: Medium · Effort: Low
+- [x] **5. Set up Vite locally** · new `package.json`, `vite.config.js` · Impact: Medium (safety net for C–E) · Effort: Low–Medium · *Done 2026-10-06*
+- [x] **6. Add ESLint** · `package.json`, new `eslint.config.js` · Impact: Medium · Effort: Low · *Done 2026-10-06*
 
 **Batch C: Shared code**
-- [ ] **7. One home for the small helpers** · new `src/shared/`, 12 files · Impact: High · Effort: Low–Medium
+- [ ] **7. One home for the small helpers** · new `src/shared/`, 13 files · Impact: High · Effort: Low–Medium
 - [ ] **8. Stop importing `game.js` from the renderer** · `game.js`, `game/constants.js`, 6 render files · Impact: Medium · Effort: Low
 
 **Batch D: Folders**
 - [ ] **9. Give the leaderboard its own folder** · `src/ui/` → `src/leaderboard/` · Impact: Medium · Effort: Low
 - [ ] **10. Group the render files** · `src/render/` · Impact: Medium · Effort: Low–Medium
 - [ ] **11. Move `game.js` into `game/`** · `src/game.js` · Impact: Low · Effort: Low
-- [ ] **12. Split `render/ui.js`** · `render/ui.js` (2046 lines) · Impact: High · Effort: Medium
-- [ ] **13. Split `render/index.js`** · `render/index.js` (994 lines) · Impact: High · Effort: Medium
+- [ ] **12. Split `render/ui.js`** · `render/ui.js` (1861 lines) · Impact: High · Effort: Medium
+- [ ] **13. Split `render/index.js`** · `render/index.js` (987 lines) · Impact: High · Effort: Medium
 
 **Batch E: Runtime**
 - [ ] **14. Take the game logic out of the renderer** · `render/index.js`, `game.js` · Impact: Medium (correctness) · Effort: Medium
@@ -122,6 +122,16 @@ A search finds the definition and the re-export, and both are "uses" that aren't
 
 Both items add a `package.json` and `node_modules/` (item 1 should already ignore them). Neither changes how the game runs or how it's deployed: the live site keeps serving the plain files until item 16.
 
+> **Set up (2026-10-06).** After cloning, run `npm install` once. Then:
+> - `npm run dev`: the game with live reload, at the address it prints.
+> - `npm run build`: checks every import and writes `dist/`. Run it after every file move in Batches C and D.
+> - `npm run preview`: plays the built `dist/`.
+> - `npm run lint`: ESLint over the project.
+>
+> `vite.config.js` copies `manifest.webmanifest` and `assets/favicon.svg` into `dist/` unchanged. The manifest's `<link>` in `index.html` has a `vite-ignore` attribute so Vite doesn't rename it. Nothing moved into `public/`, so the plain-file site still works as before.
+>
+> ESLint's first run, with the knock-on deletions it led to, removed 22 unused functions, variables and imports (about 300 lines). Two rules are relaxed in `eslint.config.js`: unused function **arguments** are allowed, because draw functions share signatures, and empty `catch {}` blocks are allowed, because storage calls fail on purpose.
+
 ### 5. Set up Vite locally
 
 Batches C and D move a lot of files, and the main risk is a broken import that only shows up as a blank page. Vite turns that into a clear error:
@@ -164,9 +174,9 @@ The same tiny functions are copied into many files:
 
 | Helper | Copies |
 |---|---|
-| `hash01` | 9 render files |
+| `hash01` | 8 render files |
 | `clamp` | `game/utils.js`, `render/playerKit.js`, `render/ui.js`, `render/worldBuildings.js`, `render/worldCracks.js`, `ui/layout.js` |
-| `roundedRectPath`, `roundRect` | `render/playerKit.js`, `render/ui.js`, `render/menu.js` |
+| `roundedRectPath`, `roundRect` | `render/playerKit.js`, `render/ui.js` |
 | `smoothstep01` | `render/playerKit.js`, `game/player.js` |
 | `easeOutCubic` | `render/ui.js`, `render/index.js` |
 
@@ -231,19 +241,19 @@ There's no single right answer. Ask yourself who owns it. If the menu's glass pa
 
 ### 12. Split `render/ui.js`
 
-At 2046 lines, it's a third of the render code. Reading its function list shows separate screens that share almost nothing except a few drawing primitives:
+At 1861 lines, it's the biggest file in the project. Reading its function list shows separate screens that share almost nothing except a few drawing primitives:
 
 | Lines (approx.) | What it is | Suggested file |
 |---|---|---|
-| 22–231 | `clamp`, `hash01`, easing, `roundRect`, `drawGlassPanel`, `drawKeyChip`, `drawPillButton`, `drawPortal`, `formatNumber` | `hud/primitives.js` (and `shared/`, after item 7) |
-| 233–300 | `drawCachedPanel` + its constants | `hud/panelCache.js` |
-| 302–512 | Leaderboard panel | `hud/leaderboardPanel.js` |
-| 513–838 | Controls row, controls button and panel, menu panel | `hud/controls.js` |
-| 839–912 | Restart flyby | `hud/flyby.js`, or with the summary |
-| 913–1296 | In-run HUD: danger, popups, meters, frame | `hud/hud.js` |
-| 1297–1833 | Run summary, tally, score capsule, new-best stamp | `hud/summary.js` |
-| 1834–1952 | Reset button and glitch | `hud/reset.js` |
-| 1953–end | Pause overlay and countdown | `hud/pause.js` |
+| 22–149 | `clamp`, `hash01`, easing, `roundRect`, `centerText`, `drawKeyChip`, `drawGlow`, `formatNumber` | `hud/primitives.js` (and `shared/`, after item 7) |
+| 151–218 | `drawCachedPanel` + its constants | `hud/panelCache.js` |
+| 220–430 | Leaderboard panel | `hud/leaderboardPanel.js` |
+| 431–654 | Controls button and panel | `hud/controls.js` |
+| 655–728 | Restart flyby | `hud/flyby.js`, or with the summary |
+| 729–1112 | In-run HUD: danger, popups, meters, frame | `hud/hud.js` |
+| 1113–1648 | Run summary, tally, score capsule, new-best stamp | `hud/summary.js` |
+| 1649–1767 | Reset button and glitch | `hud/reset.js` |
+| 1768–end | Pause overlay and countdown | `hud/pause.js` |
 
 **Order matters:** move the primitives and `panelCache` first. Every other section imports them, so once they exist, each later section can be cut out and only needs its imports fixed.
 
@@ -262,9 +272,9 @@ Move them with their section. `game/constants.js` is for values the game rules d
 
 - **Camera moves:** `computeDeathCinematic` (`:89`) and `computeStartPush` (`:171`), plus the easing they use. They return numbers and don't draw anything → `render/camera.js`.
 - **Effects:** `drawRobotArm` (`:239`), `updateAndDrawBreakShards` (`:349`), `drawDeathScrapeDust` (`:395`) → `render/effects.js`.
-- **Canvas sizing:** `setCanvasRect`, `setMaxDpr`, `ensureCanvasSize`, `applyViewportTransform`, `resetCtx` (`:486–575`) → `render/viewport.js` if you want. This one is optional.
+- **Canvas sizing:** `setCanvasRect`, `setMaxDpr`, `ensureCanvasSize`, `applyViewportTransform`, `resetCtx` (`:484–573`) → `render/viewport.js` if you want. This one is optional.
 
-**Watch out:** `drawDeathScrapeDust` reads and writes `dragTrail` and `dragTrailEmitT`, which are module-level variables (`:468`). When the function moves, those variables need to move with it. Leave them as they are for now: item 14 deals with them properly.
+**Watch out:** `drawDeathScrapeDust` reads and writes `dragTrail` and `dragTrailEmitT`, which are module-level variables (`:466`). When the function moves, those variables need to move with it. Leave them as they are for now: item 14 deals with them properly.
 
 **Done when:** `render/index.js` is mostly `render()` itself, and the death sequence (robot arm, shards, dust, zoom) plays exactly as before.
 
@@ -279,7 +289,7 @@ These two items change how the code runs, not just where it lives. Do them after
 Some of the simulation happens inside the draw code:
 - `updateAndDrawBreakShards` (`render/index.js:349`) applies gravity and drag to the shards, then draws them. Dead shards are skipped but never removed from `state.breakShards`.
 - The scrape dust (`:395`) spawns, ages and deletes particles in `dragTrail`, inside the renderer.
-- `prevOnGround`, `prevGameOver`, `prevDeathActive` and `_camX` (`:463–472`) remember the last frame's state at module level.
+- `prevDeathActive`, `deathFocusX` and `_camX` (`:463–470`) remember the last frame's state at module level.
 
 **Why it matters:** `PERFORMANCE.md` item 5 skips drawing frames where nothing changed. Anything that *moves* during drawing only advances when a frame is drawn, so it's tied to the frame rate instead of the game's `dt`. It works today mostly by luck.
 
@@ -287,14 +297,14 @@ Some of the simulation happens inside the draw code:
 
 <details><summary>Hint</summary>
 
-A useful test is to ask: "if I paused the game, should this keep moving?" Shards and dust should freeze, so they're game state. Move their physics into the game update and keep only the drawing in the renderer. The `prev*` flags that detect "just landed" or "just died" can become events or flags that the game sets. Camera smoothing is a fair thing for the renderer to keep, because it's purely about the view.
+A useful test is to ask: "if I paused the game, should this keep moving?" Shards and dust should freeze, so they're game state. Move their physics into the game update and keep only the drawing in the renderer. `prevDeathActive` detects "death just started", which is something the game already knows, so it can set a flag instead. Camera smoothing is a fair thing for the renderer to keep, because it's purely about the view.
 </details>
 
 **Done when:** `render/` only *reads* `state`. Searching for `state.` followed by `=` in `render/` finds nothing except the start-prompt bounds (or move those too). Pausing during the death shards freezes them.
 
 ### 15. Stop copying the state every frame
 
-On the death screen and the start screen, `render/index.js:777–809` builds new copies of `state` and `player` with `{...state}` and `{...player}` on **every frame**, just to override a few fields such as `vy: 0` and `ducking: false`. `state` is a big object, so that's a lot of short-lived garbage at 120 Hz. It's the kind that causes a small stutter when the garbage collector runs.
+On the death screen and the start screen, `render/index.js:770–802` builds new copies of `state` and `player` with `{...state}` and `{...player}` on **every frame**, just to override a few fields such as `vy: 0` and `ducking: false`. `state` is a big object, so that's a lot of short-lived garbage at 120 Hz. It's the kind that causes a small stutter when the garbage collector runs.
 
 **Question:** the draw functions read things like `player.ducking`. How can they be told "pretend he isn't ducking" without a new `player` object?
 

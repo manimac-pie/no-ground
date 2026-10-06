@@ -460,8 +460,6 @@ function drawDeathScrapeDust(ctx, info, animTime, dt = 1 / 60) {
   ctx.restore();
 }
 
-let prevOnGround = true;
-let prevGameOver = false;
 let prevDeathActive = false;
 let deathFocusX = null;
 let deathFocusY = null;
@@ -600,11 +598,6 @@ export function render(ctx, state) {
   const distToGround = Math.max(0, world.GROUND_Y - bottom);
   const danger01 = 1 - Math.max(0, Math.min(1, distToGround / 140));
 
-  const landed = !prevOnGround && player.onGround;
-  const justDied = !prevGameOver && state.gameOver;
-  prevOnGround = player.onGround;
-  prevGameOver = state.gameOver;
-
   const uiTime = state.uiTime || 0;
   const animTime = state.animTime || 0;
 
@@ -624,7 +617,7 @@ export function render(ctx, state) {
 
   // Camera lag is driven continuously by world speed + dash impulse.
   // This avoids step changes and feels weighty at high speed.
-  let camLag = _camX;
+  let camLag;
   if (!freezeOnDeath) {
     const speed = Number.isFinite(state.speed) ? state.speed : 0;
     const impulse = Number.isFinite(state.speedImpulse) ? state.speedImpulse : 0;

@@ -26,7 +26,7 @@ export const BLOCKED_NAMES = [
 
 
 function normalize(name) {
-  return String(name || "").toLowerCase().replace(/[\s_.\-]/g, "");
+  return String(name || "").toLowerCase().replace(/[\s_.-]/g, "");
 }
 
 // Returns the pop-up message if the name is blocked, or null if it's allowed.

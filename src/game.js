@@ -41,7 +41,6 @@ import { loadIteration, saveIteration } from "./ui/iteration.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
-const SMASH_APPROACH = 0.90;    // delay before smash to let Bob reach the text
 const SMASH_VISIBLE = 1.4;      // how long shards stay visible after impact
 const RESTART_SMASH_LEAD = RESET_GLITCH_SEC; // RESET glitches the screen out, then the fly-by starts
 const HUD_SLIDE_SEC = 0.55;
@@ -156,11 +155,6 @@ export function createGame() {
     state.deathCinematicDone = true;
     state.startReady = true;
     state.deathRestartT = 0;
-  }
-
-  function armStart() {
-    if (state.gameOver) reset();
-    state.startReady = true;
   }
 
   function endGame() {

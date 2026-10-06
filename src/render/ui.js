@@ -130,94 +130,12 @@ function drawKeyChip(ctx, label, caption, x, y, COLORS, opts = {}) {
   return w + 10; // width plus gap suggestion
 }
 
-function drawGlassPanel(ctx, x, y, w, h, radius = 18, alpha = 0.82) {
-  ctx.save();
-  ctx.globalAlpha = alpha;
-
-  const grd = ctx.createLinearGradient(x, y, x, y + h);
-  grd.addColorStop(0, "rgba(15,17,24,0.92)");
-  grd.addColorStop(1, "rgba(6,8,12,0.88)");
-
-  ctx.fillStyle = grd;
-  roundRect(ctx, x, y, w, h, radius);
-
-  ctx.strokeStyle = "rgba(120,205,255,0.28)";
-  ctx.lineWidth = 1.5;
-  roundedRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, radius);
-  ctx.stroke();
-
-  // Inner highlight
-  ctx.strokeStyle = "rgba(255,255,255,0.06)";
-  roundedRectPath(ctx, x + 2.5, y + 2.5, w - 5, h - 5, radius - 2);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
 function drawGlow(ctx, x, y, w, h, color = "rgba(120,205,255,0.25)", blur = 26) {
   ctx.save();
   ctx.fillStyle = color;
   ctx.shadowColor = color;
   ctx.shadowBlur = blur;
   ctx.fillRect(x, y, w, h);
-  ctx.restore();
-}
-
-function drawPillButton(ctx, label, x, y, w, h, active = false) {
-  ctx.save();
-  const radius = h / 2;
-  const body = ctx.createLinearGradient(x, y, x, y + h);
-  body.addColorStop(0, active ? "rgba(120,205,255,0.22)" : "rgba(255,255,255,0.10)");
-  body.addColorStop(1, active ? "rgba(120,205,255,0.12)" : "rgba(255,255,255,0.08)");
-  ctx.fillStyle = body;
-  roundRect(ctx, x, y, w, h, radius);
-
-  ctx.lineWidth = active ? 2 : 1.25;
-  ctx.strokeStyle = active ? "rgba(120,205,255,0.85)" : "rgba(255,255,255,0.35)";
-  roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, radius);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(242,242,242,0.95)";
-  ctx.font = "800 18px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  centerText(ctx, label, x + w / 2, y + h / 2 + 6);
-  ctx.restore();
-}
-
-function drawPortal(ctx, cx, cy, r, COLORS, pulseT = 0) {
-  const ring = ctx.createRadialGradient(cx, cy, r * 0.45, cx, cy, r);
-  ring.addColorStop(0, "rgba(120,205,255,0.0)");
-  ring.addColorStop(0.55, "rgba(120,205,255,0.28)");
-  ring.addColorStop(0.78, "rgba(120,205,255,0.10)");
-  ring.addColorStop(1, "rgba(0,0,0,0.0)");
-
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  ctx.fillStyle = ring;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Outer glow
-  ctx.strokeStyle = "rgba(120,205,255,0.55)";
-  ctx.lineWidth = 6 + 2 * Math.sin(pulseT * 2.5);
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Inner particles
-  const dots = 24;
-  ctx.fillStyle = "rgba(120,205,255,0.65)";
-  for (let i = 0; i < dots; i++) {
-    const t = (i / dots) * Math.PI * 2 + pulseT * 1.2;
-    const rr = r * (0.18 + 0.14 * Math.sin(t * 3.3 + pulseT));
-    const x = cx + Math.cos(t) * rr * 0.6;
-    const y = cy + Math.sin(t) * rr * 0.8;
-    const s = 1.5 + 1.2 * Math.sin(t * 2.7 + pulseT * 1.7);
-    ctx.beginPath();
-    ctx.arc(x, y, s, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
   ctx.restore();
 }
 
@@ -510,92 +428,6 @@ function drawLeaderboardPanelDirect(
   return { arrowRect };
 }
 
-function drawControlsRow(ctx, cx, y, COLORS, activeKey = null) {
-  const controls = [
-    { label: "SPACE", caption: "Jump / Double Jump" },
-    { label: "W", caption: "Slowfall" },
-    { label: "D", caption: "Dash" },
-    { label: "S", caption: "Duck/Dive" },
-    { label: "A", caption: "Backflip" },
-  ];
-
-  // Measure total width
-  ctx.save();
-  ctx.font = "800 16px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  let total = -10; // initial gap offset
-  const widths = controls.map((c) => {
-    const lw = ctx.measureText(c.label).width;
-    return Math.max(64, lw + 28);
-  });
-  widths.forEach((w) => total += w + 10);
-  ctx.restore();
-
-  let x = cx - total / 2;
-  controls.forEach((c, i) => {
-    const w = widths[i];
-    drawKeyChip(ctx, c.label, c.caption, x, y, COLORS, { active: activeKey === c.label });
-    x += w + 10;
-  });
-}
-
-function drawHudPanelBezel(ctx, x, y, w, h) {
-  ctx.save();
-  ctx.globalAlpha = 0.96;
-  ctx.fillStyle = "rgba(10,12,18,0.94)";
-  roundRect(ctx, x, y, w, h, 14);
-
-  ctx.strokeStyle = "rgba(20,24,34,0.92)";
-  ctx.lineWidth = 6;
-  roundedRectPath(ctx, x + 3, y + 3, w - 6, h - 6, 12);
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(80,90,110,0.55)";
-  ctx.lineWidth = 2;
-  roundedRectPath(ctx, x + 7, y + 7, w - 14, h - 14, 10);
-  ctx.stroke();
-
-  const bezel = ctx.createLinearGradient(x, y, x, y + h);
-  bezel.addColorStop(0, "rgba(40,48,62,0.85)");
-  bezel.addColorStop(0.5, "rgba(18,22,32,0.9)");
-  bezel.addColorStop(1, "rgba(10,12,18,0.95)");
-  ctx.fillStyle = bezel;
-  roundRect(ctx, x + 2, y + 2, w - 4, h - 4, 12);
-
-  ctx.fillStyle = "rgba(160,175,200,0.5)";
-  const boltR = 2.2;
-  const boltPts = [
-    [x + 14, y + 14],
-    [x + w - 14, y + 14],
-    [x + 14, y + h - 14],
-    [x + w - 14, y + h - 14],
-  ];
-  boltPts.forEach(([bx, by]) => {
-    ctx.beginPath();
-    ctx.arc(bx, by, boltR, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  ctx.save();
-  roundedRectPath(ctx, x + 1, y + 1, w - 2, h - 2, 11);
-  ctx.clip();
-  ctx.globalAlpha = 0.14;
-  ctx.fillStyle = "rgba(255,255,255,0.06)";
-  for (let sy = y + 6; sy < y + h - 4; sy += 4) {
-    ctx.fillRect(x + 2, sy, w - 4, 1);
-  }
-  ctx.globalAlpha = 0.12;
-  ctx.strokeStyle = "rgba(0,255,208,0.16)";
-  ctx.lineWidth = 1;
-  for (let i = -1; i < 8; i++) {
-    ctx.beginPath();
-    ctx.moveTo(x - 20 + i * 48, y + h);
-    ctx.lineTo(x + 30 + i * 48, y);
-    ctx.stroke();
-  }
-  ctx.restore();
-  ctx.restore();
-}
-
 export function drawControlsButton(ctx, rect, active = false, hot = false) {
   if (!rect) return;
   const key = `${rect.x}|${rect.y}|${rect.w}|${rect.h}|${active}|${hot}`;
@@ -817,22 +649,6 @@ function drawControlsPanelDirect(ctx, rect, COLORS) {
   ctx.fillStyle = "rgba(255,160,160,0.98)";
   ctx.fillText(warnSuffix, warnX, warnTextY);
 
-  ctx.restore();
-}
-
-function drawMenuPanel(ctx, x, y, w, h, COLORS) {
-  // Dark underlay prevents world elements from reading through.
-  ctx.save();
-  ctx.fillStyle = "rgba(0,0,0,0.78)";
-  roundRect(ctx, x, y, w, h, 16);
-
-  ctx.fillStyle = COLORS.menuPanel;
-  roundRect(ctx, x, y, w, h, 16);
-
-  ctx.strokeStyle = "rgba(242,242,242,0.10)";
-  ctx.lineWidth = 1;
-  roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 16);
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -1452,7 +1268,6 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
   // Intro progress: summary drop, then leaderboard slide (each 0..1).
   const dropK = clamp(boardT / RUN_SUMMARY_DROP_SEC, 0, 1);
   const slideK = clamp((boardT - LEADERBOARD_SLIDE_DELAY_SEC) / LEADERBOARD_SLIDE_SEC, 0, 1);
-  const uiT = Number.isFinite(state.uiTime) ? state.uiTime : 0;
   const rowHeightVal = 18;
   const leaderboardRowCount = LEADERBOARD_MAX_ENTRIES;
 

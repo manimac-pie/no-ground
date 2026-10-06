@@ -227,9 +227,6 @@ export function createInput(canvas, options = {}) {
 
   function onPointerUp(e) {
     if (blocked) return;
-    const wasActive = state._activePointer;
-    const downAt = state._pointerDownAt;
-
     held.jump.pointer = false;
     syncHolds();
     state.pointerDown = false;

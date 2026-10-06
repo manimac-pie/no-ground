@@ -3,7 +3,6 @@ import {
   submitFinalScore,
 } from "./leaderboard.js";
 import {
-  getLeaderboardState,
   setLeaderboardState,
   subscribeLeaderboardState,
 } from "./leaderboardState.js";
