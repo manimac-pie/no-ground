@@ -444,7 +444,7 @@ export function render(ctx, state) {
     const trainingHover =
       state.pointerInViewport === true
       && pointInRect(state.pointerUiX, state.pointerUiY, trainingRect);
-    drawTrainingButton(ctx, trainingRect, trainingHover, touchUi, uiTime);
+    drawTrainingButton(ctx, trainingRect, trainingHover, uiTime);
     if (state.controlsPanelOpen) {
       drawControlsPanel(ctx, panelRect, COLORS);
     }

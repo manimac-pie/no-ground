@@ -25,8 +25,8 @@ let _adBehindK = 0;
 let _adBehindT = -1;
 
 // Start screen, top left. Pulses until TRAINING has been finished on this device.
-export function drawTrainingButton(ctx, rect, hot, touchUi, uiTime) {
-  drawMenuButton(ctx, "trainingButton", rect, touchUi ? "TRAINING" : "TRAINING · T", false, hot);
+export function drawTrainingButton(ctx, rect, hot, uiTime) {
+  drawMenuButton(ctx, "trainingButton", rect, "TRAINING", false, hot);
   if (isTrainingDone()) return;
   const k = 0.5 + 0.5 * Math.sin((uiTime || 0) * 3);
   ctx.save();

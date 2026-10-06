@@ -155,13 +155,13 @@ New players are never taught the moves. Slowfall, Dive, ducking and the dash are
 *Replaces the first plan, one-off hints shown before guided gaps in a real run.* A tutorial teaches every move in order, and players can come back to it. One page is enough: TRAINING is a mode of `index.html`, not a second page.
 
 **Fix:**
-- A TRAINING button at the top left of the start screen (clear of the leaderboard, GAME CONTROLS and the mobile buttons). It's also on the T key, and a link to `index.html?tutorial` opens straight into it. The button pulses until training has been finished on that device (`ng_training_done` in `localStorage`).
+- A TRAINING button at the top left of the start screen (clear of the leaderboard, GAME CONTROLS and the mobile buttons). A link to `index.html?tutorial` opens straight into it. The button pulses until training has been finished on that device (`ng_training_done` in `localStorage`).
 - A fixed course at a steady speed (`SPEED_START`), with one lesson per move: jump, double jump, slowfall, duck, dash, dive and backflip. It's built up front in `game/tutorial.js`, and `game/platforms.js` spawns no random roofs during training. Gap sizes come from `game/reach.js` at that speed.
 - A prompt under the HUD shows the key, or the mobile button name on touch screens, plus a one-line reason. It turns green once the move is done, and CLEAR flashes between lessons.
 - Missing a gap, crashing into an ad, or reaching the next roof without doing the move puts Bob back before that lesson ("AGAIN"). There's no death and no run summary. Nothing is sent to the leaderboard, the iteration counter doesn't go up, and the HUD shows TRAINING instead of BEST.
 - After the last lesson, TRAINING COMPLETE shows, then the RESET glitch and fly-by return to the start screen.
 
-**Verify:** press TRAINING (or T) and play through. Each lesson should clear only after its move. Fall on purpose, and double-jump the slowfall gap: both should retry with AGAIN. At the end you should be back on the start screen with the button no longer pulsing. Check that nothing reaches the Worker. Open `?tutorial` and check that it starts training. Check a normal run is unchanged.
+**Verify:** press TRAINING and play through. Each lesson should clear only after its move. Fall on purpose, and double-jump the slowfall gap: both should retry with AGAIN. At the end you should be back on the start screen with the button no longer pulsing. Check that nothing reaches the Worker. Open `?tutorial` and check that it starts training. Check a normal run is unchanged.
 
 *Done 2026-10-06:* a bot playing the real game update clears all seven lessons in about 32 s. Each prompt is fully visible at least 2.2 s before its gap. The runways after a lesson were lengthened for that, especially after the dash, which carries Bob in at about 700 px/s. At the training speed a real dive ledge can't be built (the generator only allows them from 40% difficulty), so the dive lesson is a forgiving drop that checks you dived. While an ad passes under the prompt, the prompt fades so the ad stays visible.
 

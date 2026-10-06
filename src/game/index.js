@@ -397,7 +397,6 @@ export function createGame() {
     const trickPressed = input?.consumeTrickPressed?.() === true;
     const trickIntent = input?.consumeTrickIntent?.() || "neutral";
     const dashPressed = input?.consumeDashPressed?.() === true;
-    const trainingKey = input?.consumeTrainingPressed?.() === true;
 
     state.jumpHeld = input?.jumpHeld === true;
     state.slowfallHeld = input?.slowfallHeld === true;
@@ -494,7 +493,7 @@ export function createGame() {
         return state;
       }
 
-      const trainingRequest = onStartScreen && (trainingPressed || trainingKey || trainingRequested);
+      const trainingRequest = onStartScreen && (trainingPressed || trainingRequested);
       const startRequest = onStartScreen
         ? (trainingRequest || startPromptPressed || (jumpPressed && jumpSource !== "pointer"))
         : jumpPressed;

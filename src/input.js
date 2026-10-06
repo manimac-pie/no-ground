@@ -7,7 +7,6 @@
 // - Dash: D press (one-shot pulse)
 // - Flip: A (backflip)
 // - Pause: P / Esc (one-shot pulse)
-// - Training: T on the start screen (one-shot pulse)
 
 import { INTERNAL_WIDTH, INTERNAL_HEIGHT } from "./game/constants.js";
 
@@ -34,7 +33,6 @@ export function createInput(canvas, options = {}) {
     divePressed: false,
     dashPressed: false,
     pausePressed: false,
-    trainingPressed: false,
     lastJumpSource: null,
 
     // Holds
@@ -97,9 +95,8 @@ export function createInput(canvas, options = {}) {
     const isDashKey = key === "KeyD";
     const isFlipKey = key === "KeyA";
     const isPauseKey = key === "KeyP" || key === "Escape";
-    const isTrainingKey = key === "KeyT";
 
-    if (!isJumpKey && !isSlowfallKey && !isDiveKey && !isDashKey && !isFlipKey && !isPauseKey && !isTrainingKey) return;
+    if (!isJumpKey && !isSlowfallKey && !isDiveKey && !isDashKey && !isFlipKey && !isPauseKey) return;
 
     // Prevent page scroll / browser shortcuts interfering.
     e.preventDefault();
@@ -146,11 +143,6 @@ export function createInput(canvas, options = {}) {
 
     if (isPauseKey) {
       pressPause();
-      return;
-    }
-
-    if (isTrainingKey) {
-      state.trainingPressed = true;
       return;
     }
   }
@@ -332,7 +324,6 @@ export function createInput(canvas, options = {}) {
     state.divePressed = false;
     state.dashPressed = false;
     state.pausePressed = false;
-    state.trainingPressed = false;
     state.lastJumpSource = null;
     state.jumpHeld = false;
     state.slowfallHeld = false;
@@ -410,12 +401,6 @@ export function createInput(canvas, options = {}) {
     consumePausePressed() {
       const v = state.pausePressed;
       state.pausePressed = false;
-      return v;
-    },
-
-    consumeTrainingPressed() {
-      const v = state.trainingPressed;
-      state.trainingPressed = false;
       return v;
     },
 

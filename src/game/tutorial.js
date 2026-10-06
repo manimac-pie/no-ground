@@ -1,5 +1,5 @@
 // src/game/tutorial.js
-// TRAINING: a fixed course, started from the start screen (the TRAINING button, T, or
+// TRAINING: a fixed course, started from the start screen (the TRAINING button, or
 // index.html?tutorial), that teaches one move per lesson at a steady speed.
 //
 // Each lesson runs from a runway roof, over the gap or past the ad that needs its move, to a goal
