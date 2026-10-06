@@ -9,11 +9,56 @@ import {
   START_PUSH_TOTAL,
   world,
 } from "../game/constants.js";
-import { clamp, easeOutCubic } from "../shared/math.js";
+import { clamp, easeOutCubic, smoothstep01 } from "../shared/math.js";
+import { torsoShape } from "./player/body.js";
+
+// Bob falling back after hitting a billboard he couldn't break (render/index.js draws it).
+const BILLBOARD_FALL_SEC = 0.35;
+const BILLBOARD_FALL_TILT = -Math.PI / 2;
+const BILLBOARD_FALL_X = -18;
+const BILLBOARD_FALL_LIFT = -4;
+
+// On a crash Bob topples onto his side this fast, as the wheel pops off.
+const DEATH_TOPPLE_SEC = 0.18;
+// Gap between Bob and the claw's palm, and how much of his length the jaws cover.
+const CLAW_PALM_GAP = 2;
+const CLAW_JAW_REACH = 0.7;
 
 function easeInOutCubic(t) {
   const x = clamp(t, 0, 1);
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+// 0 → 1 as Bob falls back off a billboard he couldn't break.
+export function billboardFallK(player) {
+  if (!player || player.billboardDeath !== true) return 0;
+  const t = clamp((player.billboardDeathT || 0) / BILLBOARD_FALL_SEC, 0, 1);
+  return 1 - Math.pow(1 - t, 2);
+}
+
+// The billboard fall-back pose at k (0..1): tilt, x offset and lift.
+export function billboardFallPose(k) {
+  return { tilt: BILLBOARD_FALL_TILT * k, x: BILLBOARD_FALL_X * k, lift: BILLBOARD_FALL_LIFT * k };
+}
+
+// Where the claw grips Bob: his body capsule (render/player/body.js) as a box in the world, for Bob
+// drawn at tilt (0 upright, ±90° on his side) around his hitbox centre (cx, cy).
+// Returns the palm's spot on his back end and the jaw size that fits him.
+function clawGrip(snap, cx, cy, tilt) {
+  const torso = torsoShape(snap.w, snap.h);
+  const sin = Math.sin(tilt);
+  const cos = Math.cos(tilt);
+  // The capsule's centre sits torso.centerY above the hitbox centre; turn that offset with him.
+  const torsoX = cx - torso.centerY * sin;
+  const torsoY = cy + torso.centerY * cos;
+  const halfX = Math.abs(cos) * torso.w / 2 + Math.abs(sin) * torso.h / 2;
+  const halfY = Math.abs(sin) * torso.w / 2 + Math.abs(cos) * torso.h / 2;
+  return {
+    x: torsoX - halfX - CLAW_PALM_GAP,
+    y: torsoY,
+    jawLen: halfX * 2 * CLAW_JAW_REACH + CLAW_PALM_GAP,
+    jawGap: halfY + 0.5,
+  };
 }
 
 export function computeDeathCinematic(state, focusX) {
@@ -47,30 +92,45 @@ export function computeDeathCinematic(state, focusX) {
       : 1
   );
 
-  // Arm targets Bob's torso; base hides off-screen to the left relative to current focus.
-  const baseX = (Number.isFinite(focusX) ? focusX : snap.x) - world.INTERNAL_WIDTH * 0.7;
-  const baseY = snap.y + snap.h * 0.22;
-
-  const targetX = snap.x + snap.w * -0.02;
-  const targetY = snap.y + snap.h * 0.38;
-
-  const reachX = baseX + (targetX - baseX) * reachK;
-  const reachY = baseY + (targetY - baseY) * reachK;
-
-  const dragDistance = -(snap.x + snap.w * 2.5 + 520);
-  const dragOffsetX = dragDistance * dragK;
-
-  const tipX = reachX + dragOffsetX - retractK * 70;
-  const tipY = reachY - dragK * 8 - retractK * 6;
-
-  const bobOffsetX = dragOffsetX;
-  const bobAlpha = clamp(1 - 0.65 * retractK, 0, 1);
-
-  const bobTilt = Math.PI / 2;
-  const bobLift = 0;
+  // Bob's pose: he topples onto his side. After a billboard he was already falling back (head
+  // first toward the claw), so he finishes that fall instead and drops the lift onto the ground.
+  const toppleK = easeOutCubic(t / DEATH_TOPPLE_SEC);
+  let bobTilt;
+  let poseX = 0;
+  let bobLift = 0;
+  if (state.player && state.player.billboardDeath === true) {
+    const fallK = billboardFallK(state.player);
+    const fall = billboardFallPose(fallK + (1 - fallK) * toppleK);
+    bobTilt = fall.tilt;
+    poseX = fall.x;
+    bobLift = billboardFallPose(fallK).lift * (1 - toppleK);
+  } else {
+    bobTilt = (Math.PI / 2) * toppleK;
+  }
   const bobScale = 1;
 
-  const gripK = clamp(reachK * 0.9 + dragK * 0.6, 0, 1);
+  // The claw grips his torso. The arm only sets off after he has toppled (ARM_DELAY > DEATH_TOPPLE_SEC).
+  const grip = clawGrip(snap, snap.x + snap.w / 2 + poseX, snap.y + snap.h / 2 + bobLift, bobTilt);
+
+  // Base hides off-screen to the left relative to current focus.
+  const baseX = (Number.isFinite(focusX) ? focusX : snap.x) - world.INTERNAL_WIDTH * 0.7;
+  const baseY = grip.y - snap.h * 0.16;
+
+  const reachX = baseX + (grip.x - baseX) * reachK;
+  const reachY = baseY + (grip.y - baseY) * reachK;
+
+  // Bob moves with the claw once it has him: dragged off, then pulled back with the arm.
+  const dragDistance = -(snap.x + snap.w * 2.5 + 520);
+  const holdOffsetX = dragDistance * dragK - retractK * 70;
+
+  const tipX = reachX + holdOffsetX;
+  const tipY = reachY;
+
+  const bobOffsetX = poseX + holdOffsetX;
+  const bobAlpha = clamp(1 - 0.65 * retractK, 0, 1);
+
+  // Jaws open on the way in and close as the palm reaches him.
+  const gripK = smoothstep01(clamp((reachKRaw - 0.7) / 0.3, 0, 1));
 
   const armAlpha = clamp(1 - 0.7 * retractK, 0, 1);
 
@@ -93,6 +153,8 @@ export function computeDeathCinematic(state, focusX) {
       dragK,
       retractK,
       gripK,
+      jawLen: grip.jawLen,
+      jawGap: grip.jawGap,
       alpha: armAlpha,
     },
   };
@@ -125,14 +187,14 @@ export function computeStartPush(state, focusX) {
   const pushK = easeInOutCubic(pushKRaw);
   const retractK = easeInOutCubic(retractKRaw);
 
+  // The claw carries Bob in upright by his torso, then lets go and pulls away.
+  const grip = clawGrip(snap, snap.x + snap.w / 2, snap.y + snap.h / 2, 0);
+
   const baseX = (Number.isFinite(focusX) ? focusX : snap.x) - world.INTERNAL_WIDTH * 0.75;
   const baseY = snap.y + snap.h * 0.28;
 
-  const targetX = snap.x + snap.w * 0.05;
-  const targetY = snap.y + snap.h * 0.45;
-
-  const reachX = baseX + (targetX - baseX) * reachK;
-  const reachY = baseY + (targetY - baseY) * reachK;
+  const reachX = baseX + (grip.x - baseX) * reachK;
+  const reachY = baseY + (grip.y - baseY) * reachK;
 
   const pushDist = snap.x + snap.w + 120;
   const bobOffsetX = -pushDist + pushDist * pushK;
@@ -140,6 +202,7 @@ export function computeStartPush(state, focusX) {
   const retractOffset = -retractK * (world.INTERNAL_WIDTH * 0.55);
   const tipX = reachX + bobOffsetX + retractOffset;
   const tipY = reachY;
+  const gripK = 1 - smoothstep01(clamp(retractKRaw * 4, 0, 1));
 
   const armAlpha = 1;
   const baseXFinal = baseX + retractOffset;
@@ -160,7 +223,9 @@ export function computeStartPush(state, focusX) {
       reachK,
       dragK: 0,
       retractK,
-      gripK: 0,
+      gripK,
+      jawLen: grip.jawLen,
+      jawGap: grip.jawGap,
       alpha: armAlpha,
     },
   };

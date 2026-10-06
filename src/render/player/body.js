@@ -4,47 +4,20 @@
 import { roundedRectPath } from "../../shared/canvas.js";
 import { clamp, hash01 } from "../../shared/math.js";
 
-export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS, eyes) {
-  // Local space: origin at player center after transforms in caller.
-  const w = player.w;
-  const h = player.h;
+// Bob's body capsule, in his local space (origin at the hitbox centre): its size, and how far its
+// centre sits above the hitbox centre. camera.js fits the claw around it.
+export function torsoShape(w, h) {
+  return { w: w * 0.70, h: h * 0.78, centerY: -h * 0.06 };
+}
 
-  const vy = player.vy ?? 0;
-  const onGround = player.onGround === true;
-  const running = stateRunning && onGround;
+// Wheel size for a hitbox w wide (game/breakShards.js uses the same size for the loose wheel).
+function wheelRadius(w) {
+  return Math.max(6, w * 0.70 * 0.22);
+}
 
-  // Scale cadence with speed
-  const s = Number.isFinite(speed) ? speed : 0;
-  const runRate = clamp(6 + (s / 480) * 10, 6, 18); // steps/sec
-  const phase = t * runRate * Math.PI * 2;
-
-  // Body capsule (kept inside hitbox)
-  const bodyW = w * 0.70;
-  const bodyH = h * 0.78;
-  const bodyX = -bodyW / 2;
-  const bodyY = -bodyH / 2 - h * 0.06;
-  const radius = Math.min(bodyW, bodyH) * 0.45;
-
-  // Wheel roll phase
-  const stride = running ? Math.sin(phase) : 0;
-
-  // Air leg behavior
-  const up01 = clamp(-vy / 900, 0, 1);
-  const down01 = clamp(vy / 900, 0, 1);
-
-  const legLift = running ? Math.abs(stride) * h * 0.08 : 0;
-
-  const airTuck = up01 * h * 0.10;
-  const airExtend = down01 * h * 0.06;
-
-  const wheelR = Math.max(6, bodyW * 0.22);
-  // Anchor wheel near the bottom of the hitbox so the character doesn't appear to float.
-  const wheelY = h / 2 - wheelR - 1 - legLift - airTuck + airExtend;
-
-  // Wheel
+// Bob's wheel, centred on the origin and turned by roll. Also drawn on its own once it comes off.
+export function drawWheel(ctx, wheelR, roll) {
   ctx.save();
-  ctx.translate(0, wheelY + wheelR);
-  const roll = running ? phase * 0.65 : 0;
   ctx.rotate(roll);
 
   // Tire
@@ -74,14 +47,65 @@ export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS, 
     ctx.stroke();
   }
 
-  // Tire highlight
-  ctx.globalAlpha = 0.28;
+  // Tire highlight (it turns with the wheel)
+  ctx.globalAlpha *= 0.28;
   ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(-wheelR * 0.10, -wheelR * 0.10, wheelR * 0.92, -0.3, 1.1);
   ctx.stroke();
   ctx.restore();
+}
+
+// noWheel: draw him with the wheel knocked off (after a crash).
+export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS, eyes, noWheel = false) {
+  // Local space: origin at player center after transforms in caller.
+  const w = player.w;
+  const h = player.h;
+
+  const vy = player.vy ?? 0;
+  const onGround = player.onGround === true;
+  const running = stateRunning && onGround;
+
+  // Scale cadence with speed
+  const s = Number.isFinite(speed) ? speed : 0;
+  const runRate = clamp(6 + (s / 480) * 10, 6, 18); // steps/sec
+  const phase = t * runRate * Math.PI * 2;
+
+  // Body capsule (kept inside hitbox)
+  const torso = torsoShape(w, h);
+  const bodyW = torso.w;
+  const bodyH = torso.h;
+  const bodyX = -bodyW / 2;
+  const bodyY = -bodyH / 2 + torso.centerY;
+  const radius = Math.min(bodyW, bodyH) * 0.45;
+
+  // Wheel roll phase
+  const stride = running ? Math.sin(phase) : 0;
+
+  // Air leg behavior
+  const up01 = clamp(-vy / 900, 0, 1);
+  const down01 = clamp(vy / 900, 0, 1);
+
+  const legLift = running ? Math.abs(stride) * h * 0.08 : 0;
+
+  const airTuck = up01 * h * 0.10;
+  const airExtend = down01 * h * 0.06;
+
+  const wheelR = wheelRadius(w);
+  // Anchor wheel near the bottom of the hitbox so the character doesn't appear to float.
+  const wheelY = h / 2 - wheelR - 1 - legLift - airTuck + airExtend;
+
+  if (noWheel) {
+    // The wheel came off in the crash (game/breakShards.js): just the axle stub is left.
+    ctx.fillStyle = "rgba(36,38,44,0.95)";
+    ctx.fillRect(-1.5, bodyY + bodyH - 1, 3, wheelY + wheelR - (bodyY + bodyH) + 1);
+  } else {
+    ctx.save();
+    ctx.translate(0, wheelY + wheelR);
+    drawWheel(ctx, wheelR, running ? phase * 0.65 : 0);
+    ctx.restore();
+  }
 
   // Body capsule
   roundedRectPath(ctx, bodyX, bodyY, bodyW, bodyH, radius);

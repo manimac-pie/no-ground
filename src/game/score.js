@@ -24,6 +24,7 @@ const SCORE_PX_PER_POINT = getConst("SCORE_PX_PER_POINT", 2);
 const BACKFLIP_BONUS_SEC = getConst("BACKFLIP_BONUS_SEC", 0.25);
 const CLUTCH_FLIP_BONUS_SEC = getConst("CLUTCH_FLIP_BONUS_SEC", 0.3);
 const CLUTCH_FLIP_WINDOW_SEC = getConst("CLUTCH_FLIP_WINDOW_SEC", 0.12);
+const BYPASS_POINTS_FRAC = getConst("BYPASS_POINTS_FRAC", 0.3);
 
 // Pop-ups: fixed ring of reusable slots (no per-event allocation beyond the text).
 const SCORE_EVENT_SLOTS = 6;
@@ -53,11 +54,12 @@ function pushScoreEvent(state, amount, text) {
 }
 
 // Sources: distance, multiplier (the air multiplier's extra distance), backflip, smash,
-// dodge (ducking under a billboard), closeCall, other. The *N fields count events for the sources the summary shows a count for.
+// dodge (ducking under a billboard), closeCall, buildings (BYPASS: jumping clean over buildings), other.
+// The *N fields count events for the sources the summary shows a count for (buildingsN: buildings bypassed).
 export function createBreakdown() {
   return {
-    distance: 0, multiplier: 0, backflip: 0, smash: 0, dodge: 0, closeCall: 0, other: 0,
-    backflipN: 0, smashN: 0, dodgeN: 0, closeCallN: 0,
+    distance: 0, multiplier: 0, backflip: 0, smash: 0, dodge: 0, closeCall: 0, buildings: 0, other: 0,
+    backflipN: 0, smashN: 0, dodgeN: 0, closeCallN: 0, buildingsN: 0,
   };
 }
 
@@ -126,6 +128,20 @@ export function awardBonus(state, sec, label, kind = "other", mult = 1) {
   countEvent(state, kind);
   pushScoreEvent(state, amount, `+${amount} ${label}`);
   if (!state.airActive) state.scoreEventLastT = state.uiTime || 0;
+}
+
+// BYPASS: landing after jumping clean over n whole buildings (the ones he left from and landed on
+// don't count) pays this jump's distance × n × BYPASS_POINTS_FRAC. Banked at once (it's the
+// landing), not put in the pot, so the trick multiplier doesn't multiply it.
+export function awardBuildingsCleared(state, n) {
+  const b = state.scoreBreakdown;
+  if (!state.airActive || !(n > 0) || !b) return;
+  b.buildingsN += n;
+  const amount = Math.round((state.airDistance || 0) * n * BYPASS_POINTS_FRAC);
+  if (!(amount > 0)) return;
+  b.buildings += amount;
+  state.score += amount;
+  pushScoreEvent(state, amount, `+${amount} ${n > 1 ? `${n} BUILDINGS` : "BUILDING"} BYPASSED`);
 }
 
 // Takeoff: start a fresh pot. Safe to call repeatedly.
@@ -225,16 +241,18 @@ export function tallyRowSec(row) {
 // Summary rows in tally order: { key, points, count } (count is null for rows without one).
 // Bonus points are whole numbers and DISTANCE takes the rest, so the rows add up to the shown
 // total and DISTANCE's points equal the distance shown next to it.
+// The "other" bonuses (double jump, dive, vault, ...) have no row of their own: they count
+// towards TRICK MULTIPLIER.
 export function buildSummaryRows(state) {
   const b = state.scoreBreakdown || {};
   const pts = (k) => Math.max(0, Math.round(b[k] || 0));
   const rows = [
-    { key: "multiplier", points: pts("multiplier"), count: null },
+    { key: "multiplier", points: pts("multiplier") + pts("other"), count: null },
     { key: "backflip", points: pts("backflip"), count: b.backflipN || 0 },
     { key: "smash", points: pts("smash"), count: b.smashN || 0 },
     { key: "dodge", points: pts("dodge"), count: b.dodgeN || 0 },
     { key: "closeCall", points: pts("closeCall"), count: b.closeCallN || 0 },
-    { key: "other", points: pts("other"), count: null },
+    { key: "buildings", points: pts("buildings"), count: b.buildingsN || 0 },
   ];
   const bonusTotal = rows.reduce((sum, r) => sum + r.points, 0);
   const score = Number.isFinite(state.score) ? state.score : 0;

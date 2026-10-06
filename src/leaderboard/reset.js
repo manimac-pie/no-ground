@@ -20,12 +20,12 @@ export function msUntilWeeklyReset(nowMs = Date.now()) {
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
-// Time left until the reset: "2D 14H", "14H 05M", or "05M 33S" in the last hour.
+// Time left until the reset in hours, minutes and seconds (h:mm:ss), e.g. "134:32:01", "5:03:07".
 export function weeklyResetIn(nowMs = Date.now()) {
-  const totalSec = Math.max(0, Math.floor(msUntilWeeklyReset(nowMs) / 1000));
-  const d = Math.floor(totalSec / 86400);
-  const h = Math.floor((totalSec % 86400) / 3600);
+  // Rounded up, so it never reads 0:00:00 before the reset.
+  const totalSec = Math.max(0, Math.ceil(msUntilWeeklyReset(nowMs) / 1000));
+  const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  return d > 0 ? `${d}D ${pad2(h)}H` : h > 0 ? `${h}H ${pad2(m)}M` : `${pad2(m)}M ${pad2(s)}S`;
+  return `${h}:${pad2(m)}:${pad2(s)}`;
 }

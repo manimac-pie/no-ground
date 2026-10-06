@@ -4,7 +4,7 @@
 
 import { clamp, smoothstep01 } from "../shared/math.js";
 import { getConst } from "./utils.js";
-import { awardBonus, beginAir, countEvent, landAir, loseAir } from "./score.js";
+import { awardBonus, awardBuildingsCleared, beginAir, countEvent, landAir, loseAir } from "./score.js";
 
 // ---------------- constants ----------------
 const GRAVITY = getConst("GRAVITY", 1800);
@@ -116,6 +116,17 @@ export function tryConsumeBufferedJump(state) {
 
 export function bufferJump(state) {
   state.jumpBuffer = JUMP_BUFFER_SEC;
+}
+
+// ---------------- bypass (buildings jumped over) ----------------
+// Bob is on plat (its roof or its billboard): if he jumped clean over whole buildings to get here,
+// award them, then it's the building he last stood on. Runs on every step he stands there too,
+// when nothing is in between.
+function landOnBuilding(state, plat) {
+  const p = state.player;
+  const seq = Number.isFinite(plat.seq) ? plat.seq : 0;
+  awardBuildingsCleared(state, seq - (p.contactSeq || 0) - 1);
+  p.contactSeq = seq;
 }
 
 // ---------------- dive ----------------
@@ -330,6 +341,7 @@ export function integratePlayer(state, dt, endGame) {
         p.divePhase = "";
         p.divePhaseT = 0;
         p.slowfallFuel = SLOWFALL_FUEL_MAX;
+        landOnBuilding(state, plat);
         landAir(state);
         billboardHit = true;
         skipRoofLanding = true;
@@ -410,6 +422,7 @@ export function integratePlayer(state, dt, endGame) {
         if (!wasOnGround && px2 - plat.x <= p.w * CLOSE_CALL_OVERLAP_FRAC) {
           awardBonus(state, CLOSE_CALL_BONUS_SEC, "CLOSE CALL", "closeCall");
         }
+        landOnBuilding(state, plat);
         landAir(state);
         break;
       }

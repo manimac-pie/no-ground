@@ -53,7 +53,7 @@ export function leaderboardRowHeight(maxH, weeklyRows, weeklyLabel, preferred) {
 }
 
 // boards: getBoards() from leaderboard/state.js. opts: glow; toggle (THIS WEEK expands/collapses
-// the list, start screen only); expanded; rowHeight; resetIn (countdown text, "5D 20H").
+// the list, start screen only); expanded; rowHeight; resetIn (countdown text, h:mm:ss like "134:32:01").
 // Returns { toggleRect }: where to click to expand/collapse, or null.
 export function drawLeaderboardPanel(ctx, boards, myBest, x, y, w, h, alpha = 1, opts = {}) {
   if (alpha <= 0 || !Number.isFinite(w) || !Number.isFinite(h)) return;

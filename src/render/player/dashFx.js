@@ -31,8 +31,9 @@ function ramp(a, b, n) {
   }
   return out;
 }
-const SPARK_COLORS = ramp([242, 242, 242], [255, 180, 70], 8);
-const GLOW_COLOR = "rgb(255,180,70)";
+// Also used by the death drag sparks (render/effects.js).
+export const SPARK_COLORS = ramp([242, 242, 242], [255, 180, 70], 8);
+export const SPARK_GLOW_COLOR = "rgb(255,180,70)";
 const WIND_WHITE = "rgb(242,242,242)";
 const WIND_CYAN = "rgb(120,205,255)";
 
@@ -129,7 +130,7 @@ export function drawDashSparks(ctx, view, offsetX, active) {
   ctx.globalCompositeOperation = "lighter";
   if (glow) {
     ctx.globalAlpha = 0.22 * k;
-    ctx.fillStyle = GLOW_COLOR;
+    ctx.fillStyle = SPARK_GLOW_COLOR;
     ctx.beginPath();
     ctx.ellipse(player.x + player.w / 2 + offsetX - 4, player.y + player.h, 12, 3, 0, 0, Math.PI * 2);
     ctx.fill();

@@ -30,8 +30,8 @@ import { drawPauseOverlay } from "./hud/pause.js";
 import { drawResetGlitch } from "./hud/reset.js";
 import { drawCenterScore } from "./hud/summary.js";
 import { drawStartPrompt } from "./menu.js";
-import { computeDeathCinematic, computeStartPush } from "./camera.js";
-import { drawBreakShards, drawDeathScrapeDust, drawRobotArm } from "./effects.js";
+import { billboardFallK, billboardFallPose, computeDeathCinematic, computeStartPush } from "./camera.js";
+import { drawBreakShards, drawDeathDragSparks, drawRobotArm } from "./effects.js";
 import { applyViewportTransform, ensureCanvasSize, getCanvasRect, isTouchViewport, resetCtx } from "./viewport.js";
 import {
   getControlsButtonRect,
@@ -278,12 +278,12 @@ export function render(ctx, state) {
   let playerTilt = deathInfo ? deathInfo.bobTilt : 0;
   let playerLift = deathInfo ? deathInfo.bobLift : 0;
   let playerScale = deathInfo ? deathInfo.bobScale : 1;
-  if (state.player && state.player.billboardDeath === true) {
-    const t = clamp((state.player.billboardDeathT || 0) / 0.35, 0, 1);
-    const ease = 1 - Math.pow(1 - t, 2);
-    playerTilt += -Math.PI / 2 * ease;
-    playerOffsetX += -18 * ease;
-    playerLift += -4 * ease;
+  // Falling back off a billboard. Once he's dead the death cinematic carries on this pose itself.
+  if (!deathInfo && state.player && state.player.billboardDeath === true) {
+    const fall = billboardFallPose(billboardFallK(state.player));
+    playerTilt += fall.tilt;
+    playerOffsetX += fall.x;
+    playerLift += fall.lift;
   }
 
   const startLookAround = startPush ? startPush.done === true : false;
@@ -329,6 +329,7 @@ export function render(ctx, state) {
     noGlow: deathActive,
     noFx: deathActive,
     eyes: startLookAround ? { t: uiTime || 0 } : null,
+    noWheel: deathInfo !== null, // it came off in the crash
     dt,
   });
   ctx.restore();
@@ -339,11 +340,11 @@ export function render(ctx, state) {
   }
 
   resetCtx(ctx);
-  drawBreakShards(ctx, state.breakShards, playerOffsetX);
+  drawBreakShards(ctx, state.breakShards);
 
   if (deathActive) {
     resetCtx(ctx);
-    drawDeathScrapeDust(ctx, deathInfo, animTime || 0, dt);
+    drawDeathDragSparks(ctx, deathInfo, dt);
   }
 
   // Start prompt stays in-world (moves with camera/zoom, fixed world size).

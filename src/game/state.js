@@ -137,6 +137,7 @@ export function createInitialState() {
       breakGrace: 0,
       breakJumpEligible: false,
       groundPlat: null,
+      contactSeq: 0, // seq of the building he last stood on (roof or billboard); 0 is the starter roof
 
       spinning: false,
       spinT: 0,
@@ -271,6 +272,7 @@ export function resetRunState(state) {
   p.breakGrace = 0;
   p.breakJumpEligible = false;
   p.groundPlat = null;
+  p.contactSeq = 0;
 
   p.spinning = false;
   p.spinT = 0;

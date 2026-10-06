@@ -29,7 +29,7 @@ const SUMMARY_ROW_LOOK = {
   smash:      { label: "BILLBOARDS BROKEN", rgb: "255,110,180" },
   dodge:      { label: "ADS AVOIDED",       rgb: "200,240,100" },
   closeCall:  { label: "CLOSE CALLS",       rgb: "120,255,170" },
-  other:      { label: "OTHER BONUSES",     rgb: "190,150,255" },
+  buildings:  { label: "BUILDINGS BYPASSED", rgb: "150,170,255" },
 };
 const TALLY_COUNT_FRAC = 0.65; // share of a row's time spent counting; the rest flies to the total
 const TALLY_PULSE_SEC = 0.25;  // total score pulse when a row lands in it

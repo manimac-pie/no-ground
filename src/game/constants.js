@@ -168,6 +168,9 @@ export const CLOSE_CALL_BONUS_SEC = 0.30;      // land with only the front of Bo
 export const CLOSE_CALL_OVERLAP_FRAC = 0.6;    // ...at most this share of his width
 export const CLUTCH_FLIP_BONUS_SEC = 0.30;     // a backflip that finishes just before landing
 export const CLUTCH_FLIP_WINDOW_SEC = 0.12;    // ...within this many seconds
+// BYPASS: jumping clean over whole buildings pays jump distance × buildings × this.
+// 0.3 is about a close call per building on a 200 m jump.
+export const BYPASS_POINTS_FRAC = 0.3;
 
 // Air multiplier on a jump's distance (paid on a safe landing):
 // 1 + FLIP_MULT_STEP per backflip + COMBO_MULT_STEP per combo link, capped at AIR_MULT_MAX.
@@ -214,10 +217,17 @@ export const DEATH_CINEMATIC_TOTAL =
 export const DEATH_SUMMARY_START_SEC = DEATH_CINEMATIC.ARM_DELAY + DEATH_CINEMATIC.ARM_REACH;
 
 export const BREAK_SHARDS = {
-  COUNT: 18,
+  COUNT: 12,          // plates and sparks thrown off the impact; they fade out in the air
   LIFE: 1.1,
   GRAVITY: 2600,
   DRAG: 0.93,
+  SCREW_COUNT: 6,     // screws and nuts shaken loose; they land and stay on the ground until the reset
+  SCREW_BOUNCE: 0.35, // share of its speed a screw keeps when it hits the ground
+  WHEEL_POP_VX: 160,  // the wheel pops off forward...
+  WHEEL_POP_VY: 430,  // ...and up, then bounces and rolls to a stop
+  WHEEL_BOUNCE: 0.5,
+  ROLL_FRICTION: 1.6, // how fast the wheel slows down rolling on the ground (per second)
+  SLIDE_FRICTION: 7,  // how fast screws and nuts slide to a stop
 };
 
 // Pressing RESET: the simulation glitches the screen out for this long, then the fly-by rebuilds it.

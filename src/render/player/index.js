@@ -60,6 +60,7 @@ export function drawPlayerShadow(ctx, player) {
 // state: the game state, or render/index.js's pose view. Only these fields are read:
 // player, slowfallHeld, heavyLandT, running, speed. (The dash effects in dashFx.js also read speedImpulse.)
 // opts.dt: game time since the last frame, for the pose smoothing (0 while paused).
+// opts.noWheel: draw Bob without his wheel (it came off in the crash).
 export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   const player = state.player;
   const suppressFx = opts.noFx === true;
@@ -246,7 +247,8 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     state.running,
     state.speed || 0,
     COLORS,
-    opts.eyes || null
+    opts.eyes || null,
+    opts.noWheel === true
   );
 
   if (jumpFxK > 0.01) {

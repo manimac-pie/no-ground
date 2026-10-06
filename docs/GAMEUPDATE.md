@@ -57,15 +57,26 @@ Numbered from lowest effort to highest.
 12. [x] Jumping right after releasing from duck (s) gives a bit of extra jump height
     > Already in the game: a jump while ducking, or up to 0.15 s after letting go of S, goes ×1.08 (about 17% higher). Should it be stronger or last longer? Tune `DUCK_JUMP_VELOCITY_MULT` and `DUCK_JUMP_WINDOW_SEC` in `src/game/constants.js`.
 
-13. [ ] the claw that takes bob out of the ending scene seems a bit wierd. can you make it fit bob better. and maybe when bob crashes, the wheel bobs off and some screws get loose?
+13. [x] the claw that takes bob out of the ending scene seems a bit wierd. can you make it fit bob better. and maybe when bob crashes, the wheel bobs off and some screws get loose?
+    > ✅ Done (2026-10-06): the claw is now a clamp (a palm and two jaws) fitted to Bob's body. It closes onto him as it arrives and stays on him through the drag (it used to sit too high, cut across his middle and slide off). On a crash Bob topples onto his side. After a billboard crash he finishes falling back instead of hanging upright in the claw. His wheel pops off forward, bounces and rolls to a stop, and a few screws and nuts land around him. They stay there when the claw drags him away. Tune them with `BREAK_SHARDS` in `src/game/constants.js`. Code: `src/render/camera.js` (grip), `src/render/effects.js` (claw), `src/game/breakShards.js` (wheel and screws).
 
 14. [ ] how can we make the dive better?
 
 15. [x] better dash trail?
     > ✅ Done (option G from the demo): sparks from the wheel on a roof dash and wind lines across the whole screen (roof or air). No trail on Bob. The old streaks are gone. Code: `src/render/player/dashFx.js`.
 
+16. [x] Add a jumping over building multiplier
+    > d = distance bob covered from last contact (on top of billboard or roof) to next contact (on top of billboard or roof)
+    > n = number of buildings (except last contact and next contact) between d
+    > score added = d * n
+    > ✅ Done (2026-10-06): **BYPASS**. Landing on a roof or billboard after jumping clean over n whole buildings pays d × n × 0.3 (d is the jump's distance in metres; tune `BYPASS_POINTS_FRAC` in `src/game/constants.js`). It works out to about 60 points per building on a 200 m jump. Pop-ups: `+61 BUILDING BYPASSED`, `+45 2 BUILDINGS BYPASSED`. It's only paid on a safe landing, and the trick multiplier doesn't multiply it. The run summary has a BUILDINGS BYPASSED row, and OTHER BONUSES is gone: those points now count towards TRICK MULTIPLIER. Each roof is numbered as it spawns (`seq` in `src/game/generator.js`), so n is the landing building's number minus the last building's, minus 1. Code: `awardBuildingsCleared` in `src/game/score.js`, `landOnBuilding` in `src/game/player.js`.
+
+
 ## Also done (not on the list)
+- [x] When the claw drags Bob away at game over, he now throws sparks along the ground instead of the pink dust trail. They use the same colours as the dash sparks, and there are more the faster he's dragged (`drawDeathDragSparks` in `src/render/effects.js`).
+- [x] The weekly reset countdown on the leaderboard now reads h:mm:ss, e.g. `134:32:01` (`src/leaderboard/reset.js`).
 - [x] Landing from a dive throws a small burst of sparks off the wheel (`src/render/player/dashFx.js`).
 - [x] Fixed: Bob could fall straight through an intact roof after smashing a low glass billboard with a dash or dive. A smash now lets him land on the roof in the same step (`src/game/player.js`).
 - [x] Fixed: one landing on a roof's edge could give up to 4 CLOSE CALLs. The landing check also runs on every step Bob stands there, so it kept awarding until enough of him had scrolled onto the roof. Now only the landing step counts (`src/game/player.js`).
 - [x] Checked: Bob can dash again in the air as soon as the dash bar refills (0.45 s cooldown). There's no limit on air dashes per jump.
+

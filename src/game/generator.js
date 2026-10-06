@@ -103,6 +103,7 @@ function fastSpeed(state, ahead) {
 export function createGenState(worldRight) {
   return {
     worldRight,          // right edge of the last roof, in px of level (for spacing things out)
+    roofCount: 1,        // roofs spawned so far, the starter roof included (the next roof's seq)
     streak: 0,           // breakable roofs in a row (+) or solid ones (-)
     queue: [],           // planned roofs, spawned before any random ones
     challengeAt: 3000,   // level px the next challenge gap may start at (about 10 s in)
@@ -153,11 +154,13 @@ export function makeRoof({
   lowSpawnBreak = false,
   billboard = null,
   challenge = null,
+  seq = 0,
 }) {
   return {
     x, y, w,
     h: PLATFORM_H,
     invulnerable,
+    seq, // spawn order: 0 is the starter roof, then 1, 2, ... (counts the buildings a jump clears)
 
     // Motion (armed on spawn; starts when the player is airborne and the roof is approaching)
     baseY, // resting Y (where collision should be once motion completes)
@@ -198,7 +201,7 @@ export function resetPlatforms(state) {
   // Extra-long first roof, so Bob and the START firewall stay on solid building while zooming out.
   const startW = INTERNAL_WIDTH * 1.35;
   state.gen = createGenState(startW);
-  state.platforms.push(makeRoof({ x: 0, y: startY, w: startW, invulnerable: true }));
+  state.platforms.push(makeRoof({ x: 0, y: startY, w: startW, invulnerable: true, seq: 0 }));
   while (rightmostPlatformX(state) < INTERNAL_WIDTH + 600) spawnNextPlatform(state);
 }
 
@@ -284,6 +287,7 @@ function placeRoof(state, plan, d, late, prev, prevY, lastRight) {
     lowSpawnBreak: breakable && !billboard && y >= LOW_BREAK_Y,
     billboard,
     challenge: plan.challenge || null,
+    seq: gen.roofCount++,
   }));
 }
 
