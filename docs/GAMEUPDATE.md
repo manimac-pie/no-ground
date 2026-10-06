@@ -1,17 +1,6 @@
 ## Updates
-Numbered from lowest effort to highest.
 
-1. [x] Can backflip slighly increase the length of slowfall?
-    > discuss if unclear
-    > ✅ Done: each backflip adds 0.08 s of slowfall fuel (about 15% of a tank), up to 0.16 s past full. Landing resets it to full. Tune with `BACKFLIP_SLOWFALL_SEC` and `SLOWFALL_FUEL_OVERFILL_SEC` in `src/game/constants.js`.
-
-2. [x] Give some grace for dashing through billoards. 
-    > Dash active time = x
-    > if Bob touches the billboard and dash has been active >= x/2, it counts as a break
-    > ✅ Done: x is 0.2 s. A dash now breaks ads for x + x/2 = 0.3 s after the press (`DASH_BREAK_GRACE_SEC`). PERFECT AD BREAK is unchanged (≤ 0.1 s).
-
-3. [x] If there's still a jump left, jump cancels out dive
-    > ✅ Done: the jump now gets its full height (it used to rise about 20% as high, because dive gravity kept going). Holding S doesn't restart the dive; press it again to dive.
+1. [ ] The wind effect while dashing seems jarring. like it suddenly appears. is there a way to make it look more seamless?
 
 4. [ ] After pressing spacebar to start or clicking on the start button, automatically implement Dash on Bob. and player should not be able to interact until after zoomed out.
     > Ask if unclear
@@ -22,22 +11,6 @@ Numbered from lowest effort to highest.
 6. [ ] Can make game controls menu better?
     > ![Game Controls Menu](image.png)
     > Something easier to understand
-
-7. [x] Top three all time + Top 10 of the week (that resets every week). Allow the same person and score to be shown in both all time and this week
-
-    > All Time
-    > 1. Player 1 765432
-    > 2. Player 2 654321
-    > 3. Player 3 550909
-
-    > This Week - Resets in 134:32:1
-    > 1. Player 2 654321
-    > 2. Player 4 543321
-    > 3. Player 5 493829
-    > 4. -
-    > 5. -
-    > etc. 
-    > ✅ Done (2026-10-06): the leaderboard Worker now sends this week's top 10 separately, so THIS WEEK is its own 1–10 ranking (each player's best since Monday 00:00 UTC) next to the all-time top 3, and the same player can be on both. The board was wiped for the new score scale. Worker code: `worker/src/worker.js` (see `docs/WORKER_TODO.md`).
 
 8. [ ] I notice that if i replay muptiple times in a row, it starts getting a bit laggy.
     > How to measure: record about 10 s of play in the Chrome DevTools Performance panel, with 4× CPU throttling to mimic a phone. Compare a first run with a run after several replays, and measure again after each fix.
@@ -53,30 +26,5 @@ Numbered from lowest effort to highest.
 11. [ ] Mix and match billboards to buildings
     > allow blue billboards on red buildings (if the building collapses, the billboard stays on the ground still standing)
     > red billboards should still work the same on blue 
-    
-12. [x] Jumping right after releasing from duck (s) gives a bit of extra jump height
-    > Already in the game: a jump while ducking, or up to 0.15 s after letting go of S, goes ×1.08 (about 17% higher). Should it be stronger or last longer? Tune `DUCK_JUMP_VELOCITY_MULT` and `DUCK_JUMP_WINDOW_SEC` in `src/game/constants.js`.
-
-13. [x] the claw that takes bob out of the ending scene seems a bit wierd. can you make it fit bob better. and maybe when bob crashes, the wheel bobs off and some screws get loose?
-    > ✅ Done (2026-10-06): the claw is now a clamp (a palm and two jaws) fitted to Bob's body. It closes onto him as it arrives and stays on him through the drag (it used to sit too high, cut across his middle and slide off). On a crash Bob topples onto his side. After a billboard crash he finishes falling back instead of hanging upright in the claw. His wheel pops off forward, bounces and rolls to a stop, and a few screws and nuts land around him. They stay there when the claw drags him away. Tune them with `BREAK_SHARDS` in `src/game/constants.js`. Code: `src/render/camera.js` (grip), `src/render/effects.js` (claw), `src/game/breakShards.js` (wheel and screws).
 
 14. [ ] how can we make the dive better?
-
-15. [x] better dash trail?
-    > ✅ Done (option G from the demo): sparks from the wheel on a roof dash and wind lines across the whole screen (roof or air). No trail on Bob. The old streaks are gone. Code: `src/render/player/dashFx.js`.
-
-16. [x] Add a jumping over building multiplier
-    > d = distance bob covered from last contact (on top of billboard or roof) to next contact (on top of billboard or roof)
-    > n = number of buildings (except last contact and next contact) between d
-    > score added = d * n
-    > ✅ Done (2026-10-06): **BYPASS**. Landing on a roof or billboard after jumping clean over n whole buildings pays d × n × 0.3 (d is the jump's distance in metres; tune `BYPASS_POINTS_FRAC` in `src/game/constants.js`). It works out to about 60 points per building on a 200 m jump. Pop-ups: `+61 BUILDING BYPASSED`, `+45 2 BUILDINGS BYPASSED`. It's only paid on a safe landing, and the trick multiplier doesn't multiply it. The run summary has a BUILDINGS BYPASSED row, and OTHER BONUSES is gone: those points now count towards TRICK MULTIPLIER. Each roof is numbered as it spawns (`seq` in `src/game/generator.js`), so n is the landing building's number minus the last building's, minus 1. Code: `awardBuildingsCleared` in `src/game/score.js`, `landOnBuilding` in `src/game/player.js`.
-
-
-## Also done (not on the list)
-- [x] When the claw drags Bob away at game over, he now throws sparks along the ground instead of the pink dust trail. They use the same colours as the dash sparks, and there are more the faster he's dragged (`drawDeathDragSparks` in `src/render/effects.js`).
-- [x] The weekly reset countdown on the leaderboard now reads h:mm:ss, e.g. `134:32:01` (`src/leaderboard/reset.js`).
-- [x] Landing from a dive throws a small burst of sparks off the wheel (`src/render/player/dashFx.js`).
-- [x] Fixed: Bob could fall straight through an intact roof after smashing a low glass billboard with a dash or dive. A smash now lets him land on the roof in the same step (`src/game/player.js`).
-- [x] Fixed: one landing on a roof's edge could give up to 4 CLOSE CALLs. The landing check also runs on every step Bob stands there, so it kept awarding until enough of him had scrolled onto the roof. Now only the landing step counts (`src/game/player.js`).
-- [x] Checked: Bob can dash again in the air as soon as the dash bar refills (0.45 s cooldown). There's no limit on air dashes per jump.
-

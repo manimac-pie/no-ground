@@ -24,7 +24,7 @@ const SCORE_PX_PER_POINT = getConst("SCORE_PX_PER_POINT", 2);
 const BACKFLIP_BONUS_SEC = getConst("BACKFLIP_BONUS_SEC", 0.25);
 const CLUTCH_FLIP_BONUS_SEC = getConst("CLUTCH_FLIP_BONUS_SEC", 0.3);
 const CLUTCH_FLIP_WINDOW_SEC = getConst("CLUTCH_FLIP_WINDOW_SEC", 0.12);
-const BYPASS_POINTS_FRAC = getConst("BYPASS_POINTS_FRAC", 0.3);
+const BYPASS_POINTS_DIV = getConst("BYPASS_POINTS_DIV", 15);
 
 // Pop-ups: fixed ring of reusable slots (no per-event allocation beyond the text).
 const SCORE_EVENT_SLOTS = 6;
@@ -131,13 +131,13 @@ export function awardBonus(state, sec, label, kind = "other", mult = 1) {
 }
 
 // BYPASS: landing after jumping clean over n whole buildings (the ones he left from and landed on
-// don't count) pays this jump's distance × n × BYPASS_POINTS_FRAC. Banked at once (it's the
+// don't count) pays this jump's distance × n ÷ BYPASS_POINTS_DIV, rounded up. Banked at once (it's the
 // landing), not put in the pot, so the trick multiplier doesn't multiply it.
 export function awardBuildingsCleared(state, n) {
   const b = state.scoreBreakdown;
   if (!state.airActive || !(n > 0) || !b) return;
   b.buildingsN += n;
-  const amount = Math.round((state.airDistance || 0) * n * BYPASS_POINTS_FRAC);
+  const amount = Math.ceil(((state.airDistance || 0) * n) / BYPASS_POINTS_DIV);
   if (!(amount > 0)) return;
   b.buildings += amount;
   state.score += amount;

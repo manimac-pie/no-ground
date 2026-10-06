@@ -168,9 +168,9 @@ export const CLOSE_CALL_BONUS_SEC = 0.30;      // land with only the front of Bo
 export const CLOSE_CALL_OVERLAP_FRAC = 0.6;    // ...at most this share of his width
 export const CLUTCH_FLIP_BONUS_SEC = 0.30;     // a backflip that finishes just before landing
 export const CLUTCH_FLIP_WINDOW_SEC = 0.12;    // ...within this many seconds
-// BYPASS: jumping clean over whole buildings pays jump distance × buildings × this.
-// 0.3 is about a close call per building on a 200 m jump.
-export const BYPASS_POINTS_FRAC = 0.3;
+// BYPASS: jumping clean over whole buildings pays jump distance × buildings ÷ this, rounded up
+// (i.e. × 0.2 ÷ 3). One building on a 200 m jump is worth 14.
+export const BYPASS_POINTS_DIV = 7;
 
 // Air multiplier on a jump's distance (paid on a safe landing):
 // 1 + FLIP_MULT_STEP per backflip + COMBO_MULT_STEP per combo link, capped at AIR_MULT_MAX.
