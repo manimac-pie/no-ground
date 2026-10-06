@@ -24,7 +24,7 @@ import { drawPlayerShadow, drawPlayer } from "./player/index.js";
 import { drawControlsButton, drawControlsPanel } from "./hud/controls.js";
 import { drawRestartFlyby } from "./hud/flyby.js";
 import { computeHudDanger, drawDangerVignette, drawHUD, drawScorePopups } from "./hud/hud.js";
-import { drawLeaderboardPanel } from "./hud/leaderboardPanel.js";
+import { drawLeaderboardPanel, leaderboardPanelHeight } from "./hud/leaderboardPanel.js";
 import { drawPauseOverlay } from "./hud/pause.js";
 import { drawResetGlitch } from "./hud/reset.js";
 import { drawCenterScore } from "./hud/summary.js";
@@ -45,7 +45,7 @@ import {
   LEADERBOARD_MAX_ENTRIES,
 } from "../leaderboard/state.js";
 import { maybePromptForPendingClaim } from "../leaderboard/claimFlow.js";
-import { weeklyResetLabel } from "../leaderboard/reset.js";
+import { weeklyResetIn } from "../leaderboard/reset.js";
 
 export const COLORS = {
   bgTop: "#0f1116",
@@ -406,23 +406,15 @@ export function render(ctx, state) {
     const entriesLen = Array.isArray(leaderboardState.entries)
       ? leaderboardState.entries.length
       : 0;
-    const collapsedRows = LEADERBOARD_COLLAPSED_ROWS;
-    const expandedRows = LEADERBOARD_MAX_ENTRIES;
     const rowHeight = 22;
-    const rowCount = state.leaderboardExpanded ? expandedRows : collapsedRows;
-    const headerHeight = 36;
-    const footerHeight = 70;
-    const extraGap = 28;
-    const collapsedHeight = headerHeight + footerHeight + collapsedRows * rowHeight + extraGap;
-    const expandedHeight = headerHeight + footerHeight + expandedRows * rowHeight + extraGap;
-    const desiredHeight = state.leaderboardExpanded ? expandedHeight : collapsedHeight;
-    const minHeight = collapsedHeight;
-    const boardH = Math.min(H * 0.8, Math.max(desiredHeight, minHeight, 180));
+    const rowCount = state.leaderboardExpanded ? LEADERBOARD_MAX_ENTRIES : LEADERBOARD_COLLAPSED_ROWS;
+    // THIS WEEK expands the board once there are weekly ranks to show.
+    const canExpand = entriesLen > LEADERBOARD_COLLAPSED_ROWS;
     const boardW = Math.min(300, W * 0.32);
     const boardX = W - boardW - 16;
     const boardY = 18;
-
-    const showArrow = entriesLen > collapsedRows;
+    // As tall as its rows need, but clear of the GAME CONTROLS button below it.
+    const boardH = Math.min(leaderboardPanelHeight(rowCount, rowHeight, canExpand), btnRect.y - 10 - boardY);
     const meta = drawLeaderboardPanel(
       ctx,
       leaderboardState.entries,
@@ -434,22 +426,20 @@ export function render(ctx, state) {
       1,
       {
         glow: true,
-        arrow: showArrow,
-        arrowDirection: state.leaderboardExpanded ? "up" : "down",
+        toggle: canExpand,
         rowCount,
         rowHeight,
-        bestLabel: "Best Score",
-        resetLabel: weeklyResetLabel(),
+        resetIn: weeklyResetIn(),
       }
     );
 
-    hitAreas.leaderboardArrow = meta?.arrowRect ?? null;
+    hitAreas.leaderboardToggle = meta?.toggleRect ?? null;
     drawControlsButton(ctx, btnRect, state.controlsPanelOpen === true, hover);
     if (state.controlsPanelOpen) {
       drawControlsPanel(ctx, panelRect, COLORS);
     }
   } else {
-    hitAreas.leaderboardArrow = null;
+    hitAreas.leaderboardToggle = null;
   }
 
   // Pressing RESET: glitch the finished frame out, until the fly-by takes over.

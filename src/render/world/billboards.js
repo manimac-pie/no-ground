@@ -28,12 +28,13 @@ import { hash01 } from "../../shared/math.js";
 const AD_COPY = [
   "STAY IN THE LOOP",
   "RESTART IS FREE",
-  "OBEY",
+  "NO ESCAPE",
+  "OBEY THE SYSTEM",
   "YOU ARE HERE",
   "RUN AGAIN",
   "NO EXIT",
+  "The SYSTEM IS WATCHING",
   "KEEP RUNNING",
-  "CONSUME",
 ];
 
 const GLASS_RGB = "255,80,150";  // breakable: warm magenta, so it never reads as the cyan "solid" kind

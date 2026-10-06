@@ -7,7 +7,7 @@ import {
   RUN_SUMMARY_DROP_SEC,
 } from "../../game/constants.js";
 import { buildSummaryRows, tallyRowSec } from "../../game/score.js";
-import { weeklyResetLabel } from "../../leaderboard/reset.js";
+import { weeklyResetIn } from "../../leaderboard/reset.js";
 import { LEADERBOARD_MAX_ENTRIES, getLeaderboardState } from "../../leaderboard/state.js";
 import { roundedRectPath } from "../../shared/canvas.js";
 import { clamp, easeOutCubic } from "../../shared/math.js";
@@ -308,9 +308,7 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
         rowCount: leaderboardRowCount,
         rowHeight: rowHeightVal,
         glow: true,
-        arrow: false,
-        bestLabel: "Best Score",
-        resetLabel: weeklyResetLabel(),
+        resetIn: weeklyResetIn(),
       }
     );
   }

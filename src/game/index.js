@@ -413,10 +413,10 @@ export function createGame() {
 
     let startPromptPressed = false;
     if (pointerPressed && onStartScreen && state.pointerInViewport) {
-      const arrowRect = hitAreas.leaderboardArrow;
+      const toggleRect = hitAreas.leaderboardToggle;
       if (
-        arrowRect &&
-        pointInRect(state.pointerUiX, state.pointerUiY, arrowRect)
+        toggleRect &&
+        pointInRect(state.pointerUiX, state.pointerUiY, toggleRect)
       ) {
         state.leaderboardExpanded = !state.leaderboardExpanded;
         jumpPressed = false;

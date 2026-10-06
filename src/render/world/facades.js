@@ -1,6 +1,5 @@
 // src/render/world/facades.js
-// Building facades: Neon Glass. Curtain-wall towers with sky reflections, lit offices and neon
-// sign strips.
+// Building facades: Neon Glass. Curtain-wall towers with sky reflections and lit offices.
 //   Breakable:   warm/magenta glass, a few dark or broken panes.
 //   Unbreakable: cool cyan glass with steel X-bracing showing through (and the starter roof).
 //
@@ -8,7 +7,7 @@
 // Tiles keep very wide buildings (the starter roof) from needing one huge image at the start-screen
 // zoom, and only the tiles on screen are painted. A tile is painted taller than any building can be
 // (PAINT_H) and clipped to the building, so roofs that rise or sink don't need repainting. Only the
-// neon blink and the roof's crown LED change per frame.
+// roof's crown LED changes per frame.
 
 import { GROUND_Y, PLATFORM_H } from "../../game/constants.js";
 import { createScaleWatch, needsRepaint, paintSprite, stampSprite, updateScaleWatch, viewScale } from "../glass.js";
@@ -25,19 +24,6 @@ const PAINTS_PER_FRAME = 3; // tiles painted per frame at most; the rest wait a 
 
 function rand01(seed, k) {
   return hash01(seed * 17.31 + k * 3.733);
-}
-
-// Neon strip down one edge of some buildings (the same numbers at paint time and per frame).
-function neonFor(seed, w, safe) {
-  if (w <= 140 || rand01(seed, 2) <= 0.4) return null;
-  const left = rand01(seed, 3) > 0.5;
-  return {
-    x: left ? 6 : w - 14,
-    y: 8,
-    h: 90,
-    rgb: safe ? SAFE_RGB : (rand01(seed, 4) > 0.5 ? "255,90,170" : "255,170,90"),
-    blinks: rand01(seed, 5) <= 0.3, // a faulty sign that cuts out now and then
-  };
 }
 
 // Paints a facade at building-local coordinates (0,0 = top-left of the body, below the roof slab).
@@ -119,24 +105,6 @@ function paintFacade(c, w, h, seed, safe, x0, x1) {
     c.stroke();
   }
 
-  // Neon sign strip, painted lit (a blinking one is dimmed per frame)
-  const neon = neonFor(seed, w, safe);
-  if (neon && visible(neon.x - 1, neon.x + 9)) {
-    c.fillStyle = "rgba(0,0,0,0.6)";
-    c.fillRect(neon.x - 1, neon.y - 1, 10, neon.h + 2);
-    for (let gy = neon.y + 2; gy < neon.y + neon.h - 6; gy += 9) {
-      const glyph = Math.floor(rand01(seed, 600 + gy) * 4);
-      const nx = neon.x;
-      c.fillStyle = `rgba(${neon.rgb},0.25)`;
-      c.fillRect(nx - 1, gy - 1, 10, 8);
-      c.fillStyle = `rgba(${neon.rgb},0.95)`;
-      if (glyph === 0) { c.fillRect(nx + 1, gy, 6, 1.2); c.fillRect(nx + 3.4, gy, 1.2, 6); }
-      else if (glyph === 1) { c.fillRect(nx + 1, gy, 1.2, 6); c.fillRect(nx + 1, gy + 4.8, 6, 1.2); c.fillRect(nx + 5.8, gy + 2, 1.2, 4); }
-      else if (glyph === 2) { c.fillRect(nx + 1, gy + 2.4, 6, 1.2); c.fillRect(nx + 1, gy, 6, 1.2); c.fillRect(nx + 1, gy + 4.8, 6, 1.2); }
-      else { c.fillRect(nx + 1, gy, 1.2, 6); c.fillRect(nx + 5.8, gy, 1.2, 6); c.fillRect(nx + 1, gy + 2.4, 6, 1.2); }
-    }
-  }
-
   // Frame edges
   c.fillStyle = safe ? `rgba(${SAFE_RGB},0.35)` : "rgba(255,170,210,0.18)";
   c.fillRect(0, 0, 1.5, h);
@@ -200,12 +168,6 @@ export function drawFacade(ctx, seed, bodyX, bodyY, bodyW, bodyH, safe, t, viewW
   const last = Math.min(Math.ceil(bodyW / TILE_W) - 1, Math.floor((viewW + 40 - bodyX) / TILE_W));
   for (let i = first; i <= last; i++) {
     stampSprite(ctx, getTile(seed, bodyW, safe, i), bodyX + i * TILE_W, bodyY);
-  }
-  // A faulty neon sign cutting out
-  const neon = neonFor(seed, bodyW, safe);
-  if (neon && neon.blinks && Math.sin(t * 9 + seed) < -0.6) {
-    ctx.fillStyle = "rgba(0,0,0,0.62)";
-    ctx.fillRect(bodyX + neon.x - 1, bodyY + neon.y - 1, 10, neon.h + 2);
   }
   ctx.restore();
 }
