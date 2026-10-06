@@ -611,27 +611,3 @@ function stampScanlines(ctx, W, H) {
   ctx.drawImage(scanCache.canvas, 0, 0, SCAN_STRIP_W, h, x0, y0, w, h);
   return true;
 }
-
-export function drawVignette(ctx, W, H) {
-  ctx.save();
-  ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = "source-over";
-  ctx.filter = "none";
-  ctx.shadowBlur = 0;
-  ctx.shadowColor = "transparent";
-
-  const g = ctx.createRadialGradient(
-    W / 2,
-    H / 2,
-    Math.min(W, H) * 0.20,
-    W / 2,
-    H / 2,
-    Math.max(W, H) * 0.70
-  );
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(0,0,0,0.22)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.restore();
-}

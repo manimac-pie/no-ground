@@ -9,7 +9,7 @@
 // Matching ignores case, spaces and _ - . so "Ad_Min" and "a d m i n" both match "admin".
 //
 // This check runs in the browser only. To also stop names sent straight to the API,
-// the Worker's /api/claim needs the same list (see WORKER_TODO.md).
+// the Worker's /api/claim needs the same list (see docs/WORKER_TODO.md).
 
 export const DEFAULT_BLOCKED_MESSAGE = "This name is reserved by the system. Pick another.";
 

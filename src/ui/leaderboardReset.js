@@ -1,7 +1,7 @@
 // src/ui/leaderboardReset.js
 // Weekly leaderboard reset: ranks 4–10 are wiped every Monday 00:00 UTC; the top 3 stay.
 // This only drives the countdown on the leaderboard panel. The wipe itself runs on the
-// Worker (a cron trigger at the same time, see WORKER_TODO.md). Keep the two in sync.
+// Worker (a cron trigger at the same time, see docs/WORKER_TODO.md). Keep the two in sync.
 
 export const RESET_WEEKDAY_UTC = 1; // 0 = Sunday, 1 = Monday, ...
 export const RESET_HOUR_UTC = 0;
