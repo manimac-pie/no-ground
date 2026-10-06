@@ -1,6 +1,12 @@
 // src/render/menu.js
 // Menu-only rendering (start + game over). Pure drawing; no state mutation.
-import { world, SAFE_CLEARANCE, PLAYER_H } from "../game/constants.js";
+import { PLAYER_H } from "../game/constants.js";
+import {
+  START_PANE_H as PANE_H,
+  START_PANE_W as PANE_W,
+  START_PANE_Y,
+  startPaneX,
+} from "../game/firewall.js";
 import {
   cutGlass,
   drawScanBar,
@@ -17,19 +23,13 @@ import {
 //
 // Cost: the intact pane is painted once into a sprite (glow included) and stamped with drawImage,
 // at rest and while the camera zooms out. The shards are cut from that sprite ahead of time, so
-// the impact frame only stamps images.
-const PANE_W = 100;         // world px
-const PANE_H = 42;          // world px; a bit taller than Bob
+// the impact frame only stamps images. Its size, place and the smash itself are in game/firewall.js.
 const PANE_FONT_PX = 15;
 const PANE_LETTER_GAP = 3;
 const PANE_FONT = `800 ${PANE_FONT_PX}px Orbitron, "Share Tech Mono", system-ui, sans-serif`;
 const PANE_LABEL_FONT = '600 4.5px "Share Tech Mono", Menlo, monospace';
 const PANE_MARGIN = 6;      // world px around the pane for its glow
 const PANE_MAX_SCALE = 12;  // device px per world px, upper bound for the sprite
-
-// Bob's drawn body ends short of his hitbox: the capsule is 70% of his width, centred
-// (render/player/body.js), so its front is at 85% of the hitbox width.
-const BOB_FRONT_FRAC = 0.85;
 
 // Shards beat the world's scroll (~260 px/s) so the glass sprays ahead of Bob.
 const PANE_SHARD_CARRY = [290, 150];
@@ -127,25 +127,18 @@ function defaultImpact() {
 }
 
 
-export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
-  const onSmashTrigger = typeof opts.onSmashTrigger === "function" ? opts.onSmashTrigger : null;
-  const onBounds = typeof opts.onBounds === "function" ? opts.onBounds : null;
-
+// pointer: the pointer in world px, or null. Returns whether it's over the pane (the game smashes
+// the glass red if it is).
+export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, pointer = null) {
   const smashActive = state.menuSmashActive === true;
   const smashBroken = state.menuSmashBroken === true;
   const smashT = smashActive ? Math.max(0, state.menuSmashT || 0) : 0;
   const showPane = !state.gameOver && (!smashBroken || smashActive);
   if (!showPane) return false;
 
-  // Stands on the starter roof, a little ahead of Bob; X scrolls with the world via state.
-  const player = state.player || {};
-  const roofY = world.GROUND_Y - SAFE_CLEARANCE;
-  const defaultX = (Number.isFinite(player.x) ? player.x : 160) + (Number.isFinite(player.w) ? player.w : 34) + 24;
-  const paneX = Number.isFinite(state.startPromptX) ? state.startPromptX : defaultX;
-  const paneY = roofY - PANE_H;
-
-  if (onBounds) onBounds({ x: paneX, y: paneY, w: PANE_W, h: PANE_H });
-  const pointer = opts.pointer || null;
+  // Stands on the starter roof, a little ahead of Bob, scrolling with the world.
+  const paneX = startPaneX(state);
+  const paneY = START_PANE_Y;
   const hover =
     !!pointer &&
     pointer.x >= paneX &&
@@ -168,26 +161,5 @@ export function drawStartPrompt(ctx, state, uiTime, COLORS, W, H, opts = {}) {
   drawScanBar(ctx, paneX, paneY, PANE_W, PANE_H, paneRgb(red), uiTime || 0);
   // Cut the usual shards now, so the impact frame doesn't have to.
   if (!state.menuZooming) getShards(sprite, defaultImpact());
-
-  // Smash once Bob's drawn front touches the glass (not his wider hitbox).
-  if (onSmashTrigger) {
-    const px = Number.isFinite(player.x) ? player.x : 0;
-    const py = Number.isFinite(player.y) ? player.y : 0;
-    const pw = Number.isFinite(player.w) ? player.w : 0;
-    const ph = Number.isFinite(player.h) ? player.h : 0;
-    const front = px + pw * BOB_FRONT_FRAC;
-    const hit =
-      front >= paneX &&
-      px < paneX + PANE_W &&
-      py < paneY + PANE_H &&
-      py + ph > paneY;
-    if (hit) {
-      // Impact point on the pane: Bob's front, at his middle height.
-      onSmashTrigger(hover, {
-        x: Math.min(PANE_W, Math.max(0, front - paneX)),
-        y: Math.min(PANE_H, Math.max(0, py + ph / 2 - paneY)),
-      });
-    }
-  }
   return hover;
 }

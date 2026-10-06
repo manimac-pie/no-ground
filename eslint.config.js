@@ -20,6 +20,19 @@ export default [
     },
   },
   {
+    // The renderer only reads the game state; the game update owns it (CLEANUP.md item 14).
+    // Catches `state.x = …` and `state.player.x = …`, not writes through other names.
+    files: ["src/render/**/*.js"],
+    rules: {
+      "no-restricted-syntax": ["error",
+        ...["AssignmentExpression[left", "UpdateExpression[argument"].flatMap((node) => [
+          { selector: `${node}.object.name='state']`, message: "render/ only reads the game state." },
+          { selector: `${node}.object.object.name='state']`, message: "render/ only reads the game state." },
+        ]),
+      ],
+    },
+  },
+  {
     files: ["*.config.js"],
     languageOptions: { globals: globals.node },
   },

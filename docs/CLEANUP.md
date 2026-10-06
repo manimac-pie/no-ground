@@ -30,8 +30,8 @@ Each item gives where the change goes, its impact and its effort. Details are in
 - [x] **13. Split `render/index.js`** · `render/index.js` (982 lines) · Impact: High · Effort: Medium · *Done 2026-10-06*
 
 **Batch E: Runtime**
-- [ ] **14. Take the game logic out of the renderer** · `render/effects.js`, `render/index.js`, `game/index.js` · Impact: Medium (correctness) · Effort: Medium
-- [ ] **15. Stop copying the state every frame** · `render/index.js` · Impact: Low–Medium · Effort: Medium
+- [x] **14. Take the game logic out of the renderer** · `render/effects.js`, `render/index.js`, `game/index.js` · Impact: Medium (correctness) · Effort: Medium · *Done 2026-10-06*
+- [x] **15. Stop copying the state every frame** · `render/index.js` · Impact: Low–Medium · Effort: Medium · *Done 2026-10-06*
 
 **Batch F: Ship (optional)**
 - [ ] **16. Deploy the Vite build** · hosting, `dist/` · Impact: Medium (first load on mobile) · Effort: Medium
@@ -323,6 +323,18 @@ A useful test is to ask: "if I paused the game, should this keep moving?" Shards
 
 **Done when:** `render/` only *reads* `state`. Searching for `state.` followed by `=` in `render/` finds nothing except the start-prompt bounds (or move those too). Pausing during the death shards freezes them.
 
+> **Done (2026-10-06).** The renderer wrote to the game state in more places than the list above: it also triggered the START smash, reported the RESET hover and two hit-test rectangles, corrected `leaderboardExpanded`, and marked billboards `breakSpawned`. One rule now covers all of it: **the renderer never writes `state`, and anything it animates moves on the game's clock.**
+> - **Shards** are spawned and moved in `game/breakShards.js`, at the fixed 60 Hz step, and dead ones are removed. `render/effects.js` only draws them.
+> - **The START smash** moved into the game: `game/firewall.js` holds the pane's size and place, and `checkStartSmash` runs after each step. `render/menu.js` and the game's click hit-test both use the same geometry, so `state.startPromptBounds` is gone.
+> - **Hit-test results** the renderer works out while drawing (RESET hovered, START hovered, the board's expand arrow) go to `hitAreas` in `ui/layout.js`, not the game state. The game reads them to handle clicks.
+> - **`leaderboardExpanded`** is un-set by the game when the list shrinks to 3 rows or fewer.
+> - **Billboard shatters** are tracked by a `WeakMap` in `render/world/buildings.js` (the same "did it just start?" pattern as the collapse effects), so `breakSpawned` is gone from the game.
+> - **Death focus:** `prevDeathActive` and `deathFocusX/Y` are gone. Nothing moves Bob after `endGame()`, so the focus is just the centre of `state.deathSnapshot`.
+> - **The game clock:** `render()` takes its `dt` from `state.uiTime` instead of `performance.now()`, so camera lag, scrape dust, building debris, billboard glass and Bob's pose smoothing all move exactly as far as the game did, and stop while paused (`uiTime` stands still).
+> - **Scrape dust stays in the renderer**, unlike the hint above: it follows the claw, which only `render/camera.js` places, and it's purely visual. On the game clock it already freezes and keeps time, which is what the hint was after.
+> - **A lint rule** (`no-restricted-syntax` in `eslint.config.js`) fails `npm run lint` on `state.x = …` or `state.player.x = …` anywhere in `render/`. It can't catch writes through another name (`const p = state.player; p.x = 1`).
+> - **About the last check:** the game can't be paused during the death cinematic (`canPause`), so it's checked more broadly: two screenshots taken 1.2 s apart while paused mid-run differ only in the blinking "SPACE / P TO RESUME" hint.
+
 ### 15. Stop copying the state every frame
 
 On the death screen and the start screen, `render/index.js:285–317` builds new copies of `state` and `player` with `{...state}` and `{...player}` on **every frame**, just to override a few fields such as `vy: 0` and `ducking: false`. `state` is a big object, so that's a lot of short-lived garbage at 120 Hz. It's the kind that causes a small stutter when the garbage collector runs.
@@ -335,6 +347,8 @@ Pass a small, reused "view overrides" object alongside the state (for example `{
 </details>
 
 **Done when:** no spread of `state` or `player` remains in `render()`, and the death freeze and the start-screen pose look the same.
+
+> **Done (2026-10-06).** `render/index.js` keeps two objects for the whole session, `poseView` and `posePlayer`, and `poseFor()` fills them in place on the death and start screens (`Object.assign` with the constant overrides `LIMP` and `STANDING`). Every other frame passes `state` straight through. `drawPlayer` only reads six fields of the state it's given (`player`, `slowfallHeld`, `heavyLandT`, `speedImpulse`, `running`, `speed`), and its comment now says so, so `poseView` carries just those instead of a copy of the whole state.
 
 ---
 

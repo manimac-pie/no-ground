@@ -321,6 +321,16 @@ function didJustStartBreaking(plat) {
   return !prev && now;
 }
 
+// A billboard shatters once per break (the game sets b.breaking when Bob breaks it).
+const billboardWasBreaking = new WeakMap();
+
+function didJustStartShattering(b) {
+  const prev = billboardWasBreaking.get(b) === true;
+  const now = b.breaking === true;
+  billboardWasBreaking.set(b, now);
+  return !prev && now;
+}
+
 // ---------------- main draw ----------------
 export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollapseStart, dt = 1 / 60) {
   ctx.save();
@@ -392,9 +402,8 @@ export function drawBuildingsAndRoofs(ctx, state, W, animTime, COLORS, onCollaps
       continue;
     }
 
-    if (plat.billboard && plat.billboard.breaking && !plat.billboard.breakSpawned) {
+    if (plat.billboard && didJustStartShattering(plat.billboard)) {
       spawnBillboardShatter(state, plat, plat.billboard, seed, warningColor);
-      plat.billboard.breakSpawned = true;
     }
 
     const bodyX = plat.x;

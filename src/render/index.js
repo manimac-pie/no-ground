@@ -30,16 +30,18 @@ import { drawResetGlitch } from "./hud/reset.js";
 import { drawCenterScore } from "./hud/summary.js";
 import { drawStartPrompt } from "./menu.js";
 import { computeDeathCinematic, computeStartPush } from "./camera.js";
-import { drawDeathScrapeDust, drawRobotArm, updateAndDrawBreakShards } from "./effects.js";
+import { drawBreakShards, drawDeathScrapeDust, drawRobotArm } from "./effects.js";
 import { applyViewportTransform, ensureCanvasSize, getCanvasRect, isTouchViewport, resetCtx } from "./viewport.js";
 import {
   getControlsButtonRect,
   getControlsPanelRect,
+  hitAreas,
   pointInRect,
 } from "../ui/layout.js";
 import { clamp } from "../shared/math.js";
 import {
   getLeaderboardState,
+  LEADERBOARD_COLLAPSED_ROWS,
   LEADERBOARD_MAX_ENTRIES,
 } from "../leaderboard/state.js";
 import { maybePromptForPendingClaim } from "../leaderboard/claimFlow.js";
@@ -68,12 +70,35 @@ export const COLORS = {
   dangerTint: "rgba(255,85,110,0.10)",
 };
 
-let prevDeathActive = false;
-let deathFocusX = null;
-let deathFocusY = null;
-
-let _prevFrameT = 0;
+// Render-side motion (camera lag, scrape dust, building debris, pose smoothing) runs on the game's
+// clock, not the wall clock: each frame it moves exactly as far as the game advanced since the
+// last one, so it freezes while paused and keeps time with the game on any screen.
+let _lastUiTime = null;
 let _camX = 0;
+
+// Bob's drawn pose: usually the game state itself, but dead or on the start screen a few fields
+// are overridden. Both objects are reused, so drawing Bob allocates nothing per frame.
+// poseView has every field of the state that drawPlayer reads (see render/player/index.js).
+const poseView = { player: null, slowfallHeld: false, heavyLandT: 0, speedImpulse: 0, running: false, speed: 0 };
+const posePlayer = {};
+const LIMP = { vy: 0, diving: false, divePhase: "", divePhaseT: 0, ducking: false, spinning: false }; // in the claw
+const STANDING = { onGround: true, dashImpulseT: 0, ducking: false }; // on the starter roof
+
+function poseFor(state, deathActive, onStartScreen) {
+  if (!deathActive && !onStartScreen) return state;
+  Object.assign(posePlayer, state.player, deathActive ? LIMP : STANDING);
+  if (onStartScreen) {
+    const starter = state.platforms && state.platforms[0];
+    posePlayer.groundPlat = starter && starter.invulnerable ? starter : null;
+  }
+  poseView.player = posePlayer;
+  poseView.slowfallHeld = deathActive ? false : state.slowfallHeld;
+  poseView.heavyLandT = deathActive ? 0 : state.heavyLandT;
+  poseView.speedImpulse = onStartScreen ? 0 : state.speedImpulse;
+  poseView.running = state.running;
+  poseView.speed = state.speed;
+  return poseView;
+}
 
 // START smash screen shake
 const SMASH_SHAKE_SEC = 0.22;
@@ -97,13 +122,10 @@ export function render(ctx, state) {
   const deathActive = state.deathCinematicActive === true;
   const freezeOnDeath = state.gameOver === true && state.deathCinematicDone === true && !deathActive;
 
-  if (deathActive && !prevDeathActive) {
-    deathFocusX = (player?.x || 0) + (player?.w || PLAYER_W) / 2;
-    deathFocusY = (player?.y || 0) + (player?.h || PLAYER_H) / 2;
-  } else if (!deathActive && !state.deathCinematicDone) {
-    deathFocusX = null;
-    deathFocusY = null;
-  }
+  // Dying: the camera holds on where Bob died (the game's snapshot of him).
+  const deathSnap = deathActive || state.deathCinematicDone ? (state.deathSnapshot || player) : null;
+  const deathFocusX = deathSnap ? deathSnap.x + deathSnap.w / 2 : null;
+  const deathFocusY = deathSnap ? deathSnap.y + deathSnap.h / 2 : null;
 
   const deathInfo = (deathActive || state.deathCinematicDone)
     ? computeDeathCinematic(state, deathFocusX)
@@ -116,17 +138,11 @@ export function render(ctx, state) {
   const uiTime = state.uiTime || 0;
   const animTime = state.animTime || 0;
 
-  const now = (typeof performance !== "undefined" && performance.now)
-    ? performance.now()
-    : Date.now();
-
-  let dt = 1 / 60;
-  if (_prevFrameT > 0) dt = (now - _prevFrameT) / 1000;
-  _prevFrameT = now;
-  dt = Math.max(0, Math.min(1 / 20, dt));
-  // Paused or counting down: freeze render-side motion (camera lag, dust) along with the game.
+  // Game time since the last drawn frame. 0 while paused or counting down (uiTime stands still),
+  // and for the frame after a reset sets uiTime back to 0.
+  const dt = _lastUiTime === null ? 0 : clamp(uiTime - _lastUiTime, 0, 0.1);
+  _lastUiTime = uiTime;
   const frozen = state.paused === true || state.resumeCountdownT > 0;
-  if (frozen) dt = 0;
 
   if (!Number.isFinite(_camX)) _camX = 0;
 
@@ -280,42 +296,8 @@ export function render(ctx, state) {
     state.startReady === true &&
     !state.menuZooming &&
     (state.menuZoomK ?? 0) <= 0.001;
-  if (!onStartScreen) state.startPromptBounds = null;
-
-  let renderState = deathActive
-    ? {
-        ...state,
-        slowfallHeld: false,
-        heavyLandT: 0,
-        player: {
-          ...player,
-          vy: 0,
-          diving: false,
-          divePhase: "",
-          divePhaseT: 0,
-          ducking: false,
-          spinning: false,
-        },
-      }
-    : state;
-  if (onStartScreen) {
-    const starterPlat = state.platforms && state.platforms[0] ? state.platforms[0] : null;
-    const startGroundPlat = starterPlat && starterPlat.invulnerable ? starterPlat : null;
-    const basePlayer = renderState.player || state.player;
-    const menuPlayer = {
-      ...basePlayer,
-      onGround: true,
-      groundPlat: startGroundPlat,
-      dashImpulseT: 0,
-      ducking: false,
-    };
-    renderState = {
-      ...renderState,
-      speedImpulse: 0,
-      player: menuPlayer,
-    };
-  }
-  const renderPlayer = renderState.player;
+  const pose = poseFor(state, deathActive, onStartScreen);
+  const renderPlayer = pose.player;
 
   resetCtx(ctx);
   ctx.save();
@@ -336,10 +318,11 @@ export function render(ctx, state) {
     ctx.translate(-pcx, -pcy);
     ctx.globalAlpha *= playerAlpha;
   }
-  drawPlayer(ctx, renderState, animTime, false, COLORS, {
+  drawPlayer(ctx, pose, animTime, false, COLORS, {
     noGlow: deathActive,
     noFx: deathActive,
     eyes: startLookAround ? { t: uiTime || 0 } : null,
+    dt,
   });
   ctx.restore();
 
@@ -349,7 +332,7 @@ export function render(ctx, state) {
   }
 
   resetCtx(ctx);
-  updateAndDrawBreakShards(ctx, state, dt, playerOffsetX);
+  drawBreakShards(ctx, state.breakShards, playerOffsetX);
 
   if (deathActive) {
     resetCtx(ctx);
@@ -358,21 +341,7 @@ export function render(ctx, state) {
 
   // Start prompt stays in-world (moves with camera/zoom, fixed world size).
   resetCtx(ctx);
-  drawStartPrompt(ctx, state, uiTime, COLORS, W, H, {
-    onSmashTrigger: (hovered, impact) => {
-      if (!state.menuSmashActive) {
-        state.menuSmashActive = true;
-        state.menuSmashBroken = true;
-        state.menuSmashT = 0;
-        state.menuSmashRed = hovered === true;
-        state.menuSmashImpact = impact || null;
-      }
-    },
-    onBounds: (bounds) => {
-      state.startPromptBounds = bounds;
-    },
-    pointer: pointerWorld,
-  });
+  hitAreas.startPaneHovered = drawStartPrompt(ctx, state, uiTime, COLORS, W, H, pointerWorld) === true;
 
   const restartPromptReady = state.restartReady === true;
 
@@ -385,8 +354,6 @@ export function render(ctx, state) {
     resetCtx(ctx);
     drawRobotArm(ctx, startPush, COLORS, animTime || 0, "all");
   }
-
-  prevDeathActive = deathActive;
 
   ctx.restore();
 
@@ -420,7 +387,7 @@ export function render(ctx, state) {
         : null;
     drawCenterScore(ctx, state, W, H, pointerUi, restartPromptReady, touchUi);
   } else {
-    state.restartHover = false;
+    hitAreas.resetHovered = false;
   }
 
   if (state.restartFlybyActive) {
@@ -439,7 +406,7 @@ export function render(ctx, state) {
     const entriesLen = Array.isArray(leaderboardState.entries)
       ? leaderboardState.entries.length
       : 0;
-    const collapsedRows = 3;
+    const collapsedRows = LEADERBOARD_COLLAPSED_ROWS;
     const expandedRows = LEADERBOARD_MAX_ENTRIES;
     const rowHeight = 22;
     const rowCount = state.leaderboardExpanded ? expandedRows : collapsedRows;
@@ -456,9 +423,6 @@ export function render(ctx, state) {
     const boardY = 18;
 
     const showArrow = entriesLen > collapsedRows;
-    if (!showArrow && state.leaderboardExpanded) {
-      state.leaderboardExpanded = false;
-    }
     const meta = drawLeaderboardPanel(
       ctx,
       leaderboardState.entries,
@@ -479,11 +443,13 @@ export function render(ctx, state) {
       }
     );
 
-    state.leaderboardArrowRect = meta?.arrowRect ?? null;
+    hitAreas.leaderboardArrow = meta?.arrowRect ?? null;
     drawControlsButton(ctx, btnRect, state.controlsPanelOpen === true, hover);
     if (state.controlsPanelOpen) {
       drawControlsPanel(ctx, panelRect, COLORS);
     }
+  } else {
+    hitAreas.leaderboardArrow = null;
   }
 
   // Pressing RESET: glitch the finished frame out, until the fly-by takes over.

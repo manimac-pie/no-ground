@@ -269,7 +269,6 @@ export function spawnNextPlatform(state) {
       hit: false,
       breaking: false,
       breakT: 0,
-      breakSpawned: false,
     };
   } else if (bbKind) {
     const maxW = Math.max(70, w - 24);
@@ -295,7 +294,6 @@ export function spawnNextPlatform(state) {
       hit: false,
       breaking: false,
       breakT: 0,
-      breakSpawned: false,
     };
   }
 

@@ -4,9 +4,10 @@
 import { BREAK_SHARDS, world } from "../game/constants.js";
 import { clamp } from "../shared/math.js";
 
-// Scrape dust particles (drawDeathScrapeDust). They move here, in the renderer, for now:
-// CLEANUP.md item 14 moves them into the game update.
-let dragTrail = [];
+// Scrape dust streaks (drawDeathScrapeDust). Purely visual, and they follow the claw, which only
+// the renderer places (camera.js), so they live here. They move on the game clock: render() passes
+// the game time since the last frame as dt.
+const dragTrail = [];
 let dragTrailEmitT = 0;
 
 export function drawRobotArm(ctx, info, COLORS, animTime, mode = "all") {
@@ -119,20 +120,9 @@ export function drawRobotArm(ctx, info, COLORS, animTime, mode = "all") {
   ctx.restore();
 }
 
-export function updateAndDrawBreakShards(ctx, state, dt, offsetX = 0) {
-  if (!Array.isArray(state.breakShards) || state.breakShards.length === 0) return;
-  const shards = state.breakShards;
-
-  for (const s of shards) {
-    if (!s || s.life <= 0) continue;
-    s.vy += BREAK_SHARDS.GRAVITY * dt;
-    s.vx *= BREAK_SHARDS.DRAG;
-    s.vy *= BREAK_SHARDS.DRAG;
-    s.x += s.vx * dt;
-    s.y += s.vy * dt;
-    s.rot += (s.vr || 0) * dt;
-    s.life -= dt;
-  }
+// Bob's breakup shards. They move in the game update (game/breakShards.js); this only draws them.
+export function drawBreakShards(ctx, shards, offsetX = 0) {
+  if (!Array.isArray(shards) || shards.length === 0) return;
 
   for (const s of shards) {
     if (!s || s.life <= 0) continue;

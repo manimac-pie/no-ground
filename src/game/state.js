@@ -39,7 +39,6 @@ export function createInitialState() {
     restartSmashBroken: false,
     restartSmashRed: false,
     restartSmashT: 0,
-    restartHover: false,
 
     deathCinematicActive: false,
     deathCinematicDone: false,
@@ -117,7 +116,6 @@ export function createInitialState() {
     startPromptX: PLAYER_X + PLAYER_W + 24,
     // Y will be derived each frame to sit on the starter roof.
     startPromptY: null,
-    startPromptBounds: null,
 
   jumpBuffer: 0,
   jumpHeld: false,
@@ -131,7 +129,6 @@ export function createInitialState() {
     pointerInViewport: false,
     controlsPanelOpen: false,
     leaderboardExpanded: false,
-    leaderboardArrowRect: null,
 
     player: {
       x: PLAYER_X,
@@ -203,7 +200,6 @@ export function resetRunState(state) {
   state.restartSmashBroken = false;
   state.restartSmashRed = false;
   state.restartSmashT = 0;
-  state.restartHover = false;
 
   state.deathCinematicActive = false;
   state.deathCinematicDone = false;
@@ -264,7 +260,6 @@ export function resetRunState(state) {
   state.speedImpulse = 0;
   state.startPromptX = PLAYER_X + PLAYER_W + 24;
   state.startPromptY = null;
-  state.startPromptBounds = null;
 
   state.jumpBuffer = 0;
   state.jumpHeld = false;
@@ -275,7 +270,6 @@ export function resetRunState(state) {
   state.pointerInViewport = false;
   state.controlsPanelOpen = false;
   state.leaderboardExpanded = false;
-  state.leaderboardArrowRect = null;
 
   state.heavyLandT = 0;
   state.leaderboardReported = false;

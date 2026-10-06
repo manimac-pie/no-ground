@@ -12,6 +12,7 @@ import { LEADERBOARD_MAX_ENTRIES, getLeaderboardState } from "../../leaderboard/
 import { roundedRectPath } from "../../shared/canvas.js";
 import { clamp, easeOutCubic } from "../../shared/math.js";
 import { formatIteration } from "../../ui/iteration.js";
+import { hitAreas } from "../../ui/layout.js";
 import { drawLeaderboardPanel, drawLeaderboardPanelDirect } from "./leaderboardPanel.js";
 import { drawCachedPanel } from "./panelCache.js";
 import { easeOutBack, formatNumber, roundRect } from "./primitives.js";
@@ -270,7 +271,7 @@ export function drawCenterScore(ctx, state, W, H, pointerUi = null, buttonReady 
       pointerUi.y >= resetButtonY &&
       pointerUi.y <= resetButtonY + resetButtonHeight;
   }
-  state.restartHover = buttonEnabled ? resetHover : false;
+  hitAreas.resetHovered = buttonEnabled ? resetHover : false;
 
   if (buttonEnabled) {
     // The simulation's RESET command: types itself in once ready, then idles with a blinking cursor.

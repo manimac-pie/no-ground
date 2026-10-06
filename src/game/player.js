@@ -180,7 +180,6 @@ function smashBillboard(state, b, byDash) {
   b.breaking = true;
   b.breakT = 0.28;
   b.broken = true;
-  b.breakSpawned = false;
   b.hit = false;
 }
 
@@ -295,7 +294,6 @@ export function integratePlayer(state, dt, endGame) {
           b.breaking = true;
           b.breakT = 0.28;
           b.broken = true;
-          b.breakSpawned = false;
           b.hit = false;
           state.billboardDashCount += 1;
           countEvent(state, "smash"); // diving down through it breaks it too (no SMASH bonus)

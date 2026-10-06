@@ -1,4 +1,5 @@
 export const LEADERBOARD_MAX_ENTRIES = 10;
+export const LEADERBOARD_COLLAPSED_ROWS = 3; // rows the start-screen board shows until expanded
 const MAX_ENTRIES = LEADERBOARD_MAX_ENTRIES;
 
 let cachedEntries = [];
@@ -29,9 +30,13 @@ export function getLeaderboardState() {
   };
 }
 
-// Allocation-free read for per-frame callers.
+// Allocation-free reads for per-frame callers.
 export function getMyBest() {
   return cachedMyBest;
+}
+
+export function getLeaderboardEntryCount() {
+  return cachedEntries.length;
 }
 
 export function setLeaderboardState(state = {}) {

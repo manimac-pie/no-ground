@@ -3,6 +3,15 @@
 
 import { clamp } from "../shared/math.js";
 
+// Pointer targets that only the renderer can place, because they move with animations. The
+// renderer fills these in every frame as it draws; the game reads them to handle clicks.
+// They're kept out of the game state so the renderer never writes to it.
+export const hitAreas = {
+  leaderboardArrow: null,  // { x, y, w, h } of the start-screen board's expand arrow, in UI units
+  resetHovered: false,     // the pointer is over RESET on the run summary
+  startPaneHovered: false, // the pointer is over the START firewall
+};
+
 export function getControlsButtonRect(W = 800, H = 450) {
   const btnW = 176;
   const btnH = 30;

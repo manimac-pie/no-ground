@@ -59,6 +59,9 @@ export function drawPlayerShadow(ctx, player) {
 }
 
 // ---------------- full player draw (world space) ----------------
+// state: the game state, or render/index.js's pose view. Only these fields are read:
+// player, slowfallHeld, heavyLandT, speedImpulse, running, speed.
+// opts.dt: game time since the last frame, for the pose smoothing (0 while paused).
 export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   const player = state.player;
   const suppressFx = opts.noFx === true;
@@ -93,7 +96,7 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     : 0;
 
   // Smooth dive strength so the pose ramps in/out instead of snapping.
-  const dt = 1 / 60;
+  const dt = Number.isFinite(opts.dt) ? opts.dt : 1 / 60;
   const rawDiveK = diving ? diveStrengthFromVY(player.vy ?? 0) : 0;
   const targetDiveK = diving ? rawDiveK * (0.35 + 0.65 * (antic01 > 0 ? antic01 : 1)) : 0;
   const smooth = 10; // lower = smoother

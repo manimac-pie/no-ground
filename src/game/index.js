@@ -11,7 +11,6 @@ import {
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
   DEATH_CINEMATIC_TOTAL,
-  BREAK_SHARDS,
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
@@ -33,9 +32,11 @@ import {
   updateDash,
 } from "./player.js";
 import { startSpin, updateTricks } from "./tricks.js";
-import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "../ui/layout.js";
+import { spawnBreakShards, updateBreakShards } from "./breakShards.js";
+import { START_PANE_H, START_PANE_W, START_PANE_Y, checkStartSmash, startPaneX } from "./firewall.js";
+import { getControlsButtonRect, getControlsPanelRect, hitAreas, pointInRect } from "../ui/layout.js";
 import { onGameFinished } from "../leaderboard/view.js";
-import { getMyBest } from "../leaderboard/state.js";
+import { getLeaderboardEntryCount, getMyBest, LEADERBOARD_COLLAPSED_ROWS } from "../leaderboard/state.js";
 import { loadIteration, saveIteration } from "../ui/iteration.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
@@ -169,30 +170,8 @@ export function createGame() {
       state.deathSnapshot = p
         ? { x: p.x, y: p.y, w: p.w, h: p.h, vy: p.vy }
         : null;
-      // Spawn breakup shards on lethal impact
-      state.breakShards = [];
-      if (p) {
-        const base = {
-          x: p.x + p.w / 2,
-          y: p.y + p.h * 0.7,
-        };
-        for (let i = 0; i < BREAK_SHARDS.COUNT; i++) {
-          const ang = (Math.PI * 2 * i) / BREAK_SHARDS.COUNT + Math.random() * 0.9;
-          const speed = 220 + Math.random() * 320 + Math.abs(p.vy || 0) * 0.18;
-          state.breakShards.push({
-            x: base.x,
-            y: base.y,
-            vx: Math.cos(ang) * speed,
-            vy: Math.sin(ang) * speed - Math.abs(p.vy || 0) * 0.5,
-            rot: (Math.random() - 0.5) * 0.9,
-            vr: (Math.random() - 0.5) * 8,
-            w: 4 + Math.random() * 10,
-            h: 3 + Math.random() * 8,
-            life: BREAK_SHARDS.LIFE,
-            kind: i % 5 === 0 ? "spark" : i % 2 === 0 ? "plate" : "chip",
-          });
-        }
-      }
+      // Bob breaks up on lethal impact
+      spawnBreakShards(state, p);
       state.deathCinematicActive = true;
       state.deathCinematicDone = false;
       state.deathCinematicT = 0;
@@ -202,7 +181,6 @@ export function createGame() {
       state.restartSmashBroken = false;
       state.restartSmashRed = false;
       state.restartSmashT = 0;
-      state.restartHover = false;
     }
 
     state.running = false;
@@ -274,6 +252,7 @@ export function createGame() {
     state.uiTime += dt;
     if (state.running || state.menuZooming || state.startDelay > 0) state.animTime += dt;
     updateScoreTally(dt);
+    updateBreakShards(state, dt);
     const billboardDeath = state.player && state.player.billboardDeath === true;
     if (billboardDeath) {
       state.speedImpulse = 0;
@@ -426,9 +405,15 @@ export function createGame() {
       state.controlsPanelOpen = false;
     }
 
+    // The start-screen board only stays expanded while it has more rows than it shows collapsed
+    // (the list can shrink, e.g. at the weekly reset).
+    if (state.leaderboardExpanded && getLeaderboardEntryCount() <= LEADERBOARD_COLLAPSED_ROWS) {
+      state.leaderboardExpanded = false;
+    }
+
     let startPromptPressed = false;
     if (pointerPressed && onStartScreen && state.pointerInViewport) {
-      const arrowRect = state.leaderboardArrowRect;
+      const arrowRect = hitAreas.leaderboardArrow;
       if (
         arrowRect &&
         pointInRect(state.pointerUiX, state.pointerUiY, arrowRect)
@@ -453,7 +438,7 @@ export function createGame() {
           jumpPressed = false;
           state.jumpBuffer = 0;
           input?.suppressPointerJump?.();
-        } else if (state.startPromptBounds) {
+        } else {
           const player = state.player || {};
           const focusX = (player.x ?? 0) + (player.w ?? 0) / 2;
           const focusY = (player.y ?? 0) + (player.h ?? 0) / 2;
@@ -462,12 +447,12 @@ export function createGame() {
           const invZoom = 1 / Math.max(0.001, zoom);
           const pointerWorldX = focusX + (state.pointerUiX - focusX) * invZoom;
           const pointerWorldY = focusY + (state.pointerUiY - focusY) * invZoom;
-          const bounds = state.startPromptBounds;
+          const paneX = startPaneX(state);
           const hitStart =
-            pointerWorldX >= bounds.x &&
-            pointerWorldX <= bounds.x + bounds.w &&
-            pointerWorldY >= bounds.y &&
-            pointerWorldY <= bounds.y + bounds.h;
+            pointerWorldX >= paneX &&
+            pointerWorldX <= paneX + START_PANE_W &&
+            pointerWorldY >= START_PANE_Y &&
+            pointerWorldY <= START_PANE_Y + START_PANE_H;
 
           if (hitStart) {
             startPromptPressed = true;
@@ -501,7 +486,7 @@ export function createGame() {
           if (state.restartSmashActive) return state; // already resetting
           state.restartSmashActive = true;
           state.restartSmashBroken = true;
-          state.restartSmashRed = state.restartHover === true;
+          state.restartSmashRed = hitAreas.resetHovered === true;
           state.restartSmashT = 0;
           return state;
         }
@@ -583,6 +568,7 @@ export function createGame() {
     integratePlayer(state, dt, endGame);
     // Bob died this frame: the final score was already submitted in endGame, so add nothing after it.
     if (state.gameOver) return state;
+    checkStartSmash(state, hitAreas.startPaneHovered);
 
     if (!Number.isFinite(state.score)) state.score = 0;
     if (!Number.isFinite(state.slowfallDistance)) state.slowfallDistance = 0;
