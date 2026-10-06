@@ -22,11 +22,7 @@ import {
   updateScaleWatch,
   viewScale,
 } from "./glass.js";
-
-function hash01(n) {
-  const x = Math.sin(n * 999.123) * 43758.5453;
-  return x - Math.floor(x);
-}
+import { hash01 } from "../shared/math.js";
 
 // The system's ads. Edit freely; each billboard picks one from its building's seed.
 const AD_COPY = [

@@ -5,7 +5,6 @@ import {
   INTERNAL_WIDTH,
   INTERNAL_HEIGHT,
   GROUND_Y,
-  PLATFORM_H,
   SPEED_START,
   SPEED_MAX,
   SPEED_RAMP_PER_SEC,
@@ -24,7 +23,7 @@ import {
   LEADERBOARD_SLIDE_SEC,
 } from "./game/constants.js";
 
-import { clamp } from "./game/utils.js";
+import { clamp } from "./shared/math.js";
 import { createInitialState, isSummaryShowing, resetRunState } from "./game/state.js";
 import { addDistancePoints, buildSummaryRows, tallyRowSec } from "./game/score.js";
 import { resetPlatforms, scrollWorld, updatePlatforms } from "./game/platforms.js";
@@ -602,10 +601,3 @@ export function createGame() {
   reset();
   return { state, reset, update, pause };
 }
-
-export const world = {
-  get INTERNAL_WIDTH() { return INTERNAL_WIDTH; },
-  get INTERNAL_HEIGHT() { return INTERNAL_HEIGHT; },
-  GROUND_Y,
-  PLATFORM_H,
-};

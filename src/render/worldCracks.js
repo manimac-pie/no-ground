@@ -13,21 +13,14 @@
 // Coordinates inside a network are relative to the roof's top-left; the roof slab is the first
 // PLATFORM_H px, the building body below it.
 
+import { clamp, hash01 } from "../shared/math.js";
+
 const PLATFORM_H = 16;
 const WARM_FROM = 0.2; // a faint glow starts here, so mid-stress cracks read on dark facades
 const HOT_FROM = 0.55; // ...and turns hot from here
 const CORE_RGB = "255,70,105";
 const WIDTHS = [1.8, 1.1, 0.7]; // main crack, branch, twig
 const NET_CACHE_MAX = 48;
-
-function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v));
-}
-
-function hash01(n) {
-  const x = Math.sin(n * 999.123) * 43758.5453;
-  return x - Math.floor(x);
-}
 
 function mulberry32(a) {
   return function () {

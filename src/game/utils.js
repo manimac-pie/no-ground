@@ -1,8 +1,12 @@
 // src/game/utils.js
+// Game-only helpers. Shared number helpers (clamp, easing, hash01) are in src/shared/math.js.
 
-// Clamp number v into [lo, hi].
-export function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v));
+import * as C from "./constants.js";
+
+// A tuning constant by name, or `fallback` if it isn't a finite number.
+export function getConst(name, fallback) {
+  const v = C[name];
+  return Number.isFinite(v) ? v : fallback;
 }
 
 // Uniform random in [min, max).

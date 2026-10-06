@@ -1,9 +1,7 @@
 // src/ui/layout.js
 // Shared UI layout helpers (render + input hit-testing).
 
-function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v));
-}
+import { clamp } from "../shared/math.js";
 
 export function getControlsButtonRect(W = 800, H = 450) {
   const btnW = 176;

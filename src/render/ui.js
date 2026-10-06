@@ -18,40 +18,13 @@ import {
   LEADERBOARD_MAX_ENTRIES,
 } from "../ui/leaderboardState.js";
 import { weeklyResetLabel } from "../ui/leaderboardReset.js";
-
-function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v));
-}
-
-// Deterministic 0..1 noise from a number.
-function hash01(n) {
-  const x = Math.sin(n * 999.123) * 43758.5453;
-  return x - Math.floor(x);
-}
-
-function easeOutCubic(t) {
-  return 1 - Math.pow(1 - t, 3);
-}
+import { clamp, easeOutCubic, hash01 } from "../shared/math.js";
+import { roundedRectPath } from "../shared/canvas.js";
 
 // Ease out with a small overshoot, so a dropped panel settles into place.
 function easeOutBack(t, overshoot = 1.2) {
   const u = t - 1;
   return 1 + (overshoot + 1) * u * u * u + overshoot * u * u;
-}
-
-function roundedRectPath(ctx, x, y, w, h, r) {
-  const rr = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + rr, y);
-  ctx.lineTo(x + w - rr, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
-  ctx.lineTo(x + w, y + h - rr);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
-  ctx.lineTo(x + rr, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
-  ctx.lineTo(x, y + rr);
-  ctx.quadraticCurveTo(x, y, x + rr, y);
-  ctx.closePath();
 }
 
 function roundRect(ctx, x, y, w, h, r) {

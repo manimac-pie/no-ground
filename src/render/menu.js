@@ -1,7 +1,6 @@
 // src/render/menu.js
 // Menu-only rendering (start + game over). Pure drawing; no state mutation.
-import { world } from "../game.js";
-import { SAFE_CLEARANCE, PLAYER_H } from "../game/constants.js";
+import { world, SAFE_CLEARANCE, PLAYER_H } from "../game/constants.js";
 import {
   cutGlass,
   drawScanBar,

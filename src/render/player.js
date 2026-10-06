@@ -7,13 +7,14 @@
 */
 
 import {
+  world,
   DIVE_ANTICIPATION_SEC,
   DASH_IMPULSE_FX_SEC,
   JUMP_IMPULSE_FX_SEC,
 } from "../game/constants.js";
-import { world } from "../game.js";
 
-import { clamp, smoothstep01, roundedRectPath } from "./playerKit.js";
+import { clamp, smoothstep01 } from "../shared/math.js";
+import { roundedRectPath } from "../shared/canvas.js";
 import { drawRunner } from "./playerBody.js";
 import {
   diveStrengthFromVY,

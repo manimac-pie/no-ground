@@ -1,5 +1,9 @@
 // src/render/worldBackdrop.js
-import { world } from "../game.js";
+import { world } from "../game/constants.js";
+import { hash01 } from "../shared/math.js";
+
+// The skyline's own hash01 constant, so the distant city doesn't repeat the buildings in front.
+const SKYLINE_K = 731.13;
 
 function drawSkyGradient(ctx, W, H, COLORS) {
   const g = ctx.createLinearGradient(0, 0, 0, H);
@@ -11,22 +15,17 @@ function drawSkyGradient(ctx, W, H, COLORS) {
   ctx.fillRect(0, 0, W, H);
 }
 
-function hash01(n) {
-  const x = Math.sin(n * 731.13) * 43758.5453;
-  return x - Math.floor(x);
-}
-
 function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
 function randRange(seed, min, max) {
-  return lerp(min, max, hash01(seed));
+  return lerp(min, max, hash01(seed, SKYLINE_K));
 }
 
 function drawSkylineLayer(ctx, x, horizon, span, tile, style) {
   const count = style.minBuildings
-    + Math.floor(hash01(tile * style.seedA) * (style.maxBuildings - style.minBuildings + 1));
+    + Math.floor(hash01(tile * style.seedA, SKYLINE_K) * (style.maxBuildings - style.minBuildings + 1));
   let cursor = x + style.pad;
   const maxX = x + span - style.pad;
 
@@ -43,27 +42,27 @@ function drawSkylineLayer(ctx, x, horizon, span, tile, style) {
     ctx.fillStyle = style.baseColor;
     ctx.fillRect(cursor, horizon - bh, bw, bh);
 
-    if (hash01(tile * style.seedE + i * 3.7) > style.roofChance) {
+    if (hash01(tile * style.seedE + i * 3.7, SKYLINE_K) > style.roofChance) {
       const rh = randRange(tile * style.seedF + i * 6.1, style.roofMin, style.roofMax);
       const rw = bw * randRange(tile * style.seedG + i * 2.9, 0.18, 0.48);
       const rx = cursor + bw * randRange(tile * style.seedH + i * 4.1, 0.08, 0.62);
       ctx.fillRect(rx, horizon - bh - rh, rw, rh);
     }
 
-    if (hash01(tile * style.seedI + i * 4.3) > style.shoulderChance) {
+    if (hash01(tile * style.seedI + i * 4.3, SKYLINE_K) > style.shoulderChance) {
       const sw = bw * randRange(tile * style.seedJ + i * 3.1, 0.18, 0.35);
       const sh = randRange(tile * style.seedK + i * 2.7, 18, 60);
       const sx = cursor + bw * randRange(tile * style.seedL + i * 5.3, 0.05, 0.72);
       ctx.fillRect(sx, horizon - bh - sh, sw, sh);
     }
 
-    if (hash01(tile * style.seedM + i * 2.3) > style.antennaChance) {
+    if (hash01(tile * style.seedM + i * 2.3, SKYLINE_K) > style.antennaChance) {
       const ax = cursor + bw * randRange(tile * style.seedN + i * 6.9, 0.15, 0.82);
       const ah = randRange(tile * style.seedO + i * 4.9, 20, style.antennaMax);
       ctx.fillRect(ax, horizon - bh - ah, 2, ah);
     }
 
-    if (hash01(tile * style.seedP + i * 5.7) > style.craneChance) {
+    if (hash01(tile * style.seedP + i * 5.7, SKYLINE_K) > style.craneChance) {
       const cx = cursor + bw * randRange(tile * style.seedQ + i * 7.1, 0.2, 0.7);
       const ch = randRange(tile * style.seedR + i * 3.9, 60, 110);
       ctx.fillRect(cx, horizon - bh - ch, 3, ch);
@@ -71,7 +70,7 @@ function drawSkylineLayer(ctx, x, horizon, span, tile, style) {
     }
 
     ctx.fillStyle = style.windowColor;
-    const wcount = 1 + Math.floor(hash01(tile * style.seedS + i * 3.9) * 2);
+    const wcount = 1 + Math.floor(hash01(tile * style.seedS + i * 3.9, SKYLINE_K) * 2);
     for (let w = 0; w < wcount; w++) {
       const wx = cursor + bw * randRange(tile * style.seedT + i * 9.1 + w * 1.7, 0.12, 0.86);
       const wy = horizon - bh + randRange(tile * style.seedU + i * 4.1 + w * 2.3, 18, 50);
@@ -79,7 +78,7 @@ function drawSkylineLayer(ctx, x, horizon, span, tile, style) {
       ctx.fillRect(wx, wy, 2, wh);
     }
     ctx.fillStyle = style.accentColor;
-    if (hash01(tile * style.seedW + i * 6.3) > style.accentChance) {
+    if (hash01(tile * style.seedW + i * 6.3, SKYLINE_K) > style.accentChance) {
       const ax = cursor + bw * randRange(tile * style.seedX + i * 5.7, 0.2, 0.7);
       ctx.fillRect(ax, horizon - bh - 12, randRange(tile * style.seedY + i * 3.5, 18, 46), 3);
     }

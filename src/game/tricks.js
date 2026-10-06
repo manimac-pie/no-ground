@@ -4,7 +4,7 @@ import {
   SPIN_DURATION,
   SPIN_COOLDOWN,
 } from "./constants.js";
-import { clamp } from "./utils.js";
+import { clamp } from "../shared/math.js";
 import { awardBackflip, noteFlipDone } from "./score.js";
 
 export function startSpin(state, intent = "neutral") {

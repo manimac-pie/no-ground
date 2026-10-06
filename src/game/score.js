@@ -13,12 +13,7 @@
 // Airborne points collect in state.airBreakdown and move to state.scoreBreakdown on a safe landing,
 // so the breakdown only holds banked points and adds up to the score.
 
-import * as C from "./constants.js";
-
-function getConst(name, fallback) {
-  const v = C[name];
-  return Number.isFinite(v) ? v : fallback;
-}
+import { getConst } from "./utils.js";
 
 const SPEED_START = getConst("SPEED_START", 260);
 const SPEED_MAX = getConst("SPEED_MAX", 480);

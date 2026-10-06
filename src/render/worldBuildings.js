@@ -1,6 +1,6 @@
 // src/render/worldBuildings.js
 
-import { world } from "../game.js";
+import { world } from "../game/constants.js";
 import { drawFractures } from "./worldCracks.js";
 import { beginFacadeFrame, drawCrown, drawFacade, facadeRoofColors } from "./worldFacades.js";
 import {
@@ -9,20 +9,12 @@ import {
   drawBillboardShatters,
   spawnBillboardShatter,
 } from "./worldBillboards.js";
+import { clamp, hash01 } from "../shared/math.js";
 
 // ---------------- small helpers ----------------
 function getColor(COLORS, key, fallback) {
   const v = COLORS && COLORS[key];
   return (typeof v === "string" && v.length) ? v : fallback;
-}
-
-function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v));
-}
-
-function hash01(n) {
-  const x = Math.sin(n * 999.123) * 43758.5453;
-  return x - Math.floor(x);
 }
 
 function shadeRect(ctx, x, y, w, h, topColor, bottomColor) {
@@ -32,9 +24,6 @@ function shadeRect(ctx, x, y, w, h, topColor, bottomColor) {
   ctx.fillStyle = g;
   ctx.fillRect(x, y, w, h);
 }
-
-
-
 
 // ---------------- particle pools ----------------
 // Particles are reused instead of allocated per burst. Live particles sit at
@@ -185,8 +174,6 @@ function getPlatformSeed(plat) {
   return s;
 }
 
-
-
 // Roof slab. Its cracks are drawn with the building's (drawFractures).
 function drawRoof(ctx, plat, COLORS) {
   const x = plat.x;
@@ -246,16 +233,13 @@ function spawnBuildingDebrisBurst(plat, COLORS) {
   }
 }
 
-
 function stepDebris(dt) {
   stepParticles(debris, dt, 1700, 0.985, world.GROUND_Y + 120);
 }
 
-
 function drawDebris(ctx) {
   drawParticles(ctx, debris, 0.18, 0.32);
 }
-
 
 // ---------------- rubble helpers ----------------
 function spawnRubbleBurst(state, COLORS) {

@@ -31,7 +31,8 @@ import {
   SPEED_START,
   BREAK_JUMP_GRACE_SEC,
 } from "./constants.js";
-import { clamp, randRange, pick } from "./utils.js";
+import { clamp } from "../shared/math.js";
+import { randRange, pick } from "./utils.js";
 
 function easeInOut01(t) {
   // smoothstep

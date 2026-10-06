@@ -38,6 +38,15 @@ export function setInternalSizeFromViewport(cssW, cssH) {
 export const GROUND_Y = 390; // lethal ground level
 export const PLATFORM_H = 16;
 
+// The world's size for the renderer. INTERNAL_WIDTH/HEIGHT change on resize, so they're getters:
+// a plain value would keep the size from load time.
+export const world = {
+  get INTERNAL_WIDTH() { return INTERNAL_WIDTH; },
+  get INTERNAL_HEIGHT() { return INTERNAL_HEIGHT; },
+  GROUND_Y,
+  PLATFORM_H,
+};
+
 // Physics tuning
 export const GRAVITY = 1800;
 export const JUMP_VELOCITY = -630;

@@ -5,10 +5,7 @@
 // A sprite is a rectangle (w x h world px) painted once into a canvas at `scale` device px per
 // world px, with `margin` world px around it for glows: { canvas, scale, margin, w, h }.
 
-function hash01(n) {
-  const x = Math.sin(n * 999.123) * 43758.5453;
-  return x - Math.floor(x);
-}
+import { hash01 } from "../shared/math.js";
 
 // ---------------- sprites ----------------
 // paint(c) draws the piece at local coordinates (0,0 = its top-left), with c already scaled.

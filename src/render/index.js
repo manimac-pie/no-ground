@@ -1,9 +1,9 @@
 // src/render/index.js
 // Single render orchestrator (prevents duplicate draws + state leaks).
 
-import { world } from "../game.js";
 import { isSummaryShowing } from "../game/state.js";
 import {
+  world,
   DASH_MAX_CAM_LAG,
   DASH_CAM_SMOOTH,
   DASH_PARALLAX_CAM_FACTOR,
@@ -45,7 +45,7 @@ import {
   getControlsPanelRect,
   pointInRect,
 } from "../ui/layout.js";
-import { clamp } from "./playerKit.js";
+import { clamp, easeOutCubic } from "../shared/math.js";
 import {
   getLeaderboardState,
   LEADERBOARD_MAX_ENTRIES,
@@ -75,11 +75,6 @@ export const COLORS = {
   groundGlow: "rgba(255,85,110,0.22)",
   dangerTint: "rgba(255,85,110,0.10)",
 };
-
-function easeOutCubic(t) {
-  const x = clamp(t, 0, 1);
-  return 1 - Math.pow(1 - x, 3);
-}
 
 function easeInOutCubic(t) {
   const x = clamp(t, 0, 1);

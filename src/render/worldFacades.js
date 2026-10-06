@@ -12,6 +12,7 @@
 
 import { GROUND_Y, PLATFORM_H } from "../game/constants.js";
 import { createScaleWatch, needsRepaint, paintSprite, stampSprite, updateScaleWatch, viewScale } from "./glass.js";
+import { hash01 } from "../shared/math.js";
 
 const SAFE_RGB = "120,205,255";
 const TILE_W = 192;
@@ -21,11 +22,6 @@ const FLOOR_H = 14;
 const COL_W = 16;
 const TILE_CACHE_MAX = 40;
 const PAINTS_PER_FRAME = 3; // tiles painted per frame at most; the rest wait a frame, drawn scaled
-
-function hash01(n) {
-  const x = Math.sin(n * 999.123) * 43758.5453;
-  return x - Math.floor(x);
-}
 
 function rand01(seed, k) {
   return hash01(seed * 17.31 + k * 3.733);

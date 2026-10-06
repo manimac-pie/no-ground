@@ -1,5 +1,5 @@
 // src/render/worldGround.js
-import { world } from "../game.js";
+import { world } from "../game/constants.js";
 
 export function drawLethalGround(ctx, W, H, animTime, danger01, COLORS) {
   ctx.save();

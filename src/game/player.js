@@ -2,14 +2,9 @@
 // Player physics + movement integration.
 // Exports integratePlayer() used by src/game.js.
 
-import * as C from "./constants.js";
-import { clamp } from "./utils.js";
+import { clamp, smoothstep01 } from "../shared/math.js";
+import { getConst } from "./utils.js";
 import { awardBonus, beginAir, countEvent, landAir, loseAir } from "./score.js";
-
-function getConst(name, fallback) {
-  const v = C[name];
-  return Number.isFinite(v) ? v : fallback;
-}
 
 // ---------------- constants ----------------
 const GRAVITY = getConst("GRAVITY", 1800);
@@ -58,11 +53,6 @@ const CLOSE_CALL_OVERLAP_FRAC = getConst("CLOSE_CALL_OVERLAP_FRAC", 0.6);
 const BILLBOARD_BOUNCE_VY = getConst("BILLBOARD_BOUNCE_VY", 0);
 
 // ---------------- helpers ----------------
-function smoothstep01(t) {
-  const x = clamp(t, 0, 1);
-  return x * x * (3 - 2 * x);
-}
-
 function canJumpNow(state) {
   const p = state.player;
   if (!p || p.jumpsRemaining <= 0) return false;
