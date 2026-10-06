@@ -9,9 +9,10 @@
 5. [ ] Can you make Slowfall smoother? like glide better?
     > To discuss
 
-6. [ ] Can make game controls menu better?
+6. [x] Can make game controls menu better?
     > ![Game Controls Menu](image.png)
     > Something easier to understand
+    > ✅ Done: the panel now groups moves by when you use them, ON A ROOF (Space jump, hold S duck, D dash) and IN THE AIR (Space jump again, hold W slowfall, S dive, A backflip, D dash), so a key that does two things reads naturally. Holds are marked HOLD. The bottom explains the two materials in the colours the world uses: pink glass (dash through its ads, roofs crumble) and blue steel (duck or jump its ads, roofs hold). This replaces "non-reinforced", which the game never shows. On touch screens the chips show the button names. Text is 10–13 px, up from 9. Code: `src/render/hud/controls.js`.
 
 9. [ ] (POTENTIAL) Smoother motion on 120 Hz screens
     > Physics runs at 60 Hz, and `main.js` only redraws after a physics step, so a 120 Hz screen shows about 60 fps.

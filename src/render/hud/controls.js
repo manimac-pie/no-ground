@@ -3,7 +3,7 @@
 
 import { roundedRectPath } from "../../shared/canvas.js";
 import { drawCachedPanel } from "./panelCache.js";
-import { drawGlow, drawKeyChip, roundRect } from "./primitives.js";
+import { drawGlow, roundRect } from "./primitives.js";
 
 export function drawControlsButton(ctx, rect, active = false, hot = false) {
   drawMenuButton(ctx, "controlsButton", rect, "GAME CONTROLS", active, hot);
@@ -82,15 +82,44 @@ function drawMenuButtonDirect(ctx, rect, label, active, hot) {
   ctx.restore();
 }
 
-export function drawControlsPanel(ctx, rect, COLORS) {
+// What each key does, grouped by when it's used: the same key can do one thing on a roof and
+// another in the air. key: the keyboard key; tap: the mobile button. hold: a hold, not a press.
+const ROOF_MOVES = [
+  { key: "SPACE", tap: "TAP", label: "Jump" },
+  { key: "S", tap: "DUCK/DIVE", label: "Duck", hold: true },
+  { key: "D", tap: "DASH", label: "Dash" },
+];
+const AIR_MOVES = [
+  { key: "SPACE", tap: "TAP", label: "Jump again" },
+  { key: "W", tap: "SLOWFALL", label: "Slowfall", hold: true },
+  { key: "S", tap: "DUCK/DIVE", label: "Dive" },
+  { key: "A", tap: "BACKFLIP", label: "Backflip" },
+  { key: "D", tap: "DASH", label: "Dash" },
+];
+// The two materials, in the colours the world draws them (render/world/billboards.js, facades.js).
+const MATERIALS = [
+  { name: "PINK GLASS", rgb: "255,80,150", text: "Dash through its ads. Roofs crumble." },
+  { name: "BLUE STEEL", rgb: "120,205,255", text: "Duck or jump its ads. Roofs hold." },
+];
+
+const SECTION_FONT = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
+const CHIP_FONT = "700 13px Share Tech Mono, Menlo, monospace";
+const LABEL_FONT = "600 12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+const HOLD_FONT = "600 10px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+const CHIP_H = 20;
+const ROW_H = 26;
+const ITEM_GAP = 14;
+
+// touchUi: show the mobile button names instead of keys.
+export function drawControlsPanel(ctx, rect, COLORS, touchUi = false) {
   if (!rect) return;
-  const key = `${rect.x}|${rect.y}|${rect.w}|${rect.h}`;
+  const key = `${rect.x}|${rect.y}|${rect.w}|${rect.h}|${touchUi}`;
   drawCachedPanel(ctx, "controlsPanel", key, rect, (pctx) =>
-    drawControlsPanelDirect(pctx, rect, COLORS)
+    drawControlsPanelDirect(pctx, rect, touchUi)
   );
 }
 
-function drawControlsPanelDirect(ctx, rect, COLORS) {
+function drawControlsPanelDirect(ctx, rect, touchUi) {
   const { x, y, w, h } = rect;
   ctx.save();
   // Neon sci-fi glass panel
@@ -110,21 +139,6 @@ function drawControlsPanelDirect(ctx, rect, COLORS) {
   roundedRectPath(ctx, x + 6, y + 6, w - 12, h - 12, 10);
   ctx.stroke();
 
-  // Diagonal light grid
-  ctx.save();
-  roundedRectPath(ctx, x + 4, y + 4, w - 8, h - 8, 12);
-  ctx.clip();
-  ctx.globalAlpha = 0.22;
-  ctx.strokeStyle = "rgba(120,205,255,0.12)";
-  ctx.lineWidth = 1;
-  for (let gx = x + 20; gx < x + w + 40; gx += 28) {
-    ctx.beginPath();
-    ctx.moveTo(gx, y + 8);
-    ctx.lineTo(gx - 40, y + h - 8);
-    ctx.stroke();
-  }
-  ctx.restore();
-
   // Header bar
   ctx.fillStyle = "rgba(8,12,20,0.75)";
   roundRect(ctx, x + 16, y + 14, w - 32, 22, 8);
@@ -133,102 +147,86 @@ function drawControlsPanelDirect(ctx, rect, COLORS) {
   roundedRectPath(ctx, x + 16, y + 14, w - 32, 22, 8);
   ctx.stroke();
 
+  ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "rgba(160,245,255,0.95)";
   ctx.font = "700 11px Orbitron, Share Tech Mono, Menlo, monospace";
   ctx.fillText("GAME CONTROLS", x + 26, y + 29);
 
-  // Controls layout (centered Space row, centered W/S/D row)
-  const topPad = 48;
-  const warnH = 16;
-  const warnGap = 10;
-  const infoH = 16;
-  const infoGap = 6;
-  const info2H = 16;
-  const info2Gap = 6;
-  const available =
-    h - topPad - warnH - infoH - info2H - warnGap - infoGap - info2Gap - 12;
-  const rowGap = Math.max(44, Math.min(56, Math.floor(available / 2)));
-  let rowY = y + topPad;
+  const left = x + 20;
+  const right = x + w - 20;
+  let cy = y + 56;
+  cy = drawMoveSection(ctx, "ON A ROOF", ROOF_MOVES, left, right, cy, touchUi);
+  cy = drawMoveSection(ctx, "IN THE AIR", AIR_MOVES, left, right, cy + 14, touchUi);
 
-  ctx.save();
-  ctx.font = "800 16px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  const spaceW = Math.max(64, ctx.measureText("SPACE / LMB").width + 28);
-  const wW = Math.max(64, ctx.measureText("W").width + 28);
-  const aW = Math.max(64, ctx.measureText("A").width + 28);
-  const sW = Math.max(64, ctx.measureText("S").width + 28);
-  const dW = Math.max(64, ctx.measureText("D").width + 28);
-  ctx.restore();
-
-  const spaceX = x + (w - spaceW) / 2;
-  drawKeyChip(ctx, "SPACE / LMB", "Jump / Double Jump", spaceX, rowY, COLORS);
-
-  rowY += rowGap;
-  const gap = 12;
-  const rowWidth = wW + aW + sW + dW + gap * 3;
-  let rowX = x + (w - rowWidth) / 2;
-  drawKeyChip(ctx, "W", "Slowfall", rowX, rowY, COLORS);
-  rowX += wW + gap;
-  drawKeyChip(ctx, "A", "Backflip", rowX, rowY, COLORS);
-  rowX += aW + gap;
-  drawKeyChip(ctx, "S", "Duck/Dive", rowX, rowY, COLORS);
-  rowX += sW + gap;
-  drawKeyChip(ctx, "D", "Dash", rowX, rowY, COLORS);
-
-  // Warning capsule
-  const warnY = y + h - warnH - 10;
-  const infoY = warnY - infoGap - infoH;
-  const info2Y = infoY - info2Gap - info2H;
-  ctx.fillStyle = "rgba(10,14,20,0.85)";
-  roundRect(ctx, x + 16, info2Y, w - 32, info2H, 6);
-  ctx.strokeStyle = "rgba(120,205,255,0.65)";
-  ctx.lineWidth = 1;
-  roundedRectPath(ctx, x + 16, info2Y, w - 32, info2H, 6);
-  ctx.stroke();
-  ctx.font = "700 9px Orbitron, Share Tech Mono, Menlo, monospace";
-  const dashPrefix = "DASH THROUGH ";
-  const dashHot = "NON-REINFORCED";
-  const dashSuffix = " BILLBOARDS.";
-  let dashX = x + 22;
-  const dashY = info2Y + 11;
-  ctx.fillStyle = "rgba(180,235,255,0.95)";
-  ctx.fillText(dashPrefix, dashX, dashY);
-  dashX += ctx.measureText(dashPrefix).width;
-  ctx.fillStyle = "rgba(255,120,120,0.98)";
-  ctx.fillText(dashHot, dashX, dashY);
-  dashX += ctx.measureText(dashHot).width;
-  ctx.fillStyle = "rgba(180,235,255,0.95)";
-  ctx.fillText(dashSuffix, dashX, dashY);
-
-  ctx.fillStyle = "rgba(10,14,20,0.85)";
-  roundRect(ctx, x + 16, infoY, w - 32, infoH, 6);
-  ctx.strokeStyle = "rgba(120,205,255,0.65)";
-  ctx.lineWidth = 1;
-  roundedRectPath(ctx, x + 16, infoY, w - 32, infoH, 6);
-  ctx.stroke();
-  ctx.fillStyle = "rgba(180,235,255,0.95)";
-  ctx.font = "700 9px Orbitron, Share Tech Mono, Menlo, monospace";
-  ctx.fillText("JUMP BOOST: HOLD W + JUMP + DASH.", x + 22, infoY + 11);
-
-  ctx.fillStyle = "rgba(36,8,10,0.88)";
-  roundRect(ctx, x + 16, warnY, w - 32, warnH, 6);
-  ctx.strokeStyle = "rgba(255,120,120,0.75)";
-  ctx.lineWidth = 1;
-  roundedRectPath(ctx, x + 16, warnY, w - 32, warnH, 6);
-  ctx.stroke();
-  ctx.font = "700 9px Orbitron, Share Tech Mono, Menlo, monospace";
-  const warnPrefix = "WARNING: ";
-  const warnHot = "NON-REINFORCED";
-  const warnSuffix = " BUILDINGS BREAK.";
-  let warnX = x + 22;
-  const warnTextY = warnY + 11;
-  ctx.fillStyle = "rgba(255,160,160,0.98)";
-  ctx.fillText(warnPrefix, warnX, warnTextY);
-  warnX += ctx.measureText(warnPrefix).width;
-  ctx.fillStyle = "rgba(255,90,90,0.98)";
-  ctx.fillText(warnHot, warnX, warnTextY);
-  warnX += ctx.measureText(warnHot).width;
-  ctx.fillStyle = "rgba(255,160,160,0.98)";
-  ctx.fillText(warnSuffix, warnX, warnTextY);
+  // Materials: what breaks and what doesn't.
+  cy += 4;
+  ctx.fillStyle = "rgba(120,205,255,0.18)";
+  ctx.fillRect(left, cy, right - left, 1);
+  cy += 18;
+  for (const m of MATERIALS) {
+    ctx.fillStyle = `rgba(${m.rgb},0.9)`;
+    ctx.shadowColor = `rgba(${m.rgb},0.8)`;
+    ctx.shadowBlur = 6;
+    roundRect(ctx, left, cy - 9, 10, 10, 2);
+    ctx.shadowBlur = 0;
+    ctx.font = SECTION_FONT;
+    ctx.fillStyle = `rgba(${m.rgb},1)`;
+    ctx.fillText(m.name, left + 16, cy);
+    ctx.font = LABEL_FONT;
+    ctx.fillStyle = "rgba(200,225,240,0.92)";
+    ctx.fillText(m.text, left + 98, cy);
+    cy += 20;
+  }
 
   ctx.restore();
+}
+
+// A section title, then its moves as key chips with labels, wrapping onto more rows as needed.
+// A mobile button already named for its move (DASH) gets no label. Returns the y below the section.
+function drawMoveSection(ctx, title, moves, left, right, top, touchUi) {
+  ctx.font = SECTION_FONT;
+  ctx.fillStyle = "rgba(0,255,225,0.7)";
+  ctx.fillText(title, left, top);
+
+  let cx = left;
+  let rowTop = top + 8;
+  for (const move of moves) {
+    const chip = touchUi ? move.tap : move.key;
+    const label = chip === move.label.toUpperCase() ? "" : move.label;
+    ctx.font = CHIP_FONT;
+    const chipW = Math.ceil(ctx.measureText(chip).width) + 14;
+    ctx.font = LABEL_FONT;
+    const labelW = label ? Math.ceil(ctx.measureText(label).width) : 0;
+    ctx.font = HOLD_FONT;
+    const holdW = move.hold ? Math.ceil(ctx.measureText(" HOLD").width) + 2 : 0;
+    const itemW = chipW + (label ? 6 : 0) + labelW + holdW;
+    if (cx > left && cx + itemW > right) {
+      cx = left;
+      rowTop += ROW_H;
+    }
+
+    ctx.fillStyle = "rgba(120,205,255,0.1)";
+    roundRect(ctx, cx, rowTop, chipW, CHIP_H, 5);
+    ctx.strokeStyle = "rgba(120,205,255,0.7)";
+    ctx.lineWidth = 1;
+    roundedRectPath(ctx, cx + 0.5, rowTop + 0.5, chipW - 1, CHIP_H - 1, 5);
+    ctx.stroke();
+    ctx.font = CHIP_FONT;
+    ctx.fillStyle = "rgba(240,255,255,0.98)";
+    ctx.fillText(chip, cx + 7, rowTop + 15);
+
+    const lx = cx + chipW + (label ? 6 : 0);
+    if (label) {
+      ctx.font = LABEL_FONT;
+      ctx.fillStyle = "rgba(220,240,250,0.95)";
+      ctx.fillText(label, lx, rowTop + 15);
+    }
+    if (move.hold) {
+      ctx.font = HOLD_FONT;
+      ctx.fillStyle = "rgba(255,200,110,0.9)";
+      ctx.fillText(" HOLD", lx + labelW + 2, rowTop + 15);
+    }
+    cx += itemW + ITEM_GAP;
+  }
+  return rowTop + ROW_H;
 }

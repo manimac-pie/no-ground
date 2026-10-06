@@ -28,8 +28,8 @@ export function getTrainingButtonRect() {
 
 export function getControlsPanelRect(W = 800, H = 450) {
   const btn = getControlsButtonRect(W, H);
-  const panelW = Math.min(360, Math.max(300, W * 0.42));
-  const panelH = 222;
+  const panelW = Math.min(380, Math.max(350, W * 0.45));
+  const panelH = 228;
   const x = clamp(
     btn.x + btn.w - panelW,
     8,

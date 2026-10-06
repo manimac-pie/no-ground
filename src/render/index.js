@@ -448,7 +448,7 @@ export function render(ctx, state) {
       && pointInRect(state.pointerUiX, state.pointerUiY, trainingRect);
     drawTrainingButton(ctx, trainingRect, trainingHover, uiTime);
     if (state.controlsPanelOpen) {
-      drawControlsPanel(ctx, panelRect, COLORS);
+      drawControlsPanel(ctx, panelRect, COLORS, touchUi);
     }
   } else {
     hitAreas.leaderboardToggle = null;
