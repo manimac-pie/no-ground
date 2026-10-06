@@ -1,6 +1,7 @@
 ## Updates
 
-1. [ ] The wind effect while dashing seems jarring. like it suddenly appears. is there a way to make it look more seamless?
+1. [x] The wind effect while dashing seems jarring. like it suddenly appears. is there a way to make it look more seamless?
+    > ✅ Done: the wind used to go from nothing to full on the press frame, with ~60 lines all over the screen at once. It now comes in as a gust: the lines fade in over 0.15 s and a soft front sweeps them in from the right, crossing the screen in 0.3 s. A dash while the wind is still showing carries on the same gust. Fading out is unchanged (it follows the boost). Tune with `WIND_FADE_IN_SEC`, `WIND_SWEEP_SEC` and `WIND_EDGE_FRAC` in `src/render/player/dashFx.js`.
 
 4. [ ] After pressing spacebar to start or clicking on the start button, automatically implement Dash on Bob. and player should not be able to interact until after zoomed out.
     > Ask if unclear

@@ -1,7 +1,8 @@
 // src/render/player/dashFx.js
 // Dash effects. On a roof, Bob's wheel throws sparks. Wind lines sweep across the whole screen while the
 // speed boost lasts, on a roof or in the air. Everything follows the boost (state.speedImpulse), so it
-// starts on the press and fades as the boost decays (half every 0.3 s).
+// starts on the press and fades as the boost decays (half every 0.3 s). The wind comes in as a gust:
+// it fades in and rolls across from the right instead of filling the screen in one frame.
 // A dive landing (the game's heavy landing) also knocks a small burst of sparks off the wheel.
 // Purely visual: the particles live here and move on the game's clock (dt is 0 while paused).
 
@@ -19,6 +20,9 @@ const GLOW_MIN_K = 0.08;
 const WIND_MIN_K = 0.03;
 const WIND_LINES_PER_PX = 60 / 800; // 60 lines across the base 800 px view
 const WIND_MAX_LINES = 90;
+const WIND_FADE_IN_SEC = 0.15; // a gust's lines brighten from nothing over this long
+const WIND_SWEEP_SEC = 0.3;    // a gust's front takes this long to cross the view, right to left
+const WIND_EDGE_FRAC = 0.3;    // the front's soft edge, as a share of the view's width
 const LANDING_SPARKS = 10;   // sparks in a dive landing's burst
 
 // Spark colours, white-hot to amber, picked by age.
@@ -42,6 +46,8 @@ const WIND_CYAN = "rgb(120,205,255)";
 const pool = createParticlePool(() => ({ x: 0, y: 0, vx: 0, vy: 0, ox: 0, floorY: 0, age: 0, life: 1 }));
 let spawnAcc = 0;
 let lastHeavyLandT = 0;
+let gusting = false; // wind is showing; a dash while it shows carries on the same gust
+let gustStartT = 0;  // game time the current gust began
 
 // 0..1: how much of a dash's speed boost is left.
 function dashFxStrength(view) {
@@ -160,14 +166,29 @@ export function drawDashSparks(ctx, view, offsetX, active) {
   ctx.restore();
 }
 
+// Starts a gust when the wind comes back from nothing. Call every frame, even when the wind isn't
+// drawn (active false), so the next dash after a death or the start screen gets a fresh gust.
+// t: game time.
+export function updateDashWind(view, t, active) {
+  const on = active && dashFxStrength(view) > WIND_MIN_K;
+  if (on && (!gusting || t < gustStartT)) gustStartT = t;
+  gusting = on;
+}
+
 // Speed lines sweeping across the whole view while the boost lasts. Each line gets a new height
 // every time it wraps around, so the pattern doesn't repeat.
 // viewLeft/viewW/viewH: the visible area in the world layer's coordinates. t: game time.
 export function drawDashWind(ctx, view, t, viewLeft, viewW, viewH) {
   const k = dashFxStrength(view);
-  if (k <= WIND_MIN_K) return;
+  if (k <= WIND_MIN_K || !gusting) return;
   const span = viewW * 1.5;
   const n = Math.min(WIND_MAX_LINES, Math.round(viewW * WIND_LINES_PER_PX));
+  // Gust: fade in (eased), and a front rolling in from the right; lines ahead of it aren't drawn yet.
+  const age = Math.max(0, t - gustStartT);
+  const fade = clamp(age / WIND_FADE_IN_SEC, 0, 1);
+  const strength = k * fade * fade * (3 - 2 * fade);
+  const edge = viewW * WIND_EDGE_FRAC;
+  const front = (age / WIND_SWEEP_SEC) * (viewW + 20 + edge);
 
   ctx.save();
   ctx.lineCap = "round";
@@ -175,10 +196,13 @@ export function drawDashWind(ctx, view, t, viewLeft, viewW, viewH) {
     const speed = 700 + hash01(i + 50) * 700;
     const travel = t * speed + hash01(i + 90) * span;
     const pass = Math.floor(travel / span);
-    const x = viewLeft + viewW + 20 - (travel - pass * span);
+    const dist = travel - pass * span; // how far in from the right this line is
+    const reveal = clamp((front - dist) / edge, 0, 1);
+    if (reveal <= 0) continue;
+    const x = viewLeft + viewW + 20 - dist;
     const y = hash01(i * 7.3 + pass * 13.1) * viewH;
     const len = (24 + 80 * hash01(i + 20)) * (0.35 + 0.65 * k);
-    ctx.globalAlpha = (0.14 + 0.3 * hash01(i + 70)) * k;
+    ctx.globalAlpha = (0.14 + 0.3 * hash01(i + 70)) * strength * reveal;
     ctx.strokeStyle = i % 3 ? WIND_WHITE : WIND_CYAN;
     ctx.lineWidth = i % 4 === 0 ? 1.5 : 1;
     ctx.beginPath();

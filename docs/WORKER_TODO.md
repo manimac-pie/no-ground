@@ -2,7 +2,7 @@
 
 The Worker is `no-ground-leaderboard-api`. Its code is in `worker/` (kept out of git, since this repo is public): `worker/src/worker.js`, with the config in `worker/wrangler.jsonc` and the SQL in `worker/sql/`. Deploy it by pasting `worker.js` into the dashboard editor (Edit code, then Deploy), or with `npx wrangler deploy` from `worker/`.
 
-All three items are done (2026-10-06). Item 3 needs the game pushed and the Worker deployed to go live.
+Items 1–3 are done (2026-10-06). Item 3 needs the game pushed and the Worker deployed to go live. Item 4 is written and tested locally, and needs the Worker deployed.
 
 ---
 
@@ -60,3 +60,12 @@ The leaderboard panel shows two boards: **ALL-TIME** (the top 3, kept forever) a
 > **To change the list:** edit `blocked-names.json` and push. The Worker picks it up within about 5 minutes.
 >
 > **To deploy:** push the game first (so the file is on the live site), then deploy the Worker (`worker/src/worker.js`, via the dashboard editor or `npx wrangler deploy` from `worker/`).
+
+---
+
+## 4. A lower run than your best can still make the board. ✅ Done (once the Worker is deployed)
+
+> **Done 2026-10-06.** THIS WEEK used to show one row per player (their best claim this week), and a score only qualified for it if it beat that player's own entry. So a run lower than your best never made the weekly board, even when it beat 10th place. Now THIS WEEK is simply the top 10 claims since Monday 00:00 UTC, like ALL-TIME already was (its top 3 never checked your own best). A score qualifies when it beats the all-time 3rd place or this week's 10th place, whoever's rows those are; `/api/claim` re-checks it. Only `worker/src/worker.js` changed (`getWeekly`, `qualifies`); no SQL migration and no game change.
+>
+> - **Side effect:** one player can now hold several rows on either board, or fill THIS WEEK alone.
+> - **Tested:** local `wrangler dev` with a throwaway D1. With a best of 5,000 and 10th place at 100, a 3,000 qualified and showed on both boards next to the 5,000; a 250 (below the all-time 3rd, above the weekly 10th) qualified; a 150 below the weekly 10th was refused at submit and at claim.

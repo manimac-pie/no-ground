@@ -21,7 +21,7 @@ import {
 } from "./world/index.js";
 
 import { drawPlayerShadow, drawPlayer } from "./player/index.js";
-import { drawDashSparks, drawDashWind, updateDashSparks } from "./player/dashFx.js";
+import { drawDashSparks, drawDashWind, updateDashSparks, updateDashWind } from "./player/dashFx.js";
 import { drawControlsButton, drawControlsPanel } from "./hud/controls.js";
 import { drawRestartFlyby } from "./hud/flyby.js";
 import { computeHudDanger, drawDangerVignette, drawHUD, drawScorePopups } from "./hud/hud.js";
@@ -299,6 +299,7 @@ export function render(ctx, state) {
   // Dash: wind lines and wheel sparks, behind Bob. None in the claw or on the start screen.
   const dashFxOn = !deathActive && !freezeOnDeath && !onStartScreen;
   updateDashSparks(pose, dt, playerOffsetX, dashFxOn);
+  updateDashWind(pose, animTime, dashFxOn);
   if (dashFxOn) {
     resetCtx(ctx);
     drawDashWind(ctx, pose, animTime, camShift, W, H);
