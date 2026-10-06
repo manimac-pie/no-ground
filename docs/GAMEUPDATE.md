@@ -13,12 +13,6 @@
     > ![Game Controls Menu](image.png)
     > Something easier to understand
 
-8. [ ] I notice that if i replay muptiple times in a row, it starts getting a bit laggy.
-    > How to measure: record about 10 s of play in the Chrome DevTools Performance panel, with 4× CPU throttling to mimic a phone. Compare a first run with a run after several replays, and measure again after each fix.
-    > If the console shows `[perf] Average frame … ms; rendering at 1x resolution.`, frames were slow enough that the game dropped to 1× resolution (`watchFrameTime` in `src/main.js`).
-    > Optional: a debug overlay, toggled with a key, showing the average `game.update` and `render` times.
-
-
 9. [ ] (POTENTIAL) Smoother motion on 120 Hz screens
     > Physics runs at 60 Hz, and `main.js` only redraws after a physics step, so a 120 Hz screen shows about 60 fps.
     > Fix: pass `acc / FIXED_DT` to the renderer and blend between the previous and current positions.
