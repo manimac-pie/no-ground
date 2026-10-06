@@ -2,7 +2,7 @@
 // TRAINING on screen (game/tutorial.js): the start screen's TRAINING button, the lesson prompt
 // under the HUD, CLEAR between lessons, TRAINING COMPLETE at the end, and the glitch on a retry.
 
-import { CLEAR_FLASH_SEC, LESSONS } from "../../game/tutorial.js";
+import { CLEAR_FLASH_SEC, LESSONS, currentStep } from "../../game/tutorial.js";
 import { roundedRectPath } from "../../shared/canvas.js";
 import { clamp, easeOutCubic } from "../../shared/math.js";
 import { isTrainingDone } from "../../ui/training.js";
@@ -19,6 +19,7 @@ const RETRY_GLITCH_SEC = 0.3;
 const MONO = "Share Tech Mono, Orbitron, Menlo, monospace";
 const ORBITRON = "Orbitron, Share Tech Mono, Menlo, monospace";
 const DONE_RGB = "90,255,170";
+const WAIT_DIM_ALPHA = 0.3; // the world dims while TRAINING is stopped for a move
 const AD_BEHIND_ALPHA = 0.12; // the prompt fades to this while an ad passes under it...
 const AD_FADE_RATE = 10;      // ...easing at this rate (per second)
 let _adBehindK = 0;
@@ -66,8 +67,9 @@ export function drawTrainingPrompt(ctx, state, W, H, touchUi, introK = 1, camShi
   }
 
   const lesson = LESSONS[tut.lesson];
-  const chip = touchUi ? lesson.tap : lesson.key;
-  const action = touchUi ? lesson.tapAction : lesson.action;
+  const step = currentStep(tut);
+  const chip = touchUi ? step.tap : step.key;
+  const action = touchUi ? step.tapAction : step.action;
   const done = tut.moveDone === true;
   const again = tut.retries > 0;
 
@@ -84,8 +86,10 @@ export function drawTrainingPrompt(ctx, state, W, H, touchUi, introK = 1, camShi
   const now = state.uiTime || 0;
   const dt = _adBehindT < 0 ? 0 : clamp(now - _adBehindT, 0, 0.1);
   _adBehindT = now;
+  // Stopped for a move, the prompt is what matters: full strength.
   const target = adBehind(state, rect, camShift) ? 1 : 0;
   _adBehindK += (target - _adBehindK) * (1 - Math.exp(-AD_FADE_RATE * dt));
+  if (tut.waiting) _adBehindK = 0;
 
   ctx.save();
   ctx.globalAlpha = clamp(tut.promptT / PROMPT_FADE_SEC, 0, 1) * clamp(introK, 0, 1)
@@ -97,6 +101,30 @@ export function drawTrainingPrompt(ctx, state, W, H, touchUi, introK = 1, camShi
       drawPromptDirect(pctx, rect, tut.lesson, chip, chipW, action, lesson.why, done, again)
     );
   }
+  ctx.restore();
+
+  // Stopped for this move: the key chip pulses until it's given.
+  if (tut.waiting) {
+    const k = 0.5 + 0.5 * Math.sin(tut.waitT * 6);
+    ctx.save();
+    ctx.globalAlpha = 0.4 + 0.6 * k;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "rgba(0,255,225,0.95)";
+    ctx.shadowBlur = 6 + 12 * k;
+    ctx.strokeStyle = "rgba(0,255,225,0.95)";
+    roundedRectPath(ctx, rect.x + 17, rect.y + 21, chipW + 6, 28, 8);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// While TRAINING is stopped for a move, dim the world (drawn under the HUD and the prompt).
+export function drawTrainingWaitDim(ctx, state, W, H) {
+  const tut = state.tutorial;
+  if (!tut || !tut.waiting) return;
+  ctx.save();
+  ctx.fillStyle = `rgba(4,6,10,${WAIT_DIM_ALPHA * clamp(tut.waitT / 0.15, 0, 1)})`;
+  ctx.fillRect(0, 0, W, H);
   ctx.restore();
 }
 

@@ -3,16 +3,18 @@
 // index.html?tutorial), that teaches one move per lesson at a steady speed.
 //
 // Each lesson runs from a runway roof, over the gap or past the ad that needs its move, to a goal
-// roof, which is also the next lesson's runway. Landing on the goal after doing the move clears the
-// lesson. Falling, crashing into an ad, or reaching the goal without the move rebuilds the course
+// roof, which is also the next lesson's runway. A lesson is a few steps (jump, then the new move).
+// When a step's moment comes (the edge of the roof, the top of the jump, the ad just ahead), the game
+// stops and waits until the player gives that step's input, then carries on with it.
+// Landing on the goal with every step done clears the lesson. Falling, crashing into an ad, or
+// reaching the goal without the move (say, jumping over the ad instead of ducking) rebuilds the course
 // from a fresh runway before that lesson: no death cinematic, and nothing goes to the leaderboard.
 // After the last lesson, TRAINING COMPLETE shows, then the screen glitches back to the start screen.
 //
 // The whole course is built up front (game/platforms.js spawns no random roofs during training).
 // Gaps are sized with game/reach.js at the training speed (SPEED_START):
 //   jump 120 (one jump reaches ~200), double jump / slowfall 280 (one jump ~240, a double jump or
-//   slowfall ~370). The dive drop is forgiving: any dive lands. Ducking, the dash and the backflip
-//   aren't forced by the roofs, so every lesson checks its move was done.
+//   slowfall ~370). The dive drop is forgiving: any dive lands.
 
 import { GROUND_Y, PLAYER_X, SAFE_CLEARANCE } from "./constants.js";
 import { makeRoof } from "./generator.js";
@@ -42,60 +44,103 @@ function lowAd(roofY, glass) {
   };
 }
 
-// key/action: the prompt on a keyboard; tap/tapAction: on a touch screen (the mobile button names).
+// Where Bob is against the current lesson's roofs.
+function onRunwayEdge(state) {
+  const p = state.player;
+  const plat = p.onGround ? p.groundPlat : null;
+  if (!plat || plat.trainingGoal === state.tutorial.lesson) return false;
+  // At most one step's travel from leaving the roof, so even at dash speed it can't be skipped.
+  return plat.x + plat.w - p.x <= Math.max(10, state.speed / 60 + 4);
+}
+
+function adAhead(state) {
+  const p = state.player;
+  for (const plat of state.platforms) {
+    const b = plat.billboard;
+    if (plat.trainingGoal === state.tutorial.lesson && b && !b.resolved) return plat.x + b.offsetX - (p.x + p.w);
+  }
+  return Infinity;
+}
+
+const airborne = (state) => !state.player.onGround && state.player.billboardDeath !== true;
+
+// A step: key/action is the prompt on a keyboard, tap/tapAction on a touch screen (the mobile button
+// names). need: the input that carries on after the stop ("jump" | "dash" | "dive" | "trick" presses,
+// "slowfall" | "duck" holds). stopAt(state): the moment to stop. done(state): the step happened.
+const JUMP_STEP = {
+  key: "SPACE", action: "JUMP", tap: "TAP", tapAction: "JUMP", need: "jump",
+  stopAt: onRunwayEdge,
+  done: (state) => airborne(state) && state.player.jumpsRemaining < 2,
+};
+
 // roofs: after the runway, in order; the last one is the goal. ad: "steel" | "glass" on the goal.
-// did(state): the lesson's move is happening this step.
 export const LESSONS = [
   {
-    key: "SPACE", action: "TO JUMP THE GAP",
-    tap: "TAP", tapAction: "TO JUMP THE GAP",
     why: "THE GROUND IS LETHAL",
+    steps: [{ ...JUMP_STEP, action: "JUMP THE GAP", tapAction: "JUMP THE GAP" }],
     roofs: [{ gap: 120, y: 300, w: GOAL_W }],
-    did: (state) => !state.player.onGround && state.player.jumpsRemaining < 2,
   },
   {
-    key: "SPACE", action: "AGAIN IN THE AIR: DOUBLE JUMP",
-    tap: "TAP", tapAction: "AGAIN IN THE AIR: DOUBLE JUMP",
     why: "TOO FAR FOR ONE JUMP",
+    steps: [JUMP_STEP, {
+      key: "SPACE", action: "AGAIN IN THE AIR: DOUBLE JUMP", tap: "TAP", tapAction: "AGAIN: DOUBLE JUMP", need: "jump",
+      stopAt: (state) => airborne(state) && state.player.vy >= 0,
+      done: (state) => airborne(state) && state.player.jumpsRemaining === 0,
+    }],
     roofs: [{ gap: 280, y: 285, w: GOAL_W }],
-    did: (state) => !state.player.onGround && state.player.jumpsRemaining === 0,
   },
   {
-    key: "W", action: "JUMP, THEN HOLD TO SLOWFALL",
-    tap: "SLOWFALL", tapAction: "JUMP, THEN HOLD",
     why: "FALL SLOWER, FLY FARTHER",
+    steps: [JUMP_STEP, {
+      key: "W", action: "HOLD TO SLOWFALL", tap: "SLOWFALL", tapAction: "HOLD", need: "slowfall",
+      stopAt: (state) => airborne(state) && state.player.vy > -400, // once the jump is visibly underway
+      done: (state) => airborne(state) && state.slowfallHeld === true && !state.player.diving,
+    }],
     roofs: [{ gap: 280, y: 290, w: GOAL_W }],
-    did: (state) => !state.player.onGround && state.slowfallHeld === true && !state.player.diving,
   },
   {
-    key: "S", action: "HOLD TO DUCK UNDER THE AD",
-    tap: "DUCK/DIVE", tapAction: "HOLD TO DUCK UNDER THE AD",
     why: "STEEL ADS DON'T BREAK",
+    steps: [JUMP_STEP, {
+      key: "S", action: "HOLD TO DUCK UNDER THE AD", tap: "DUCK/DIVE", tapAction: "HOLD TO DUCK", need: "duck",
+      stopAt: (state) => state.player.onGround && adAhead(state) <= 70,
+      done: (state) => state.player.onGround && state.player.ducking === true,
+    }],
     roofs: [{ gap: 100, y: 270, w: AD_X + 110 + AD_RUNOUT, ad: "steel" }],
-    did: (state) => state.player.onGround && state.player.ducking === true,
   },
   {
-    key: "D", action: "DASH THROUGH THE GLASS",
-    tap: "DASH", tapAction: "DASH THROUGH THE GLASS",
     why: "GLASS ADS SHATTER",
+    steps: [JUMP_STEP, {
+      key: "D", action: "DASH THROUGH THE GLASS", tap: "DASH", tapAction: "THROUGH THE GLASS", need: "dash",
+      stopAt: (state) => state.player.onGround && adAhead(state) <= 45,
+      done: (state) => state.player.dashAgeSec < 0.05,
+    }],
     roofs: [{ gap: 100, y: 250, w: AD_X + 110 + DASH_RUNOUT, ad: "glass" }],
-    did: (state) => state.platforms.some((plat) => plat.trainingGoal === state.tutorial.lesson && plat.billboard?.broken),
   },
   {
-    key: "S", action: "IN THE AIR TO DIVE",
-    tap: "DUCK/DIVE", tapAction: "IN THE AIR TO DIVE",
     why: "DROP FAST ONTO LOW ROOFS",
+    steps: [JUMP_STEP, {
+      key: "S", action: "IN THE AIR TO DIVE", tap: "DUCK/DIVE", tapAction: "IN THE AIR: DIVE", need: "dive",
+      stopAt: (state) => airborne(state) && state.player.vy >= 0,
+      done: (state) => state.player.diving === true,
+    }],
     roofs: [{ gap: 80, y: 345, w: GOAL_W }],
-    did: (state) => state.player.diving === true,
   },
   {
-    key: "A", action: "IN THE AIR TO BACKFLIP",
-    tap: "BACKFLIP", tapAction: "IN THE AIR",
     why: "FLIPS MULTIPLY A JUMP'S POINTS",
+    steps: [JUMP_STEP, {
+      key: "A", action: "IN THE AIR TO BACKFLIP", tap: "BACKFLIP", tapAction: "IN THE AIR", need: "trick",
+      stopAt: (state) => airborne(state) && state.player.vy > -350,
+      done: (state) => state.player.spinning === true && state.player.trickKind === "flip",
+    }],
     roofs: [{ gap: 130, y: 320, w: FINAL_W }],
-    did: (state) => state.player.spinning === true && state.player.trickKind === "flip",
   },
 ];
+
+// The step the prompt shows: the current one, or the last once all are done.
+export function currentStep(tut) {
+  const steps = LESSONS[tut.lesson].steps;
+  return steps[Math.min(tut.step, steps.length - 1)];
+}
 
 // The roof Bob starts a lesson from: the starter roof, then each lesson's goal.
 function runwayY(lesson) {
@@ -129,7 +174,10 @@ export function startTraining(state) {
   state.gen.roofCount = 1;
   state.tutorial = {
     lesson: 0,          // the lesson being taught
-    moveDone: false,    // its move has been done since its runway
+    step: 0,            // its step being waited for (steps.length once all are done)
+    moveDone: false,    // every step done since its runway
+    waiting: false,     // stopped until the player gives the step's input
+    waitT: 0,           // seconds stopped
     promptT: 0,         // seconds its prompt has been up (negative while CLEAR shows)
     clearT: Infinity,   // seconds since a lesson was cleared
     retryT: Infinity,   // seconds since the last retry
@@ -160,7 +208,9 @@ export function retryTraining(state) {
   state.jumpBuffer = 0;
   state.heavyLandT = 0;
 
+  tut.step = 0;
   tut.moveDone = false;
+  tut.waiting = false;
   tut.promptT = 0;
   tut.clearT = Infinity;
   tut.retryT = 0;
@@ -179,7 +229,17 @@ export function updateTraining(state, dt) {
     return tut.finishT >= FINISH_HOLD_SEC;
   }
 
-  if (!tut.moveDone && LESSONS[tut.lesson].did(state)) tut.moveDone = true;
+  // Steps happen in order; the next one stops the game when its moment comes.
+  const steps = LESSONS[tut.lesson].steps;
+  while (tut.step < steps.length && steps[tut.step].done(state)) {
+    tut.step += 1;
+    if (tut.step < steps.length) tut.promptT = 0; // the next step's prompt fades in
+  }
+  tut.moveDone = tut.step >= steps.length;
+  if (!tut.moveDone && steps[tut.step].stopAt(state)) {
+    tut.waiting = true;
+    tut.waitT = 0;
+  }
 
   // On the goal, and past its ad if it has one.
   const p = state.player;
@@ -192,6 +252,7 @@ export function updateTraining(state, dt) {
     return false;
   }
   tut.lesson += 1;
+  tut.step = 0;
   tut.moveDone = false;
   tut.promptT = -CLEAR_FLASH_SEC;
   tut.clearT = 0;
@@ -202,4 +263,32 @@ export function updateTraining(state, dt) {
     saveTrainingDone();
   }
   return false;
+}
+
+// Each update while stopped, before anything moves. Presses are used up here; returns "wait" while
+// still stopped, or the input that ended the stop (the step's `need`, for update() to carry out),
+// or "" when not stopped.
+export function waitForMove(state, dt, input) {
+  const tut = state.tutorial;
+  if (!tut || !tut.waiting) return "";
+  tut.waitT += dt;
+  tut.promptT += dt;
+  const jump = input?.consumeJumpPress?.()?.pressed === true;
+  input?.consumePointerPressed?.();
+  const trick = input?.consumeTrickPressed?.() === true;
+  input?.consumeTrickIntent?.();
+  const dash = input?.consumeDashPressed?.() === true;
+  const dive = input?.consumeDivePressed?.() === true;
+  const need = currentStep(tut).need;
+  const given =
+    need === "jump" ? jump
+      : need === "dash" ? dash
+        : need === "dive" ? dive
+          : need === "trick" ? trick
+            : need === "slowfall" ? input?.slowfallHeld === true
+              : need === "duck" ? input?.diveHeld === true
+                : true;
+  if (!given) return "wait";
+  tut.waiting = false;
+  return need;
 }

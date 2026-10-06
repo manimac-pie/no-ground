@@ -30,7 +30,7 @@ import { drawLeaderboardPanel, hasWeeklyLabel, leaderboardPanelHeight, leaderboa
 import { drawPauseOverlay } from "./hud/pause.js";
 import { drawResetGlitch } from "./hud/reset.js";
 import { drawCenterScore } from "./hud/summary.js";
-import { drawTrainingButton, drawTrainingPrompt, drawTrainingRetryGlitch } from "./hud/training.js";
+import { drawTrainingButton, drawTrainingPrompt, drawTrainingRetryGlitch, drawTrainingWaitDim } from "./hud/training.js";
 import { drawStartPrompt } from "./menu.js";
 import { billboardFallK, billboardFallPose, computeDeathCinematic, computeStartPush } from "./camera.js";
 import { drawBreakShards, drawDeathDragSparks, drawRobotArm } from "./effects.js";
@@ -384,6 +384,8 @@ export function render(ctx, state) {
 
   const hudDanger = computeHudDanger(state, danger01);
   if (showHUD) {
+    resetCtx(ctx);
+    drawTrainingWaitDim(ctx, state, W, H);
     resetCtx(ctx);
     drawDangerVignette(ctx, W, H, hudDanger);
     resetCtx(ctx);

@@ -36,7 +36,7 @@ import {
 import { startSpin, updateTricks } from "./tricks.js";
 import { spawnBreakShards, updateBreakShards } from "./breakShards.js";
 import { START_PANE_H, START_PANE_W, START_PANE_Y, checkStartSmash, startPaneX } from "./firewall.js";
-import { retryTraining, startTraining, updateTraining } from "./tutorial.js";
+import { retryTraining, startTraining, updateTraining, waitForMove } from "./tutorial.js";
 import { getControlsButtonRect, getControlsPanelRect, getTrainingButtonRect, hitAreas, pointInRect } from "../ui/layout.js";
 import { onGameFinished } from "../leaderboard/view.js";
 import { getBoards, getMyBest } from "../leaderboard/state.js";
@@ -265,6 +265,9 @@ export function createGame() {
 
   function update(dt, input) {
     if (updatePause(dt, input)) return state;
+    // TRAINING stopped for a move: nothing runs until the player gives it, then it's carried out below.
+    const trainingMove = waitForMove(state, dt, input);
+    if (trainingMove === "wait") return state;
     state.uiTime += dt;
     if (state.running || state.menuZooming || state.startDelay > 0) state.animTime += dt;
     updateScoreTally(dt);
@@ -391,12 +394,12 @@ export function createGame() {
     if (state.player.breakGrace === 0) state.player.breakJumpEligible = false;
 
     const jumpPress = input?.consumeJumpPress?.() || { pressed: false, source: null };
-    let jumpPressed = jumpPress.pressed === true;
+    let jumpPressed = jumpPress.pressed === true || trainingMove === "jump";
     const jumpSource = jumpPress.source;
     const pointerPressed = input?.consumePointerPressed?.() === true;
-    const trickPressed = input?.consumeTrickPressed?.() === true;
-    const trickIntent = input?.consumeTrickIntent?.() || "neutral";
-    const dashPressed = input?.consumeDashPressed?.() === true;
+    const trickPressed = input?.consumeTrickPressed?.() === true || trainingMove === "trick";
+    const trickIntent = input?.consumeTrickIntent?.() || (trainingMove === "trick" ? "backflip" : "neutral");
+    const dashPressed = input?.consumeDashPressed?.() === true || trainingMove === "dash";
 
     state.jumpHeld = input?.jumpHeld === true;
     state.slowfallHeld = input?.slowfallHeld === true;
@@ -408,7 +411,7 @@ export function createGame() {
     state.pointerInViewport = input?.pointerInViewport === true;
 
     // One-press pulses
-    state.divePressed = input?.consumeDivePressed?.() === true;
+    state.divePressed = input?.consumeDivePressed?.() === true || trainingMove === "dive";
     state.dashPressed = dashPressed;
 
     // Held S/dive button -> duck while on a roof
@@ -608,13 +611,11 @@ export function createGame() {
     // Airborne distance goes into the air pot (x air multiplier, paid out on landing).
     addDistancePoints(state, distanceDelta);
     if (slowfalling) state.slowfallDistance += distanceDelta;
-    if (state.tutorial) {
-      if (updateTraining(state, dt) && !state.restartSmashActive) startResetGlitch(false);
-    } else {
-      updateBestTarget();
-    }
+    if (!state.tutorial) updateBestTarget();
 
     tryConsumeBufferedJump(state);
+    // TRAINING checks its steps last, so a jump that just ended a stop counts this step.
+    if (state.tutorial && updateTraining(state, dt) && !state.restartSmashActive) startResetGlitch(false);
     return state;
   }
 
