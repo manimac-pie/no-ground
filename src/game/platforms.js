@@ -31,7 +31,8 @@ export function scrollWorld(state, dt) {
     else break;
   }
 
-  while (rightmostPlatformX(state) < INTERNAL_WIDTH + 600) {
+  // TRAINING builds its whole course up front (game/tutorial.js).
+  while (!state.tutorial && rightmostPlatformX(state) < INTERNAL_WIDTH + 600) {
     spawnNextPlatform(state);
   }
 }

@@ -21,6 +21,11 @@ export function getControlsButtonRect(W = 800, H = 450) {
   return { x, y, w: btnW, h: btnH };
 }
 
+// Start screen, top left (the leaderboard has the top right, GAME CONTROLS the bottom right).
+export function getTrainingButtonRect() {
+  return { x: 16, y: 18, w: 150, h: 30 };
+}
+
 export function getControlsPanelRect(W = 800, H = 450) {
   const btn = getControlsButtonRect(W, H);
   const panelW = Math.min(360, Math.max(300, W * 0.42));

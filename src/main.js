@@ -57,6 +57,9 @@ setInternalSizeFromViewport(window.innerWidth, window.innerHeight);
 const game = createGame();
 let cursorRunning = false;
 
+// A link to index.html?tutorial opens straight into TRAINING.
+if (new URLSearchParams(window.location.search).has("tutorial")) game.requestTraining();
+
 // Focus canvas on first interaction (helps desktop keyboard + some mobile browsers).
 const focusCanvas = () => {
   try { canvas.focus({ preventScroll: true }); } catch { try { canvas.focus(); } catch {} }

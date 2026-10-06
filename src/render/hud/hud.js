@@ -213,9 +213,16 @@ export function drawHUD(ctx, state, danger01, COLORS) {
     ctx.restore();
   }
 
-  // Personal-best target (top row, right of SCORE).
+  // Personal-best target (top row, right of SCORE). TRAINING has none: its score doesn't count.
   const bestTarget = Number.isFinite(state.runBestTarget) ? state.runBestTarget : 0;
-  if (bestTarget > 0) {
+  if (state.tutorial) {
+    ctx.save();
+    ctx.textAlign = "right";
+    ctx.font = "700 10px Orbitron, Share Tech Mono, Menlo, monospace";
+    ctx.fillStyle = "rgba(150,245,255,0.6)";
+    ctx.fillText("TRAINING", statX - 14, y + 22);
+    ctx.restore();
+  } else if (bestTarget > 0) {
     const passed = state.passedBest === true;
     if (bestTarget !== _hudBestValue) {
       _hudBestValue = bestTarget;

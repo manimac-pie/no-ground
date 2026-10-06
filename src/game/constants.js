@@ -259,6 +259,9 @@ export const START_PUSH_TOTAL =
 // Menu zoom factor (menu view -> gameplay view)
 export const MENU_START_ZOOM = 2.8;
 
+// The in-run HUD slides in from the top over this long once the zoom-out ends (and out on death).
+export const HUD_SLIDE_SEC = 0.55;
+
 
 // Dive feel / animation timing
 // Used by game/player.js for phase timing, and by render/player/index.js for stable pose targets.

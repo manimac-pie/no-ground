@@ -16,6 +16,7 @@ import {
   RESTART_FLYBY_FADE_SEC,
   START_PUSH_TOTAL,
   MENU_START_ZOOM,
+  HUD_SLIDE_SEC,
   RUN_SUMMARY_DROP_SEC,
   RESET_GLITCH_SEC,
   LEADERBOARD_SLIDE_DELAY_SEC,
@@ -35,7 +36,8 @@ import {
 import { startSpin, updateTricks } from "./tricks.js";
 import { spawnBreakShards, updateBreakShards } from "./breakShards.js";
 import { START_PANE_H, START_PANE_W, START_PANE_Y, checkStartSmash, startPaneX } from "./firewall.js";
-import { getControlsButtonRect, getControlsPanelRect, hitAreas, pointInRect } from "../ui/layout.js";
+import { retryTraining, startTraining, updateTraining } from "./tutorial.js";
+import { getControlsButtonRect, getControlsPanelRect, getTrainingButtonRect, hitAreas, pointInRect } from "../ui/layout.js";
 import { onGameFinished } from "../leaderboard/view.js";
 import { getBoards, getMyBest } from "../leaderboard/state.js";
 import { loadIteration, saveIteration } from "../ui/iteration.js";
@@ -44,7 +46,6 @@ const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
 const SMASH_VISIBLE = 1.4;      // how long shards stay visible after impact
 const RESTART_SMASH_LEAD = RESET_GLITCH_SEC; // RESET glitches the screen out, then the fly-by starts
-const HUD_SLIDE_SEC = 0.55;
 const RESTART_READY_DELAY_SEC = 0.5; // pause after the score tally before RESET appears
 const RESUME_COUNTDOWN_SEC = 3;      // 3-2-1 after unpausing
 
@@ -52,6 +53,7 @@ export function createGame() {
   const state = createInitialState();
 
   state.iteration = loadIteration();
+  let trainingRequested = false; // index.html?tutorial: start TRAINING from the start screen
 
   function reset() {
     resetRunState(state);
@@ -159,6 +161,11 @@ export function createGame() {
   }
 
   function endGame() {
+    // TRAINING: no death, just another go at the lesson.
+    if (state.tutorial) {
+      retryTraining(state);
+      return;
+    }
     const finalScore = Number.isFinite(state.score)
       ? state.score
       : (state.distance || 0);
@@ -220,6 +227,14 @@ export function createGame() {
     input?.consumeDashPressed?.();
     input?.consumeDivePressed?.();
     return jump?.pressed === true;
+  }
+
+  // Glitch the screen out, then the fly-by rebuilds the start screen (RESET, or the end of TRAINING).
+  function startResetGlitch(red) {
+    state.restartSmashActive = true;
+    state.restartSmashBroken = true;
+    state.restartSmashRed = red;
+    state.restartSmashT = 0;
   }
 
   // Pause handling. Runs before the clocks advance, so pop-ups and flashes freeze too.
@@ -382,6 +397,7 @@ export function createGame() {
     const trickPressed = input?.consumeTrickPressed?.() === true;
     const trickIntent = input?.consumeTrickIntent?.() || "neutral";
     const dashPressed = input?.consumeDashPressed?.() === true;
+    const trainingKey = input?.consumeTrainingPressed?.() === true;
 
     state.jumpHeld = input?.jumpHeld === true;
     state.slowfallHeld = input?.slowfallHeld === true;
@@ -413,9 +429,16 @@ export function createGame() {
     }
 
     let startPromptPressed = false;
+    let trainingPressed = false;
     if (pointerPressed && onStartScreen && state.pointerInViewport) {
       const toggleRect = hitAreas.leaderboardToggle;
-      if (
+      const trainingRect = getTrainingButtonRect();
+      if (pointInRect(state.pointerUiX, state.pointerUiY, trainingRect)) {
+        trainingPressed = true;
+        jumpPressed = false;
+        state.jumpBuffer = 0;
+        input?.suppressPointerJump?.();
+      } else if (
         toggleRect &&
         pointInRect(state.pointerUiX, state.pointerUiY, toggleRect)
       ) {
@@ -471,8 +494,9 @@ export function createGame() {
         return state;
       }
 
+      const trainingRequest = onStartScreen && (trainingPressed || trainingKey || trainingRequested);
       const startRequest = onStartScreen
-        ? (startPromptPressed || (jumpPressed && jumpSource !== "pointer"))
+        ? (trainingRequest || startPromptPressed || (jumpPressed && jumpSource !== "pointer"))
         : jumpPressed;
 
       // Start/restart flow: Spacebar or Start button triggers zoom-out.
@@ -485,15 +509,18 @@ export function createGame() {
             return state;
           }
           if (state.restartSmashActive) return state; // already resetting
-          state.restartSmashActive = true;
-          state.restartSmashBroken = true;
-          state.restartSmashRed = hitAreas.resetHovered === true;
-          state.restartSmashT = 0;
+          startResetGlitch(hitAreas.resetHovered === true);
           return state;
         }
-        // A new run: the simulation counts another iteration.
-        state.iteration += 1;
-        saveIteration(state.iteration);
+        if (trainingRequest) {
+          // TRAINING isn't a run: no new iteration.
+          trainingRequested = false;
+          startTraining(state);
+        } else {
+          // A new run: the simulation counts another iteration.
+          state.iteration += 1;
+          saveIteration(state.iteration);
+        }
 
         state.menuZooming = true;
         state.menuZoomK = 0;
@@ -529,13 +556,16 @@ export function createGame() {
     updateDash(state, dt);
 
     // Base world speed (difficulty ramp); zero while movement is held
+    // TRAINING holds the starting speed, so its gaps stay the size they were built for.
     const baseSpeed = movementHeld
       ? 0
-      : clamp(
-        SPEED_START + SPEED_RAMP_PER_SEC * state.animTime,
-        SPEED_START,
-        SPEED_MAX
-      );
+      : state.tutorial
+        ? SPEED_START
+        : clamp(
+          SPEED_START + SPEED_RAMP_PER_SEC * state.animTime,
+          SPEED_START,
+          SPEED_MAX
+        );
 
     // Dash adds to world speed, not player position
     const impulse = state.speedImpulse || 0;
@@ -579,12 +609,21 @@ export function createGame() {
     // Airborne distance goes into the air pot (x air multiplier, paid out on landing).
     addDistancePoints(state, distanceDelta);
     if (slowfalling) state.slowfallDistance += distanceDelta;
-    updateBestTarget();
+    if (state.tutorial) {
+      if (updateTraining(state, dt) && !state.restartSmashActive) startResetGlitch(false);
+    } else {
+      updateBestTarget();
+    }
 
     tryConsumeBufferedJump(state);
     return state;
   }
 
+  // index.html?tutorial: go straight into TRAINING from the start screen.
+  function requestTraining() {
+    trainingRequested = true;
+  }
+
   reset();
-  return { state, reset, update, pause };
+  return { state, reset, update, pause, requestTraining };
 }

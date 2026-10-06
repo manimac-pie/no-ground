@@ -26,7 +26,7 @@ Each item gives where the change goes, its impact and its effort. Details are in
 
 **Batch D: Polish**
 - [x] **9. Run summary shows points** · `render/ui.js`, `game/state.js` · Impact: Medium · Effort: Low–Medium
-- [ ] **10. First-run move hints** · `game/platforms.js`, `render/hud/hud.js` · Impact: Medium (new players) · Effort: Medium
+- [x] **10. Tutorial mode (TRAINING)** · `game/tutorial.js`, `game/index.js`, `render/hud/training.js`, `ui/layout.js` · Impact: Medium (new players) · Effort: Medium–High
 - [ ] **11. Reduced motion and readable text** · `styles.css`, `render/camera.js`, `render/index.js`, `render/hud/` · Impact: Medium (accessibility) · Effort: Low
 
 ## Batch A: Feel
@@ -148,15 +148,22 @@ The summary rows show counts but not points (`src/render/ui.js:1077`), so player
 
 *Done 2026-10-05:* rows are DISTANCE, TRICK MULTIPLIER, BACKFLIPS, BILLBOARDS BROKEN, ADS AVOIDED, CLOSE CALLS and OTHER BONUSES, from `state.scoreBreakdown`. Airborne points wait in `state.airBreakdown` and are only banked on a safe landing, like the air pot, so the rows add up to the total. Backflips keep their row because they score since the scoring rework. SLOWFALL DISTANCE was dropped because slowfall no longer scores.
 
-### 10. First-run move hints
+### 10. Tutorial mode (TRAINING)
 
-New players are never taught Slowfall or Dive, even though the generator builds gaps that need them: long gaps and dive ledges (`GAME_DESIGN.html`, "Guided air challenges"). Their landing roofs are tagged `challenge: "long"` or `"ledge"` (`game/generator.js`), which a hint can key off.
+New players are never taught the moves. Slowfall, Dive, ducking and the dash are only listed in the controls panel, yet the generator builds gaps and ads that need them (`GAME_DESIGN.html`, "Guided air challenges").
+
+*Replaces the first plan, one-off hints shown before guided gaps in a real run.* A tutorial teaches every move in order, and players can come back to it. One page is enough: TRAINING is a mode of `index.html`, not a second page.
 
 **Fix:**
-- When a guided gap is about to appear and that hint hasn't been shown yet, show a one-off prompt near Bob ("HOLD W TO SLOWFALL", or "SLOWFALL" on mobile).
-- Record each hint in `localStorage` once it has been shown, and add a "reset hints" option in the controls panel.
+- A TRAINING button at the top left of the start screen (clear of the leaderboard, GAME CONTROLS and the mobile buttons). It's also on the T key, and a link to `index.html?tutorial` opens straight into it. The button pulses until training has been finished on that device (`ng_training_done` in `localStorage`).
+- A fixed course at a steady speed (`SPEED_START`), with one lesson per move: jump, double jump, slowfall, duck, dash, dive and backflip. It's built up front in `game/tutorial.js`, and `game/platforms.js` spawns no random roofs during training. Gap sizes come from `game/reach.js` at that speed.
+- A prompt under the HUD shows the key, or the mobile button name on touch screens, plus a one-line reason. It turns green once the move is done, and CLEAR flashes between lessons.
+- Missing a gap, crashing into an ad, or reaching the next roof without doing the move puts Bob back before that lesson ("AGAIN"). There's no death and no run summary. Nothing is sent to the leaderboard, the iteration counter doesn't go up, and the HUD shows TRAINING instead of BEST.
+- After the last lesson, TRAINING COMPLETE shows, then the RESET glitch and fly-by return to the start screen.
 
-**Verify:** clear storage and play. Each hint should appear once, before its gap. Reload and play again: the hints should not reappear.
+**Verify:** press TRAINING (or T) and play through. Each lesson should clear only after its move. Fall on purpose, and double-jump the slowfall gap: both should retry with AGAIN. At the end you should be back on the start screen with the button no longer pulsing. Check that nothing reaches the Worker. Open `?tutorial` and check that it starts training. Check a normal run is unchanged.
+
+*Done 2026-10-06:* a bot playing the real game update clears all seven lessons in about 32 s. Each prompt is fully visible at least 2.2 s before its gap. The runways after a lesson were lengthened for that, especially after the dash, which carries Bob in at about 700 px/s. At the training speed a real dive ledge can't be built (the generator only allows them from 40% difficulty), so the dive lesson is a forgiving drop that checks you dived. While an ad passes under the prompt, the prompt fades so the ad stays visible.
 
 ### 11. Reduced motion and readable text
 

@@ -171,6 +171,9 @@ export function createInitialState() {
 
     heavyLandT: 0,
     leaderboardReported: false,
+
+    // TRAINING (game/tutorial.js): null in a normal run.
+    tutorial: null,
   };
 }
 
@@ -259,10 +262,16 @@ export function resetRunState(state) {
 
   state.heavyLandT = 0;
   state.leaderboardReported = false;
+  state.tutorial = null;
 
   const p = state.player;
   p.x = PLAYER_X;
   p.y = GROUND_Y - SAFE_CLEARANCE - PLAYER_H;
+  resetPlayer(p);
+}
+
+// Bob standing still with full jumps, fuel and dash, nothing in progress. Position is left to the caller.
+export function resetPlayer(p) {
   p.vy = 0;
   p.onGround = true;
   p.onBillboard = false;

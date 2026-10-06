@@ -6,14 +6,19 @@ import { drawCachedPanel } from "./panelCache.js";
 import { drawGlow, drawKeyChip, roundRect } from "./primitives.js";
 
 export function drawControlsButton(ctx, rect, active = false, hot = false) {
+  drawMenuButton(ctx, "controlsButton", rect, "GAME CONTROLS", active, hot);
+}
+
+// A start-screen button (GAME CONTROLS, TRAINING). slot: its panel-cache slot.
+export function drawMenuButton(ctx, slot, rect, label, active = false, hot = false) {
   if (!rect) return;
-  const key = `${rect.x}|${rect.y}|${rect.w}|${rect.h}|${active}|${hot}`;
-  drawCachedPanel(ctx, "controlsButton", key, rect, (pctx) =>
-    drawControlsButtonDirect(pctx, rect, active, hot)
+  const key = `${rect.x}|${rect.y}|${rect.w}|${rect.h}|${label}|${active}|${hot}`;
+  drawCachedPanel(ctx, slot, key, rect, (pctx) =>
+    drawMenuButtonDirect(pctx, rect, label, active, hot)
   );
 }
 
-function drawControlsButtonDirect(ctx, rect, active, hot) {
+function drawMenuButtonDirect(ctx, rect, label, active, hot) {
   const { x, y, w, h } = rect;
   ctx.save();
   const glow = active ? "rgba(0,255,225,0.28)" : "rgba(120,205,255,0.18)";
@@ -65,7 +70,6 @@ function drawControlsButtonDirect(ctx, rect, active, hot) {
   ctx.fillStyle = "rgba(210,245,255,0.95)";
   let fontSize = 11;
   ctx.font = `800 ${fontSize}px Orbitron, Share Tech Mono, Menlo, monospace`;
-  const label = "GAME CONTROLS";
   const maxW = labelW - 12;
   let textW = ctx.measureText(label).width;
   if (textW > maxW) {

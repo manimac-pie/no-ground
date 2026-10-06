@@ -10,6 +10,7 @@ import {
   PLAYER_W,
   PLAYER_H,
   MENU_START_ZOOM,
+  HUD_SLIDE_SEC,
   RESET_GLITCH_SEC,
 } from "../game/constants.js";
 
@@ -29,6 +30,7 @@ import { drawLeaderboardPanel, hasWeeklyLabel, leaderboardPanelHeight, leaderboa
 import { drawPauseOverlay } from "./hud/pause.js";
 import { drawResetGlitch } from "./hud/reset.js";
 import { drawCenterScore } from "./hud/summary.js";
+import { drawTrainingButton, drawTrainingPrompt, drawTrainingRetryGlitch } from "./hud/training.js";
 import { drawStartPrompt } from "./menu.js";
 import { billboardFallK, billboardFallPose, computeDeathCinematic, computeStartPush } from "./camera.js";
 import { drawBreakShards, drawDeathDragSparks, drawRobotArm } from "./effects.js";
@@ -36,6 +38,7 @@ import { applyViewportTransform, ensureCanvasSize, getCanvasRect, isTouchViewpor
 import {
   getControlsButtonRect,
   getControlsPanelRect,
+  getTrainingButtonRect,
   hitAreas,
   pointInRect,
 } from "../ui/layout.js";
@@ -385,6 +388,10 @@ export function render(ctx, state) {
     drawDangerVignette(ctx, W, H, hudDanger);
     resetCtx(ctx);
     drawHUD(ctx, state, hudDanger, COLORS);
+    if (state.tutorial) {
+      resetCtx(ctx);
+      drawTrainingPrompt(ctx, state, W, H, touchUi, (state.hudIntroT || 0) / HUD_SLIDE_SEC, camShift);
+    }
   }
 
   if (onRestartScreen) {
@@ -433,6 +440,11 @@ export function render(ctx, state) {
 
     hitAreas.leaderboardToggle = meta?.toggleRect ?? null;
     drawControlsButton(ctx, btnRect, state.controlsPanelOpen === true, hover);
+    const trainingRect = getTrainingButtonRect();
+    const trainingHover =
+      state.pointerInViewport === true
+      && pointInRect(state.pointerUiX, state.pointerUiY, trainingRect);
+    drawTrainingButton(ctx, trainingRect, trainingHover, touchUi, uiTime);
     if (state.controlsPanelOpen) {
       drawControlsPanel(ctx, panelRect, COLORS);
     }
@@ -444,6 +456,9 @@ export function render(ctx, state) {
   if (state.restartSmashActive && !state.restartFlybyActive) {
     drawResetGlitch(ctx, clamp((state.restartSmashT || 0) / RESET_GLITCH_SEC, 0, 1));
   }
+
+  // TRAINING: a retry blinks the screen as the course rebuilds.
+  drawTrainingRetryGlitch(ctx, state);
 
   // Pause screen / resume countdown covers everything, HUD included.
   if (frozen) {
