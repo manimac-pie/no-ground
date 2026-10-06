@@ -337,10 +337,10 @@
       <div class="table-wrap"><table>
         <tr><th>Action</th><th>Desktop</th><th>Mobile</th><th>Behaviour</th></tr>
         <tr><td><b>Jump / double jump</b></td><td class="mono" style="white-space:nowrap">Space / ↑ / click</td><td>Jump button, tap</td><td>Velocity −630. Two jumps per landing. Letting go early makes the jump shorter.</td></tr>
-        <tr><td><b>Slowfall</b></td><td class="mono">hold W</td><td>Slowfall button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. No score multiplier: it pays through longer airtime.</td></tr>
-        <tr><td><b>Duck / Dive</b></td><td class="mono">S</td><td>Duck/Dive button</td><td>In the air: dive. Gravity ×4.2, terminal speed 4,200. Cancels tricks. A diving landing is "heavy" and adds stress to the roof. On a roof: duck while held (hitbox drops to half height). A dive landing flows straight into a duck if S is still held, otherwise a 0.2 s squat. Jumping while ducking, or up to 0.15 s after letting go, springs ×1.08 harder (about 17% higher).</td></tr>
-        <tr><td><b>Dash</b></td><td class="mono">D</td><td>Dash button</td><td>+820 world speed that fades quickly. 0.45 s cooldown. Breaks non-reinforced billboards for 0.2 s after the press; pressed 0.1 s or less before impact it's a PERFECT AD BREAK (double). Scores only in the air.</td></tr>
-        <tr><td><b>Backflip</b></td><td class="mono">A</td><td>Backflip button</td><td>A 0.30 s flip in the air. +0.5 to the air multiplier. Landing mid-flip is SLOPPY and breaks the chain.</td></tr>
+        <tr><td><b>Slowfall</b></td><td class="mono">hold W</td><td>Slowfall button</td><td>Gravity ×0.30. 0.55 s of fuel, which refills on landing. Each backflip adds 0.08 s, up to 0.16 s past a full tank. No score multiplier: it pays through longer airtime.</td></tr>
+        <tr><td><b>Duck / Dive</b></td><td class="mono">S</td><td>Duck/Dive button</td><td>In the air: dive. Gravity ×4.2, terminal speed 4,200. Cancels tricks. A jump (while one is left) cancels the dive. A diving landing is "heavy": it adds stress to the roof and knocks a few sparks off the wheel. On a roof: duck while held (hitbox drops to half height). A dive landing flows straight into a duck if S is still held, otherwise a 0.2 s squat. Jumping while ducking, or up to 0.15 s after letting go, springs ×1.08 harder (about 17% higher).</td></tr>
+        <tr><td><b>Dash</b></td><td class="mono">D</td><td>Dash button</td><td>+820 world speed that fades quickly. 0.45 s cooldown. Breaks non-reinforced billboards for 0.3 s after the press (the 0.2 s burst plus 0.1 s of grace); pressed 0.1 s or less before impact it's a PERFECT AD BREAK (double). Scores only in the air.</td></tr>
+        <tr><td><b>Backflip</b></td><td class="mono">A</td><td>Backflip button</td><td>A 0.30 s flip in the air. +0.5 to the air multiplier and +0.08 s of slowfall fuel. Landing mid-flip is SLOPPY and breaks the chain.</td></tr>
       </table></div>
 
       <div style="display:grid;gap:16px;margin-top:20px">
@@ -386,7 +386,7 @@
 
       <h3>Grace windows</h3>
       <figure class="fig card">
-        <svg id="grace" viewBox="0 0 900 190" role="img" aria-label="Input grace windows"></svg>
+        <svg id="grace" viewBox="0 0 900 230" role="img" aria-label="Input grace windows"></svg>
         <figcaption>Physics runs on a fixed 60 Hz step (up to 5 steps per frame), so these windows are the same on every device.</figcaption>
       </figure>
     </section>
@@ -617,7 +617,8 @@
       <h3>Effects and audio</h3>
       <div class="table-wrap"><table>
         <tr><th>Moment</th><th>Visual feedback</th></tr>
-        <tr><td>Jump / dash</td><td>Short trail bursts (0.18 s / 0.20 s)</td></tr>
+        <tr><td>Jump</td><td>Short trail burst (0.18 s)</td></tr>
+        <tr><td>Dash</td><td>On a roof, amber sparks from the back of Bob's wheel. Wind lines sweep across the whole screen, on a roof or in the air. All of it follows the speed boost, so it fades by half every 0.3 s.</td></tr>
         <tr><td>Slowfall</td><td>Blue halo around Bob</td></tr>
         <tr><td>Roof stress</td><td>Red-tinted cracks spread as stress builds</td></tr>
         <tr><td>Roof break</td><td>Debris shards, and the roof falls</td></tr>
@@ -705,7 +706,7 @@ const C = {
   GRAVITY: 1800, JUMP_VELOCITY: -630, FALL_GRAVITY_MULT: 1.2, MAX_FALL_SPEED: 1800,
   SLOWFALL_FUEL_MAX: 0.55, SLOWFALL_GRAVITY_MULT: 0.30, DIVE_GRAVITY_MULT: 4.2, DIVE_MAX_FALL_SPEED: 4200,
   SPEED_START: 260, SPEED_MAX: 480, SPEED_RAMP_PER_SEC: 6, SPEED_SMOOTH: 7.5,
-  DASH_SPEED_BOOST: 820, DASH_IMPULSE_DECAY: 2.4,
+  DASH_SPEED_BOOST: 820, DASH_IMPULSE_DECAY: 2.4, DASH_IMPULSE_FX_SEC: 0.20, DASH_BREAK_GRACE_SEC: 0.10,
   GAP_MAX_EASY: 150, GAP_MAX_HARD: 220,
   ROOF_COLLAPSE_TIME_EASY: 1.05, ROOF_COLLAPSE_TIME_HARD: 0.55,
   COYOTE_TIME_SEC: 0.2, JUMP_BUFFER_SEC: 0.13, LAND_GRACE_SEC: 0.06, BREAK_JUMP_GRACE_SEC: 0.3,
@@ -875,6 +876,7 @@ function drawGrace() {
     ["Break-jump grace", C.BREAK_JUMP_GRACE_SEC, "jump after a roof collapses under you (JUST IN TIME, +0.25 s)", COL.green],
     ["Jump buffer", C.JUMP_BUFFER_SEC, "jump pressed just before landing still fires", COL.amber],
     ["Land grace", C.LAND_GRACE_SEC, "smooths a jump right on landing", COL.violet],
+    ["Dash break", C.DASH_IMPULSE_FX_SEC + C.DASH_BREAK_GRACE_SEC, "a dash still breaks glass ads this long after the press", COL.pink],
   ].sort((a, b) => b[1] - a[1]);
   const X = (v) => 170 + v / 0.35 * 560;
   let s = "";

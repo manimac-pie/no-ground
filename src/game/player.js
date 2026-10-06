@@ -31,6 +31,7 @@ const DASH_COOLDOWN = getConst("DASH_COOLDOWN", 0.45);
 const DASH_SPEED_BOOST = getConst("DASH_SPEED_BOOST", 520);
 const DASH_IMPULSE_DECAY = getConst("DASH_IMPULSE_DECAY", 6.5);
 const DASH_IMPULSE_FX_SEC = getConst("DASH_IMPULSE_FX_SEC", 0.20);
+const DASH_BREAK_GRACE_SEC = getConst("DASH_BREAK_GRACE_SEC", 0.10);
 const AIR_DASH_BONUS_SEC = getConst("AIR_DASH_BONUS_SEC", 0);
 
 const SLOWFALL_FUEL_MAX = getConst("SLOWFALL_FUEL_MAX", 1.0);
@@ -92,6 +93,10 @@ export function performJump(state) {
   p.coyote = 0;
   p.jumpsRemaining = Math.max(0, p.jumpsRemaining - 1);
   p.jumpImpulseT = JUMP_IMPULSE_FX_SEC;
+  // A jump (while one is left) cancels a dive.
+  p.diving = false;
+  p.divePhase = "";
+  p.divePhaseT = 0;
 
   if (p.breakGrace > 0 && p.breakJumpEligible === true) {
     awardBonus(state, BREAK_JIT_BONUS_SEC, "JUST IN TIME");
@@ -267,6 +272,9 @@ export function integratePlayer(state, dt, endGame) {
   const bottom = p.y + p.h;
 
   let billboardHit = false;
+  // Landing on a billboard or dying on one rules out a roof landing this step. Smashing through one
+  // doesn't: a low billboard hangs just above the roof, so Bob can reach the roof in the same step.
+  let skipRoofLanding = false;
   for (const plat of state.platforms) {
     if (plat.collapsing) continue;
     const b = plat.billboard;
@@ -280,7 +288,8 @@ export function integratePlayer(state, dt, endGame) {
     const overlapsY = bottom > by && hitTop(p) < by + bh;
 
     if (overlapsX && overlapsY) {
-      const isDashing = p.dashImpulseT > 0.01;
+      // A dash breaks ads for its burst plus a short grace after it.
+      const isDashing = p.dashAgeSec <= DASH_IMPULSE_FX_SEC + DASH_BREAK_GRACE_SEC;
       const isDiving = p.diving === true;
       if (b.reinforced === false && (isDashing || isDiving)) {
         smashBillboard(state, b, isDashing);
@@ -323,6 +332,7 @@ export function integratePlayer(state, dt, endGame) {
         p.slowfallFuel = SLOWFALL_FUEL_MAX;
         landAir(state);
         billboardHit = true;
+        skipRoofLanding = true;
         break;
       }
       const leftGraceEdge = bx + bw * 0.1;
@@ -345,6 +355,7 @@ export function integratePlayer(state, dt, endGame) {
         p.vy = Math.max(p.vy, BILLBOARD_BOUNCE_VY * 0.6);
         p.y = Math.max(p.y, by + bh + 2);
         if (!state.heavyLandT) state.heavyLandT = 0.12;
+        skipRoofLanding = true;
       }
       billboardHit = true;
       break;
@@ -352,8 +363,8 @@ export function integratePlayer(state, dt, endGame) {
   }
 
   if (!deathFall && p.vy >= 0) {
-    if (billboardHit) {
-      // Skip roof landing this frame so billboard hit forces a drop.
+    if (skipRoofLanding) {
+      // Already on a billboard, or knocked off one: no roof landing this step.
     } else {
     // How far the roofs scrolled left this step: a roof whose front edge is within this of Bob's
     // front only reached him this step.

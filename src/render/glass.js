@@ -175,6 +175,22 @@ function clipToRect(points, w, h) {
   return out;
 }
 
+// Shard images are reused: a released set's canvases wait here (emptied, so they hold no pixels) for
+// the next cut, so cutting a billboard's shards doesn't create ~40 new canvases each time.
+const SPARE_MAX = 200;
+const _spareCanvases = [];
+
+// Hand a shard set back once nothing will draw it again.
+export function releaseShards(shards) {
+  if (!shards) return;
+  for (const shard of shards) {
+    if (_spareCanvases.length >= SPARE_MAX) return;
+    shard.canvas.width = 0; // frees its pixels
+    shard.canvas.height = 0;
+    _spareCanvases.push(shard.canvas);
+  }
+}
+
 // Cut a sprite into glass shards around an impact point (sprite-local): radial cracks from the
 // impact, cut by rings. Each shard gets its own pre-cut image, so drawing one is a single drawImage.
 export function cutGlass(sprite, impact) {
@@ -214,7 +230,7 @@ export function cutGlass(sprite, impact) {
 
       // Pre-cut image: the sprite clipped to this shard, with a glinting edge.
       const pad = 1;
-      const canvas = document.createElement("canvas");
+      const canvas = _spareCanvases.pop() || document.createElement("canvas");
       canvas.width = Math.ceil((maxX - minX + pad * 2) * S);
       canvas.height = Math.ceil((maxY - minY + pad * 2) * S);
       const c = canvas.getContext("2d");

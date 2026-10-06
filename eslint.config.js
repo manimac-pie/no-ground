@@ -20,7 +20,7 @@ export default [
     },
   },
   {
-    // The renderer only reads the game state; the game update owns it (CLEANUP.md item 14).
+    // The renderer only reads the game state; the game update owns it.
     // Catches `state.x = …` and `state.player.x = …`, not writes through other names.
     files: ["src/render/**/*.js"],
     rules: {

@@ -3,6 +3,9 @@
 import {
   SPIN_DURATION,
   SPIN_COOLDOWN,
+  SLOWFALL_FUEL_MAX,
+  BACKFLIP_SLOWFALL_SEC,
+  SLOWFALL_FUEL_OVERFILL_SEC,
 } from "./constants.js";
 import { clamp } from "../shared/math.js";
 import { awardBackflip, noteFlipDone } from "./score.js";
@@ -32,6 +35,9 @@ export function startSpin(state, intent = "neutral") {
     if (!Number.isFinite(state.backflipCount)) state.backflipCount = 0;
     state.backflipCount += 1;
     awardBackflip(state);
+    // A backflip tops up slowfall a little, even past a full tank (landing resets it to full).
+    const fuelCap = SLOWFALL_FUEL_MAX + SLOWFALL_FUEL_OVERFILL_SEC;
+    p.slowfallFuel = Math.max(p.slowfallFuel, Math.min(fuelCap, p.slowfallFuel + BACKFLIP_SLOWFALL_SEC));
   } else {
     p.trickKind = "spin";
     p.spinDir = p.spinDir === 1 ? -1 : 1;

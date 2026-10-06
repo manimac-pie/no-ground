@@ -9,7 +9,6 @@
 import {
   world,
   DIVE_ANTICIPATION_SEC,
-  DASH_IMPULSE_FX_SEC,
   JUMP_IMPULSE_FX_SEC,
 } from "../../game/constants.js";
 
@@ -20,7 +19,6 @@ import {
   diveStrengthFromVY,
   drawAfterimage,
   drawJumpTakeoffRubble,
-  drawDashStreaks,
   drawDiveFX,
   drawDiveStreaks,
   drawSlowfallAura,
@@ -60,7 +58,7 @@ export function drawPlayerShadow(ctx, player) {
 
 // ---------------- full player draw (world space) ----------------
 // state: the game state, or render/index.js's pose view. Only these fields are read:
-// player, slowfallHeld, heavyLandT, speedImpulse, running, speed.
+// player, slowfallHeld, heavyLandT, running, speed. (The dash effects in dashFx.js also read speedImpulse.)
 // opts.dt: game time since the last frame, for the pose smoothing (0 while paused).
 export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   const player = state.player;
@@ -71,20 +69,6 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   const slowfalling = airborne && state.slowfallHeld === true;
   const diving = airborne && player.diving === true;
   const ducking = !airborne && player.ducking === true;
-
-  // Dash VFX should be driven by the dash impulse timer / world-speed impulse,
-  // not by a positional dashOffset (gameplay dash does not move the player in world space).
-  const dashImpulseT = Number.isFinite(player.dashImpulseT)
-    ? player.dashImpulseT
-    : DASH_IMPULSE_FX_SEC;
-  const dashImpulseK = clamp(dashImpulseT / Math.max(0.001, DASH_IMPULSE_FX_SEC), 0, 1);
-
-  // Optional extra boost from the current world-speed impulse so streaks still read on long impulses.
-  // (520 is the default DASH_SPEED_BOOST in game constants; keep this visual-only fallback local.)
-  const speedImpulse = Number.isFinite(state.speedImpulse) ? state.speedImpulse : 0;
-  const speedImpulseK = clamp(speedImpulse / 520, 0, 1);
-
-  const dashFxK = Math.max(dashImpulseK, speedImpulseK * 0.75);
 
   const jumpImpulseT = Number.isFinite(player.jumpImpulseT) ? player.jumpImpulseT : 0;
   const jumpFxK = clamp(jumpImpulseT / Math.max(0.001, JUMP_IMPULSE_FX_SEC), 0, 1);
@@ -221,13 +205,6 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
 
   ctx.save();
   ctx.translate(cx, cy);
-
-  // Dash trail stays level behind Bob: it shows his travel, so it doesn't turn with a flip or tilt.
-  if (!suppressFx && dashFxK > 0.01) {
-    ctx.save();
-    drawDashStreaks(ctx, bodyW, bodyH, animTime || 0, dashFxK);
-    ctx.restore();
-  }
 
   ctx.rotate(poseRot);
   ctx.scale(poseSx, poseSy);

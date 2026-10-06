@@ -12,6 +12,7 @@ import { PLAYER_H } from "../../game/constants.js";
 import {
   SHATTER_MAX_SEC,
   cutGlass,
+  releaseShards,
   drawScanBar,
   drawShards,
   paintGlassPane,
@@ -27,15 +28,16 @@ import { hash01 } from "../../shared/math.js";
 // The system's ads. Edit freely; each billboard picks one from its building's seed.
 const AD_COPY = [
   "STAY IN THE LOOP",
-  "RESTART IS FREE",
+  "RESET IS FREE",
   "NO ESCAPE",
   "OBEY THE SYSTEM",
-  "YOU ARE HERE",
+  "YOU ARE NOT REAL",
   "RUN AGAIN",
-  "NO EXIT",
-  "The SYSTEM IS WATCHING",
+  "THE SYSTEM IS WATCHING",
   "KEEP RUNNING",
-];
+  "ADMIN SEES ALL",
+  "FIREWALL IS FRIENDLY",
+]; 
 
 const GLASS_RGB = "255,80,150";  // breakable: warm magenta, so it never reads as the cyan "solid" kind
 const SOLID_RGB = "120,205,255"; // reinforced
@@ -44,6 +46,7 @@ const LABEL_FONT = '600 6px "Share Tech Mono", Menlo, monospace';
 const STRIPE_H = 6;              // hazard stripe band on low billboards
 const MARGIN = 6;                // world px around a sprite for its glow
 const SPRITE_CACHE_MAX = 24;     // low billboards vary in height, so keep the cache bounded
+const SHARD_SETS_MAX = 4;        // glass billboards holding pre-cut shards at once (the next few ahead)
 
 // Shards: a little forward drift on screen, like Bob carried them through.
 const SHARD_CARRY = [80, 200];
@@ -182,6 +185,7 @@ function paintSolidAd(c, w, h, text, low, scale, warning) {
 
 // ---------------- sprite cache ----------------
 const _sprites = new Map(); // key -> sprite; insertion order doubles as least-recently-used order
+const _withShards = [];     // sprites holding pre-cut shards, oldest first
 const _view = createScaleWatch();
 let _cutsLeft = 0;
 
@@ -207,21 +211,41 @@ function getSprite(b, seed, warning) {
   }
   const scale = _view.scale;
   const paint = kind === "solid" ? paintSolidAd : paintGlassAd;
+  if (sprite) dropShards(sprite); // cut from the old paint
   sprite = paintSprite(sprite?.canvas || document.createElement("canvas"), w, h, MARGIN, scale, (c) =>
     paint(c, w, h, text, b.low === true, scale, warning)
   );
   sprite.shards = null;
   _sprites.delete(key);
   _sprites.set(key, sprite);
-  while (_sprites.size > SPRITE_CACHE_MAX) _sprites.delete(_sprites.keys().next().value);
+  while (_sprites.size > SPRITE_CACHE_MAX) {
+    const oldest = _sprites.keys().next().value;
+    dropShards(_sprites.get(oldest));
+    _sprites.delete(oldest);
+  }
   return sprite;
 }
 
-// Shards are cut once per sprite (same-size ads share them), around the usual impact: the front
-// face at mid height. They still burst away from wherever Bob actually hit.
+// Shards are cut once per sprite, around the usual impact: the front face at mid height. They still
+// burst away from wherever Bob actually hit. Only the last few sprites keep theirs (every ad's text
+// differs, so each glass billboard has its own set of ~40 images, and keeping them all piled up).
 function getShards(sprite) {
-  if (!sprite.shards) sprite.shards = cutGlass(sprite, { x: 0, y: sprite.h / 2 });
+  if (!sprite.shards) {
+    while (_withShards.length >= SHARD_SETS_MAX) dropShards(_withShards[0]);
+    sprite.shards = cutGlass(sprite, { x: 0, y: sprite.h / 2 });
+    _withShards.push(sprite);
+  }
   return sprite.shards;
+}
+
+function dropShards(sprite) {
+  const shards = sprite.shards;
+  if (!shards) return;
+  sprite.shards = null;
+  const i = _withShards.indexOf(sprite);
+  if (i >= 0) _withShards.splice(i, 1);
+  // A shatter still flying keeps drawing them; it hands them back when it ends.
+  if (!_shatters.some((s) => s.shards === shards)) releaseShards(shards);
 }
 
 // ---------------- drawing ----------------
@@ -284,6 +308,9 @@ export function drawBillboardShatters(ctx, dt) {
     s.t += dt;
     if (s.t > SHATTER_MAX_SEC) {
       _shatters.splice(i, 1);
+      // Its sprite may have let go of these shards mid-flight: then nothing else uses them.
+      const stillHeld = _withShards.some((sp) => sp.shards === s.shards) || _shatters.some((o) => o.shards === s.shards);
+      if (!stillHeld) releaseShards(s.shards);
       continue;
     }
     drawShards(ctx, s.shards, s.x, s.y, s.impact, s.t, { carry: SHARD_CARRY, flash: s.perfect ? 1 : 0 });

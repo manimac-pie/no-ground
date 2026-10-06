@@ -191,54 +191,6 @@ export function drawJumpTakeoffRubble(ctx, bodyW, bodyH, t, k) {
 }
 
 /* ------------------------------------------------------------
-   DASH STREAKS + ANTICIPATION SQUASH (FIXED)
------------------------------------------------------------- */
-export function drawDashStreaks(ctx, bodyW, bodyH, t, k) {
-  ctx.save();
-
-  // k ∈ [0..1] from dash impulse
-  // Phase split: 0–0.25 squash, 0.25–1 release
-  const squashT = clamp(k / 0.25, 0, 1);
-  const releaseT = clamp((k - 0.25) / 0.75, 0, 1);
-
-  // Ease curves
-  const squashEase = squashT * squashT;
-  const releaseEase = 1 - Math.pow(1 - releaseT, 2);
-
-  // Anticipation squash (vertical compression)
-  const scaleX =
-    1 +
-    0.14 * squashEase +
-    0.42 * releaseEase;
-
-  const scaleY =
-    1 -
-    0.30 * squashEase -
-    0.12 * releaseEase;
-
-  ctx.scale(scaleX, scaleY);
-
-  ctx.globalAlpha = 0.16 + 0.34 * k;
-  ctx.fillStyle = "rgba(120,205,255,0.22)";
-
-  const n = 7;
-  for (let i = 0; i < n; i++) {
-    const s = i / (n - 1);
-    const wobble = 0.6 + 0.4 * Math.sin(t * 9 + i * 1.3);
-    const len = bodyW * (0.55 + 1.35 * k) * wobble;
-    const y = -bodyH * 0.10 + (s - 0.5) * bodyH * 0.65;
-    const x0 = -bodyW * (0.12 + 0.28 * k) - len;
-
-    ctx.save();
-    ctx.rotate(-0.05);
-    ctx.fillRect(x0, y, len, 2);
-    ctx.restore();
-  }
-
-  ctx.restore();
-}
-
-/* ------------------------------------------------------------
    DIVE STREAKS (new)
 ------------------------------------------------------------ */
 export function drawDiveStreaks(ctx, bodyW, bodyH, t, k) {

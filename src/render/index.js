@@ -21,6 +21,7 @@ import {
 } from "./world/index.js";
 
 import { drawPlayerShadow, drawPlayer } from "./player/index.js";
+import { drawDashSparks, drawDashWind, updateDashSparks } from "./player/dashFx.js";
 import { drawControlsButton, drawControlsPanel } from "./hud/controls.js";
 import { drawRestartFlyby } from "./hud/flyby.js";
 import { computeHudDanger, drawDangerVignette, drawHUD, drawScorePopups } from "./hud/hud.js";
@@ -74,7 +75,7 @@ let _camX = 0;
 
 // Bob's drawn pose: usually the game state itself, but dead or on the start screen a few fields
 // are overridden. Both objects are reused, so drawing Bob allocates nothing per frame.
-// poseView has every field of the state that drawPlayer reads (see render/player/index.js).
+// poseView has every field of the state that drawPlayer and the dash effects read (render/player/).
 const poseView = { player: null, slowfallHeld: false, heavyLandT: 0, speedImpulse: 0, running: false, speed: 0 };
 const posePlayer = {};
 const LIMP = { vy: 0, diving: false, divePhase: "", divePhaseT: 0, ducking: false, spinning: false }; // in the claw
@@ -294,6 +295,16 @@ export function render(ctx, state) {
     (state.menuZoomK ?? 0) <= 0.001;
   const pose = poseFor(state, deathActive, onStartScreen);
   const renderPlayer = pose.player;
+
+  // Dash: wind lines and wheel sparks, behind Bob. None in the claw or on the start screen.
+  const dashFxOn = !deathActive && !freezeOnDeath && !onStartScreen;
+  updateDashSparks(pose, dt, playerOffsetX, dashFxOn);
+  if (dashFxOn) {
+    resetCtx(ctx);
+    drawDashWind(ctx, pose, animTime, camShift, W, H);
+  }
+  resetCtx(ctx);
+  drawDashSparks(ctx, pose, playerOffsetX, dashFxOn);
 
   resetCtx(ctx);
   ctx.save();

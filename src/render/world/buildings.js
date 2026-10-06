@@ -10,6 +10,7 @@ import {
   spawnBillboardShatter,
 } from "./billboards.js";
 import { clamp, hash01 } from "../../shared/math.js";
+import { allocParticle, createParticlePool, freeParticle } from "../particles.js";
 
 // ---------------- small helpers ----------------
 function getColor(COLORS, key, fallback) {
@@ -25,30 +26,7 @@ function shadeRect(ctx, x, y, w, h, topColor, bottomColor) {
   ctx.fillRect(x, y, w, h);
 }
 
-// ---------------- particle pools ----------------
-// Particles are reused instead of allocated per burst. Live particles sit at
-// the front of `items`; a dead one is swapped with the last live one, so
-// nothing is spliced mid-array and breaks don't create garbage.
-function createParticlePool() {
-  return { items: [], count: 0 };
-}
-
-function allocParticle(pool) {
-  if (pool.count === pool.items.length) {
-    pool.items.push({ x: 0, y: 0, vx: 0, vy: 0, life: 1, age: 0, w: 0, h: 0, c: "" });
-  }
-  return pool.items[pool.count++];
-}
-
-function freeParticle(pool, i) {
-  const last = --pool.count;
-  if (i !== last) {
-    const dead = pool.items[i];
-    pool.items[i] = pool.items[last];
-    pool.items[last] = dead;
-  }
-}
-
+// ---------------- particle pools (see ../particles.js) ----------------
 // Iterates backwards, so the particle swapped into slot i has already been stepped.
 function stepParticles(pool, dt, gravity, drag, maxY) {
   for (let i = pool.count - 1; i >= 0; i--) {

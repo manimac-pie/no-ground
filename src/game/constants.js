@@ -63,6 +63,8 @@ export const JUMP_IMPULSE_FX_SEC = 0.18; // jump trail burst duration
 export const SLOWFALL_FUEL_MAX = 0.55;           // seconds of slowfall available
 export const SLOWFALL_FUEL_REGEN_PER_SEC = 0.70; // fuel/sec regained while grounded
 export const SLOWFALL_GRAVITY_MULT = 0.30;       // gravity multiplier while slowfalling
+export const BACKFLIP_SLOWFALL_SEC = 0.08;       // slowfall fuel each backflip adds (about 15% of a full tank)
+export const SLOWFALL_FUEL_OVERFILL_SEC = 0.16;  // backflips can fill the tank past full by up to this much
 export const DIVE_GRAVITY_MULT = 4.2;            // extra gravity while diving (faster descent)
 export const DIVE_MAX_FALL_SPEED = 4200;         // faster terminal speed when diving
 
@@ -154,7 +156,8 @@ export const DASH_MAX_CAM_LAG = 160;    // cap camera lag while airborne
 export const DASH_VY_SCALE_START = 200; // start reducing dash distance above this |vy|
 export const DASH_VY_SCALE_END = 1200;  // max reduction at this |vy|
 export const DASH_VY_SCALE_MIN = 0.68;  // minimum dash scale at high |vy|
-export const DASH_IMPULSE_FX_SEC = 0.20; // quick burst used to scale dash streaks
+export const DASH_IMPULSE_FX_SEC = 0.20; // a dash's burst: it breaks ads for this long (plus DASH_BREAK_GRACE_SEC)
+export const DASH_BREAK_GRACE_SEC = 0.10; // a dash still breaks ads this long after the burst ends (half of it)
 
 // Scoring
 // One point per SCORE_PX_PER_POINT px run (a "metre"). Bonuses are measured in seconds of running:

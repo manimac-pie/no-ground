@@ -2,7 +2,7 @@
 
 *As of 2026-10-04. Based on the code in `main`.*
 
-> File paths and line numbers here are from before the 2026-10-06 cleanup, which moved and split most of `src/`. See `CLEANUP.md` for where things went (for example, `render/ui.js` is now `render/hud/`).
+> File paths and line numbers here are from before the 2026-10-06 cleanup, which moved and split most of `src/`. For example, `render/ui.js` is now `render/hud/`.
 
 The game looks good: the neon city, the hanging run summary and the robot-arm death all land. What's missing is **feedback**. The game often doesn't tell the player what just happened, what state they're in, or how they're doing against their best. The items below fix that. They're grouped into four batches and ranked by impact within each batch.
 
@@ -44,7 +44,7 @@ Players never find out that these moves are worth points, so the "expressive air
 
 **Fix:**
 - Add `state.scoreEvents`, a small fixed-size ring buffer of `{ label, amount, t, x, y }` that is reset in `state.js`. Push to it at each bonus site. The renderer stays read-only.
-- In the UI layer, draw rising, fading text above Bob ("+130 SMASH", "+50 OVER", "+60 UNDER"), in Share Tech Mono with the HUD glow. Reuse the objects so nothing is allocated per frame (same approach as `PERFORMANCE.md` item 9).
+- In the UI layer, draw rising, fading text above Bob ("+130 SMASH", "+50 OVER", "+60 UNDER"), in Share Tech Mono with the HUD glow. Reuse the objects so nothing is allocated per frame (same approach as the particle pools in `render/world/buildings.js`).
 - Give the HUD score a short pulse (scale or brightness) when an event lands.
 
 **Verify:** smash, go over and under billboards, and dive. Each pop-up's amount should match the change in the HUD score.
@@ -169,4 +169,4 @@ New players are never taught Slowfall or Dive, even though the generator builds 
 ## Testing all of it
 
 - Serve locally (`python3 -m http.server`) and play on desktop. Then use Chrome devtools mobile emulation in landscape.
-- Compare frame time before and after with the perf watch in `main.js`. New HUD chrome should go through `drawCachedPanel`, so the `PERFORMANCE.md` numbers don't get worse.
+- Compare frame time before and after with the perf watch in `main.js`. New HUD chrome should go through `drawCachedPanel`, so frame times don't get worse.
