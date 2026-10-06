@@ -1,11 +1,11 @@
 import {
   loadLeaderboard,
   submitFinalScore,
-} from "./leaderboard.js";
+} from "./api.js";
 import {
   setLeaderboardState,
   subscribeLeaderboardState,
-} from "./leaderboardState.js";
+} from "./state.js";
 
 function el(id) {
   return document.getElementById(id);

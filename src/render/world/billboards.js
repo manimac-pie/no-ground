@@ -1,4 +1,4 @@
-// src/render/worldBillboards.js
+// src/render/world/billboards.js
 // Billboards: the simulation's ads. Same glass look as the START firewall (render/glass.js).
 //   Breakable:  a magenta glass screen that shatters when Bob dashes or dives through it.
 //   Reinforced: a solid steel panel with a cyan screen. It doesn't break: go over, under or onto it.
@@ -8,7 +8,7 @@
 // with drawImage. The shards for a breakable one are cut ahead of time, while it's still on screen
 // and intact, so the frame Bob breaks it only stamps images.
 
-import { PLAYER_H } from "../game/constants.js";
+import { PLAYER_H } from "../../game/constants.js";
 import {
   SHATTER_MAX_SEC,
   cutGlass,
@@ -21,8 +21,8 @@ import {
   stampSprite,
   updateScaleWatch,
   viewScale,
-} from "./glass.js";
-import { hash01 } from "../shared/math.js";
+} from "../glass.js";
+import { hash01 } from "../../shared/math.js";
 
 // The system's ads. Edit freely; each billboard picks one from its building's seed.
 const AD_COPY = [

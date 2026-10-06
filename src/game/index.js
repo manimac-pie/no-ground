@@ -1,4 +1,4 @@
-// src/game.js
+// src/game/index.js
 // Orchestrator that keeps the same public API.
 
 import {
@@ -21,22 +21,22 @@ import {
   RESET_GLITCH_SEC,
   LEADERBOARD_SLIDE_DELAY_SEC,
   LEADERBOARD_SLIDE_SEC,
-} from "./game/constants.js";
+} from "./constants.js";
 
-import { clamp } from "./shared/math.js";
-import { createInitialState, isSummaryShowing, resetRunState } from "./game/state.js";
-import { addDistancePoints, buildSummaryRows, tallyRowSec } from "./game/score.js";
-import { resetPlatforms, scrollWorld, updatePlatforms } from "./game/platforms.js";
+import { clamp } from "../shared/math.js";
+import { createInitialState, isSummaryShowing, resetRunState } from "./state.js";
+import { addDistancePoints, buildSummaryRows, tallyRowSec } from "./score.js";
+import { resetPlatforms, scrollWorld, updatePlatforms } from "./platforms.js";
 import {
   tryConsumeBufferedJump,
   integratePlayer,
   updateDash,
-} from "./game/player.js";
-import { startSpin, updateTricks } from "./game/tricks.js";
-import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "./ui/layout.js";
-import { onGameFinished } from "./ui/leaderboardView.js";
-import { getMyBest } from "./ui/leaderboardState.js";
-import { loadIteration, saveIteration } from "./ui/iteration.js";
+} from "./player.js";
+import { startSpin, updateTricks } from "./tricks.js";
+import { getControlsButtonRect, getControlsPanelRect, pointInRect } from "../ui/layout.js";
+import { onGameFinished } from "../leaderboard/view.js";
+import { getMyBest } from "../leaderboard/state.js";
+import { loadIteration, saveIteration } from "../ui/iteration.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately

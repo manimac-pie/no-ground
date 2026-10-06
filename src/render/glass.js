@@ -1,6 +1,6 @@
 // src/render/glass.js
 // Shared look for the simulation's glass: cached sprites, a glass-pane painter, and shattering.
-// Used by the START firewall (menu.js) and the breakable billboards (worldBuildings.js).
+// Used by the START firewall (menu.js) and the breakable billboards (world/billboards.js).
 //
 // A sprite is a rectangle (w x h world px) painted once into a canvas at `scale` device px per
 // world px, with `margin` world px around it for glows: { canvas, scale, margin, w, h }.

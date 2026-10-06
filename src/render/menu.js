@@ -28,7 +28,7 @@ const PANE_MARGIN = 6;      // world px around the pane for its glow
 const PANE_MAX_SCALE = 12;  // device px per world px, upper bound for the sprite
 
 // Bob's drawn body ends short of his hitbox: the capsule is 70% of his width, centred
-// (render/playerBody.js), so its front is at 85% of the hitbox width.
+// (render/player/body.js), so its front is at 85% of the hitbox width.
 const BOB_FRONT_FRAC = 0.85;
 
 // Shards beat the world's scroll (~260 px/s) so the glass sprays ahead of Bob.

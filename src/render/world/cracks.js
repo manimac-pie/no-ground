@@ -1,4 +1,4 @@
-// src/render/worldCracks.js
+// src/render/world/cracks.js
 // Building fractures. Each building gets a fixed crack network (from its seed and size) that grows
 // with stress, instead of a set of cracks that fade in all at once:
 //   - Main cracks start at the roof edge, chipping a notch out of it, and run down the facade.
@@ -13,7 +13,7 @@
 // Coordinates inside a network are relative to the roof's top-left; the roof slab is the first
 // PLATFORM_H px, the building body below it.
 
-import { clamp, hash01 } from "../shared/math.js";
+import { clamp, hash01 } from "../../shared/math.js";
 
 const PLATFORM_H = 16;
 const WARM_FROM = 0.2; // a faint glow starts here, so mid-stress cracks read on dark facades

@@ -1,4 +1,4 @@
-// src/ui/blockedNames.js
+// src/leaderboard/blockedNames.js
 // Names the leaderboard won't accept. Edit this list freely.
 //
 // Each entry is either:

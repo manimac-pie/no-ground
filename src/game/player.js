@@ -1,6 +1,6 @@
 // src/game/player.js
 // Player physics + movement integration.
-// Exports integratePlayer() used by src/game.js.
+// Exports integratePlayer() used by src/game/index.js.
 
 import { clamp, smoothstep01 } from "../shared/math.js";
 import { getConst } from "./utils.js";

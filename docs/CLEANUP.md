@@ -23,14 +23,14 @@ Each item gives where the change goes, its impact and its effort. Details are in
 - [x] **8. Stop importing `game.js` from the renderer** · `game.js`, `game/constants.js`, 6 render files · Impact: Medium · Effort: Low · *Done 2026-10-06*
 
 **Batch D: Folders**
-- [ ] **9. Give the leaderboard its own folder** · `src/ui/` → `src/leaderboard/` · Impact: Medium · Effort: Low
-- [ ] **10. Group the render files** · `src/render/` · Impact: Medium · Effort: Low–Medium
-- [ ] **11. Move `game.js` into `game/`** · `src/game.js` · Impact: Low · Effort: Low
-- [ ] **12. Split `render/ui.js`** · `render/ui.js` (1834 lines) · Impact: High · Effort: Medium
-- [ ] **13. Split `render/index.js`** · `render/index.js` (982 lines) · Impact: High · Effort: Medium
+- [x] **9. Give the leaderboard its own folder** · `src/ui/` → `src/leaderboard/` · Impact: Medium · Effort: Low · *Done 2026-10-06*
+- [x] **10. Group the render files** · `src/render/` · Impact: Medium · Effort: Low–Medium · *Done 2026-10-06*
+- [x] **11. Move `game.js` into `game/`** · `src/game.js` · Impact: Low · Effort: Low · *Done 2026-10-06*
+- [x] **12. Split `render/ui.js`** · `render/ui.js` (1834 lines) · Impact: High · Effort: Medium · *Done 2026-10-06*
+- [x] **13. Split `render/index.js`** · `render/index.js` (982 lines) · Impact: High · Effort: Medium · *Done 2026-10-06*
 
 **Batch E: Runtime**
-- [ ] **14. Take the game logic out of the renderer** · `render/index.js`, `game.js` · Impact: Medium (correctness) · Effort: Medium
+- [ ] **14. Take the game logic out of the renderer** · `render/effects.js`, `render/index.js`, `game/index.js` · Impact: Medium (correctness) · Effort: Medium
 - [ ] **15. Stop copying the state every frame** · `render/index.js` · Impact: Low–Medium · Effort: Medium
 
 **Batch F: Ship (optional)**
@@ -38,7 +38,7 @@ Each item gives where the change goes, its impact and its effort. Details are in
 
 ### Target layout
 
-How to organise Batches A, C and D. Use it a map.
+How Batches A, C and D organised the project. Use it a map.
 
 ```
 no-ground/
@@ -55,13 +55,15 @@ no-ground/
     leaderboard/        api, state, view, claimFlow, blockedNames, reset
     ui/                 layout.js, iteration.js
     render/
-      index.js          orchestration only
+      index.js          render(): orchestration only
       camera.js         death cinematic, start push
       effects.js        robot arm, shards, dust
-      menu.js
-      world/            index, backdrop, ground, buildings, cracks, facades, billboards, glass
+      viewport.js       canvas sizing and transform
+      glass.js          shared by menu.js and world/
+      menu.js           START firewall
+      world/            index, backdrop, ground, buildings, cracks, facades, billboards
       player/           index, body, fx
-      hud/              hud, summary, leaderboardPanel, controls, pause, reset, panelCache, primitives
+      hud/              primitives, panelCache, leaderboardPanel, controls, flyby, hud, summary, reset, pause
 ```
 
 ### Before you move anything
@@ -227,6 +229,8 @@ What's left in `ui/`: `layout.js` (hit-test rectangles) and `iteration.js` (the 
 
 **Done when:** you can post a score, see it on the board, and the blocked-name pop-up still appears. Remember the memory note: **block the leaderboard API in browser tests**, or test deaths post real scores.
 
+> **Done (2026-10-06).** `src/leaderboard/` holds `api.js`, `state.js`, `view.js`, `claimFlow.js`, `reset.js` and `blockedNames.js`. Path mentions in `styles.css`, `docs/WORKER_TODO.md` and the code comments were updated too.
+
 ### 10. Group the render files
 
 `src/render/` has 14 files side by side, and the names already show the groups: `world*`, `player*`, `glass`. Make `render/world/` and `render/player/` and move the files in, dropping the prefixes. `render/world.js` (a 4-line file of re-exports) becomes `render/world/index.js`.
@@ -240,11 +244,15 @@ There's no single right answer. Ask yourself who owns it. If the menu's glass pa
 
 **Done when:** `render/` has `index.js`, `menu.js`, `world/`, `player/` and the soon-to-be-split `ui.js`. Everything draws the same.
 
+> **Done (2026-10-06).** `glass.js` stays at `render/glass.js`: the START firewall and the billboards are the same glass, so it's shared rather than owned by `world/`.
+
 ### 11. Move `game.js` into `game/`
 
 `src/game.js` sits next to a `src/game/` folder, which makes "where's the game code?" a two-place answer. Move it to `src/game/index.js`. Its imports change from `./game/x.js` to `./x.js`, and `main.js` imports `./game/index.js`.
 
 **Done when:** there's no `src/game.js`, and a full run works: start, die, summary, restart.
+
+> **Done (2026-10-06).** `main.js` imports `./game/index.js`.
 
 ### 12. Split `render/ui.js`
 
@@ -273,6 +281,8 @@ Move them with their section. `game/constants.js` is for values the game rules d
 
 **Done when:** no file in `hud/` is over about 550 lines, `render/index.js` imports from `hud/`, and every screen looks the same: HUD, pause, summary, leaderboard, controls panel and reset.
 
+> **Done (2026-10-06).** Nine files in `render/hud/`; the largest is `summary.js` at 552 lines. Each file's imports were worked out from ESLint's `no-undef` results, so every name comes from exactly one place. `summary.js` imports the RESET button pieces from `reset.js`, because the button sits inside the summary panel. The stale `// drawMenus moved to src/render/menu.js` comment was dropped.
+
 ### 13. Split `render/index.js`
 
 `render()` is the orchestrator, but the file also holds about 400 lines of self-contained pieces:
@@ -285,6 +295,10 @@ Move them with their section. `game/constants.js` is for values the game rules d
 
 **Done when:** `render/index.js` is mostly `render()` itself, and the death sequence (robot arm, shards, dust, zoom) plays exactly as before.
 
+> **Done (2026-10-06).** `render/index.js` is down to 502 lines: `COLORS`, the per-frame state, `setTouchUi` and `render()`. `camera.js`, `effects.js` and `viewport.js` hold the rest, and `main.js` imports `setCanvasRect` and `setMaxDpr` from `viewport.js`. The build caught the one import that broke (`main.js` still asking `render/index.js` for `setCanvasRect`).
+>
+> **Verified (whole batch):** lint clean and build passing after every step. A scripted run in headless Chrome, with the leaderboard API blocked, went through the start screen, running, pause, the resume countdown, death, the run summary with bonus rows, the leaderboard, RESET, a second run, and resizes to 2560×1080 and 844×390, with no errors. The controls panel was drawn from the new `hud/controls.js` directly, because the scripted click doesn't open it on the old code either.
+
 ---
 
 ## Batch E: Runtime
@@ -294,9 +308,9 @@ These two items change how the code runs, not just where it lives. Do them after
 ### 14. Take the game logic out of the renderer
 
 Some of the simulation happens inside the draw code:
-- `updateAndDrawBreakShards` (`render/index.js:344`) applies gravity and drag to the shards, then draws them. Dead shards are skipped but never removed from `state.breakShards`.
-- The scrape dust (`:390`) spawns, ages and deletes particles in `dragTrail`, inside the renderer.
-- `prevDeathActive`, `deathFocusX` and `_camX` (`:458–465`) remember the last frame's state at module level.
+- `updateAndDrawBreakShards` (`render/effects.js:122`) applies gravity and drag to the shards, then draws them. Dead shards are skipped but never removed from `state.breakShards`.
+- The scrape dust (`render/effects.js:168`) spawns, ages and deletes particles in `dragTrail` (`:9`), inside the renderer.
+- `prevDeathActive`, `deathFocusX` and `_camX` (`render/index.js:71–76`) remember the last frame's state at module level.
 
 **Why it matters:** `PERFORMANCE.md` item 5 skips drawing frames where nothing changed. Anything that *moves* during drawing only advances when a frame is drawn, so it's tied to the frame rate instead of the game's `dt`. It works today mostly by luck.
 
@@ -311,7 +325,7 @@ A useful test is to ask: "if I paused the game, should this keep moving?" Shards
 
 ### 15. Stop copying the state every frame
 
-On the death screen and the start screen, `render/index.js:765–797` builds new copies of `state` and `player` with `{...state}` and `{...player}` on **every frame**, just to override a few fields such as `vy: 0` and `ducking: false`. `state` is a big object, so that's a lot of short-lived garbage at 120 Hz. It's the kind that causes a small stutter when the garbage collector runs.
+On the death screen and the start screen, `render/index.js:285–317` builds new copies of `state` and `player` with `{...state}` and `{...player}` on **every frame**, just to override a few fields such as `vy: 0` and `ducking: false`. `state` is a big object, so that's a lot of short-lived garbage at 120 Hz. It's the kind that causes a small stutter when the garbage collector runs.
 
 **Question:** the draw functions read things like `player.ducking`. How can they be told "pretend he isn't ducking" without a new `player` object?
 

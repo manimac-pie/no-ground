@@ -22,4 +22,4 @@
 11. pressing spacebar right after a duck ads a small boost to the jump (allos a little higher jump)
    - ✅ Done: a jump while ducking, or ≤ 0.15 s after, goes ×1.08 (≈17% higher).
 12. list of names that are not allowed entry (i can edit). A prompt when someone tries those specific names. potentially a popup per name
-   - ✅ Done: edit src/ui/blockedNames.js. Each name can have its own pop-up message. Client-side only for now (see WORKER_TODO.md).
+   - ✅ Done: edit src/leaderboard/blockedNames.js. Each name can have its own pop-up message. Client-side only for now (see WORKER_TODO.md).

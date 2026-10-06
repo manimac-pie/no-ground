@@ -4,16 +4,17 @@
 // - Scale the canvas to fit the viewport (PC + mobile)
 // - Drive the main loop (requestAnimationFrame)
 import { createInput } from "./input.js";
-import { createGame } from "./game.js";
+import { createGame } from "./game/index.js";
 import { setInternalSizeFromViewport, DASH_COOLDOWN } from "./game/constants.js";
-import { render, setCanvasRect, setMaxDpr, setTouchUi } from "./render/index.js";
+import { render, setTouchUi } from "./render/index.js";
+import { setCanvasRect, setMaxDpr } from "./render/viewport.js";
 
 //Leaderboard API udpate
-import { refreshLeaderboard } from "./ui/leaderboardView.js";
+import { refreshLeaderboard } from "./leaderboard/view.js";
 import {
   initLeaderboardPromptOverlay,
   onLeaderboardPromptStateChange,
-} from "./ui/leaderboardClaimFlow.js";
+} from "./leaderboard/claimFlow.js";
 initLeaderboardPromptOverlay();
 refreshLeaderboard().catch(console.error);
 

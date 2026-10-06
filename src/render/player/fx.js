@@ -1,8 +1,8 @@
-// src/render/playerFx.js
+// src/render/player/fx.js
 // Trails + VFX for player rendering. Purely visual.
 
-import { clamp } from "../shared/math.js";
-import { roundedRectPath } from "../shared/canvas.js";
+import { clamp } from "../../shared/math.js";
+import { roundedRectPath } from "../../shared/canvas.js";
 
 // Soft edges without ctx.filter = "blur(...)", which is slow on most GPUs and
 // ignored by some mobile browsers. Blur radii are in device pixels, like the filter's.

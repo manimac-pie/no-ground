@@ -231,7 +231,7 @@ export const MENU_START_ZOOM = 2.8;
 
 
 // Dive feel / animation timing
-// Used by game/player.js for phase timing, and by render/player.js for stable pose targets.
+// Used by game/player.js for phase timing, and by render/player/index.js for stable pose targets.
 export const DIVE_ANTICIPATION_SEC = 0.035; // seconds of anticipation before full dive commit
 export const DIVE_SPIKE_ANGLE_RAD = 0.82;  // visual target angle for dive commit (~47 degrees)
 

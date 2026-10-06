@@ -488,7 +488,7 @@ body.is-running #mobile-controls .control-btn--pause {
   transform: translateY(-1px) scale(1.01);
   box-shadow: 0 0 22px rgba(120, 205, 255, 0.65);
 }
-/* Blocked name: the system refuses it (names live in src/ui/blockedNames.js). */
+/* Blocked name: the system refuses it (names live in src/leaderboard/blockedNames.js). */
 #leaderboard-prompt .prompt-panel {
   position: relative;
 }

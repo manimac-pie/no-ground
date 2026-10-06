@@ -24,7 +24,7 @@ Things to check in the Worker while you're there:
 
 ## 2. Weekly reset of ranks 4–10 (item 6)
 
-The client shows **"RANKS 4-10 RESET IN …"** in the leaderboard header. It counts down to **Monday 00:00 UTC**. The schedule is in `src/ui/leaderboardReset.js` (`RESET_WEEKDAY_UTC`, `RESET_HOUR_UTC`, `RESET_FIRST_RANK`), and the Worker has to use the same one.
+The client shows **"RANKS 4-10 RESET IN …"** in the leaderboard header. It counts down to **Monday 00:00 UTC**. The schedule is in `src/leaderboard/reset.js` (`RESET_WEEKDAY_UTC`, `RESET_HOUR_UTC`, `RESET_FIRST_RANK`), and the Worker has to use the same one.
 
 **Trigger:** a Cloudflare cron trigger. In `wrangler.toml`:
 
@@ -49,10 +49,10 @@ Decide these before you write the query:
 
 ## 3. Blocked names on `/api/claim` (item 12)
 
-The client refuses the names in `src/ui/blockedNames.js` and shows a pop-up. Anyone can still call `/api/claim` directly, so the Worker should check the same list.
+The client refuses the names in `src/leaderboard/blockedNames.js` and shows a pop-up. Anyone can still call `/api/claim` directly, so the Worker should check the same list.
 
 - Match the same way the client does: lowercase, strip spaces and `_ - .`, then compare exactly (or as a substring for entries marked `contains: true`).
 - Return an error such as `{ ok: false, error: "name_blocked" }`.
 - Keep the two lists in sync. Another option is a `GET /api/blocked-names` that the client fetches, so the list only lives in one place. Tell me if you go that way and I'll switch the client over.
 
-Note: if the Worker refuses a name today, the client logs the error and drops the claim (`leaderboardClaimFlow.js`, the `catch` in `maybePromptForPendingClaim`). If you add the server check, the client should show the pop-up for `name_blocked` and let the player try again. That's a small client change I can make once the error code exists.
+Note: if the Worker refuses a name today, the client logs the error and drops the claim (`src/leaderboard/claimFlow.js`, the `catch` in `maybePromptForPendingClaim`). If you add the server check, the client should show the pop-up for `name_blocked` and let the player try again. That's a small client change I can make once the error code exists.

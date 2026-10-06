@@ -1,4 +1,4 @@
-// src/render/worldFacades.js
+// src/render/world/facades.js
 // Building facades: Neon Glass. Curtain-wall towers with sky reflections, lit offices and neon
 // sign strips.
 //   Breakable:   warm/magenta glass, a few dark or broken panes.
@@ -10,9 +10,9 @@
 // (PAINT_H) and clipped to the building, so roofs that rise or sink don't need repainting. Only the
 // neon blink and the roof's crown LED change per frame.
 
-import { GROUND_Y, PLATFORM_H } from "../game/constants.js";
-import { createScaleWatch, needsRepaint, paintSprite, stampSprite, updateScaleWatch, viewScale } from "./glass.js";
-import { hash01 } from "../shared/math.js";
+import { GROUND_Y, PLATFORM_H } from "../../game/constants.js";
+import { createScaleWatch, needsRepaint, paintSprite, stampSprite, updateScaleWatch, viewScale } from "../glass.js";
+import { hash01 } from "../../shared/math.js";
 
 const SAFE_RGB = "120,205,255";
 const TILE_W = 192;

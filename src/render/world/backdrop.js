@@ -1,6 +1,6 @@
-// src/render/worldBackdrop.js
-import { world } from "../game/constants.js";
-import { hash01 } from "../shared/math.js";
+// src/render/world/backdrop.js
+import { world } from "../../game/constants.js";
+import { hash01 } from "../../shared/math.js";
 
 // The skyline's own hash01 constant, so the distant city doesn't repeat the buildings in front.
 const SKYLINE_K = 731.13;

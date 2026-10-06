@@ -1,8 +1,8 @@
-// src/render/playerBody.js
+// src/render/player/body.js
 // Procedural player body rendering (shape/identity). Purely visual.
 
-import { roundedRectPath } from "../shared/canvas.js";
-import { clamp, hash01 } from "../shared/math.js";
+import { roundedRectPath } from "../../shared/canvas.js";
+import { clamp, hash01 } from "../../shared/math.js";
 
 export function drawRunner(ctx, player, t, landed, stateRunning, speed, COLORS, eyes) {
   // Local space: origin at player center after transforms in caller.

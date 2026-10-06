@@ -2,6 +2,8 @@
 
 *As of 2026-10-04. Based on the code in `main`.*
 
+> File paths and line numbers here are from before the 2026-10-06 cleanup, which moved and split most of `src/`. See `CLEANUP.md` for where things went (for example, `render/ui.js` is now `render/hud/`).
+
 The game looks good: the neon city, the hanging run summary and the robot-arm death all land. What's missing is **feedback**. The game often doesn't tell the player what just happened, what state they're in, or how they're doing against their best. The items below fix that. They're grouped into four batches and ranked by impact within each batch.
 
 ## Checklist
@@ -24,8 +26,8 @@ Each item gives where the change goes, its impact and its effort. Details are in
 
 **Batch D: Polish**
 - [x] **9. Run summary shows points** · `render/ui.js`, `game/state.js` · Impact: Medium · Effort: Low–Medium
-- [ ] **10. First-run move hints** · `game/platforms.js`, `render/ui.js` · Impact: Medium (new players) · Effort: Medium
-- [ ] **11. Reduced motion and readable text** · `index.html`, `render/index.js`, `render/ui.js` · Impact: Medium (accessibility) · Effort: Low
+- [ ] **10. First-run move hints** · `game/platforms.js`, `render/hud/hud.js` · Impact: Medium (new players) · Effort: Medium
+- [ ] **11. Reduced motion and readable text** · `styles.css`, `render/camera.js`, `render/index.js`, `render/hud/` · Impact: Medium (accessibility) · Effort: Low
 
 ## Batch A: Feel
 
@@ -159,8 +161,8 @@ New players are never taught Slowfall or Dive, even though the generator already
 ### 11. Reduced motion and readable text
 
 **Fix:**
-- Under `@media (prefers-reduced-motion: reduce)`, turn off the `kinetic-float` button bob and the cursor sparks. In `render/index.js`, tone down the death zoom and the camera shake.
-- Raise the 8–9 px text in the HUD and the controls panel (`src/render/ui.js:1022`, `:779`, `:789`) to at least 10–11 px. Check contrast against the dark panels.
+- Under `@media (prefers-reduced-motion: reduce)`, turn off the `kinetic-float` button bob and the cursor sparks. In `render/camera.js` tone down the death zoom, and in `render/index.js` the camera shake.
+- Raise the 8–9 px text in the HUD and the controls panel (`src/render/hud/hud.js` and `src/render/hud/controls.js`) to at least 10–11 px. Check contrast against the dark panels.
 
 **Verify:** turn on reduced motion in the OS or devtools and check that nothing bobs or shakes. Check that the small text is readable on a phone-sized screen.
 

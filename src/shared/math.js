@@ -19,7 +19,7 @@ export function easeOutCubic(t) {
 
 // Deterministic 0..1 noise from a number. Everything procedural (buildings, windows, cracks, ads)
 // is placed from this, so changing `k` changes the whole city. The skyline uses its own k
-// (see worldBackdrop.js), so it doesn't line up with the buildings in front of it.
+// (see render/world/backdrop.js), so it doesn't line up with the buildings in front of it.
 export function hash01(n, k = 999.123) {
   const x = Math.sin(n * k) * 43758.5453;
   return x - Math.floor(x);

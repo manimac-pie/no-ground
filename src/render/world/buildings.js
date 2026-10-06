@@ -1,15 +1,15 @@
-// src/render/worldBuildings.js
+// src/render/world/buildings.js
 
-import { world } from "../game/constants.js";
-import { drawFractures } from "./worldCracks.js";
-import { beginFacadeFrame, drawCrown, drawFacade, facadeRoofColors } from "./worldFacades.js";
+import { world } from "../../game/constants.js";
+import { drawFractures } from "./cracks.js";
+import { beginFacadeFrame, drawCrown, drawFacade, facadeRoofColors } from "./facades.js";
 import {
   beginBillboardFrame,
   drawBillboard,
   drawBillboardShatters,
   spawnBillboardShatter,
-} from "./worldBillboards.js";
-import { clamp, hash01 } from "../shared/math.js";
+} from "./billboards.js";
+import { clamp, hash01 } from "../../shared/math.js";
 
 // ---------------- small helpers ----------------
 function getColor(COLORS, key, fallback) {

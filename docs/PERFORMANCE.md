@@ -2,6 +2,8 @@
 
 *As of 2026-09-30. Based on the code in `main`.*
 
+> File paths and line numbers here are from before the 2026-10-06 cleanup, which moved and split most of `src/`. See `CLEANUP.md` for where things went (for example, `render/ui.js` is now `render/hud/`).
+
 Almost all the per-frame cost is in drawing. The game logic only handles about 10 platforms and a few particles per step, so tuning it won't change much. The items below are ranked by expected impact.
 
 ## Checklist

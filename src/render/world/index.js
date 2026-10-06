@@ -1,4 +1,4 @@
-// src/render/world.js
-export { drawBackground, drawParallax } from "./worldBackdrop.js";
-export { drawLethalGround } from "./worldGround.js";
-export { drawBuildingsAndRoofs } from "./worldBuildings.js";
+// src/render/world/index.js
+export { drawBackground, drawParallax } from "./backdrop.js";
+export { drawLethalGround } from "./ground.js";
+export { drawBuildingsAndRoofs } from "./buildings.js";

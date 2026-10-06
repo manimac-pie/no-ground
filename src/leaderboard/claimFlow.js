@@ -1,5 +1,5 @@
-import { claimName, loadLeaderboard } from "./leaderboard.js";
-import { getLeaderboardState, setLeaderboardState } from "./leaderboardState.js";
+import { claimName, loadLeaderboard } from "./api.js";
+import { getLeaderboardState, setLeaderboardState } from "./state.js";
 import { blockedNameMessage } from "./blockedNames.js";
 
 const NAME_PROMPT_MAX = 10;
@@ -109,7 +109,7 @@ function submitName() {
   finalizePrompt(value);
 }
 
-// Blocked name: a pop-up over the prompt with that name's message (src/ui/blockedNames.js).
+// Blocked name: a pop-up over the prompt with that name's message (src/leaderboard/blockedNames.js).
 function showDenied(name, message) {
   const { denied, deniedName, deniedCopy, error } = promptElements;
   if (!denied) {
