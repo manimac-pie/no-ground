@@ -399,12 +399,16 @@ body.is-running #mobile-controls .control-btn--pause {
   backdrop-filter: blur(16px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.35s ease;
+  /* Hidden once faded out, so nothing in it can hold focus or be tabbed to. */
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0s linear 0.35s;
   z-index: 1200;
 }
 #leaderboard-prompt.active {
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
+  transition: opacity 0.35s ease;
 }
 #leaderboard-prompt .prompt-panel {
   width: min(420px, 90vw);

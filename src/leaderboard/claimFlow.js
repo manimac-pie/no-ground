@@ -83,6 +83,12 @@ function finalizePrompt(value) {
   const resolve = promptResolver;
   promptResolver = null;
   promptElements?.overlay?.classList.remove("active");
+  // Give the keyboard back to the game. Left in the hidden name box, focus would take every key
+  // (main.js doesn't pull focus out of a text box), and on a Mac holding W/A/S/D there opens the
+  // accent pop-up.
+  const focused = document.activeElement;
+  if (focused && promptElements?.overlay?.contains(focused)) focused.blur();
+  document.getElementById("game")?.focus({ preventScroll: true });
   emitPromptState(false);
   resolve(value);
 }
