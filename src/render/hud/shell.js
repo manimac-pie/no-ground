@@ -124,9 +124,9 @@ export function drawShell(ctx, state, L, o) {
   const trainingHot = hot(L.training);
   const controlsHot = hot(L.controls);
   piece(ctx, cached, "shellTraining", `${rectKey(L.training)}|${trainingOpen}|${trainingHot}`, L.training,
-    (c) => drawMenuRow(c, L.training, "02", "TRAINING", { open: trainingOpen, hot: trainingHot }));
+    (c) => drawMenuRow(c, L.training, "02", "TRAINING", { open: trainingOpen, hot: trainingHot, rgb: GREEN }));
   piece(ctx, cached, "shellControls", `${rectKey(L.controls)}|${controlsOpen}|${controlsHot}`, L.controls,
-    (c) => drawMenuRow(c, L.controls, "03", "CONTROLS", { open: controlsOpen, hot: controlsHot }));
+    (c) => drawMenuRow(c, L.controls, "03", "CONTROLS", { open: controlsOpen, hot: controlsHot, rgb: AMBER }));
   // TRAINING pulses until it's been finished on this device.
   if (!isTrainingDone() && !trainingOpen) drawPulse(ctx, L.training, o.uiTime);
 
@@ -202,7 +202,7 @@ function agoText(nowMs, endedAt) {
   return `${Math.floor(hours / 24)} d ago`;
 }
 
-// The log's lines in order: { at (seconds into the push), stamp, parts: [{ text, color, glow }],
+// The log's lines in order: { at (seconds into the push), stamp, parts: [{ text, color }],
 // flavour (dropped first when the log is short of room), cursor }. Lines without a stamp are indented.
 function buildLog(lastRun, nowMs, maxLines) {
   const lines = [];
@@ -234,7 +234,7 @@ function buildLog(lastRun, nowMs, maxLines) {
     { at: T_GRIP, stamp: stamp(T_GRIP), flavour: true, parts: [{ text: "subject BOB loaded · memory wiped", color: SOFT }] },
     { at: T_LANDED, stamp: stamp(T_LANDED), flavour: true, parts: [{ text: "firewall sector 00: UNARMED", color: `rgb(${AMBER})` }] },
     { at: T_RELEASED, stamp: stamp(T_RELEASED), cursor: true,
-      parts: [{ text: "BOB: let me out.", color: `rgb(${MAGENTA})`, glow: `rgba(${MAGENTA},0.6)` }] },
+      parts: [{ text: "BOB: let me out.", color: `rgb(${MAGENTA})` }] },
   );
   // Short of room: the flavour lines go first, then the last run's detail lines.
   for (let i = lines.length - 1; i >= 0 && lines.length > maxLines; i--) {
@@ -263,8 +263,6 @@ function drawLog(ctx, rect, lines, pushT, uiTime) {
     x += stampW;
     for (const part of line.parts) {
       ctx.fillStyle = part.color;
-      ctx.shadowColor = part.glow || TEXT_SHADOW;
-      ctx.shadowBlur = part.glow ? 6 : 4;
       ctx.fillText(part.text, x, y);
       x += ctx.measureText(part.text).width;
     }
@@ -402,52 +400,75 @@ function drawRecordRow(ctx, row, left, right, baseline) {
 // ---------------- menu ----------------
 
 // A menu row: its number, its label, and on the right SPACE (BREAK OUT) or an arrow.
-// selected: BREAK OUT (always highlighted). open: its sheet is showing. hot: under the pointer.
-function drawMenuRow(ctx, r, num, label, { selected = false, open = false, hot = false, keyLabel = "" }) {
+// selected: BREAK OUT, a lit cyan key with dark text. The others sit on a dark plate (so the lit windows
+// behind them don't wash them out) with their own accent colour: rgb. open: its sheet is showing.
+// hot: under the pointer.
+function drawMenuRow(ctx, r, num, label, { selected = false, open = false, hot = false, keyLabel = "", rgb = CYAN }) {
   const { x, y, w, h } = r;
   const cy = y + h / 2;
+  const accent = selected ? CYAN : rgb;
   ctx.save();
-  if (selected || open || hot) {
-    ctx.fillStyle = selected ? `rgba(${CYAN},${hot ? 0.2 : 0.13})` : open ? `rgba(${CYAN},0.1)` : "rgba(242,242,242,0.06)";
-    roundRect(ctx, x, y, w, h, 4);
-  }
+
+  // Body
   if (selected) {
-    ctx.fillStyle = `rgb(${CYAN})`;
+    ctx.fillStyle = "#2a6a94"; // the key's lower edge
+    roundRect(ctx, x, y + 2, w, h, 4);
+    ctx.shadowColor = `rgba(${CYAN},${hot ? 0.8 : 0.5})`;
+    ctx.shadowBlur = hot ? 18 : 12;
+    const g = ctx.createLinearGradient(x, y, x, y + h);
+    g.addColorStop(0, hot ? "rgb(178,230,255)" : "rgb(150,220,255)");
+    g.addColorStop(1, hot ? "rgb(110,195,248)" : "rgb(92,182,240)");
+    ctx.fillStyle = g;
+    roundRect(ctx, x, y, w, h, 4);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillRect(x + 5, y + 1, w - 10, 1);
+  } else {
+    if (hot || open) {
+      ctx.shadowColor = `rgba(${accent},0.45)`;
+      ctx.shadowBlur = 10;
+    }
+    ctx.fillStyle = "rgba(6,9,13,0.88)";
+    roundRect(ctx, x, y, w, h, 4);
+    ctx.shadowBlur = 0;
+    if (open) { // its sheet is showing: tinted in its colour
+      ctx.fillStyle = `rgba(${accent},0.16)`;
+      roundRect(ctx, x, y, w, h, 4);
+    }
+    ctx.strokeStyle = `rgba(${accent},${hot || open ? 0.9 : 0.35})`;
+    ctx.lineWidth = 1;
+    roundedRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 4);
+    ctx.stroke();
+    ctx.fillStyle = `rgb(${accent})`;
     roundRect(ctx, x, y, 3, h, 1.5);
   }
-  const lit = selected || open || hot;
+
+  // Number and label
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
-  ctx.shadowColor = TEXT_SHADOW;
-  ctx.shadowBlur = lit ? 0 : 6;
   ctx.font = `8.5px ${MONO}`;
-  ctx.fillStyle = lit ? `rgb(${CYAN})` : "rgba(242,242,242,0.32)";
+  ctx.fillStyle = selected ? "rgba(4,18,29,0.6)" : `rgba(${accent},${hot || open ? 1 : 0.8})`;
   ctx.fillText(num, x + 9, cy + 3);
   ctx.font = `700 12.5px ${ORB}`;
   setSpacing(ctx, 1.1);
-  ctx.fillStyle = open ? `rgb(${CYAN})` : lit ? "#fff" : "rgba(242,242,242,0.66)";
+  ctx.fillStyle = selected ? "#04121d" : open ? `rgb(${accent})` : hot ? "#fff" : "rgba(242,242,242,0.88)";
   ctx.fillText(label, x + 30, cy + 4.2);
   setSpacing(ctx, 0);
-  ctx.shadowBlur = 0;
 
   if (selected) {
-    // The key chip: SPACE (or TAP on touch screens).
+    // The key chip: SPACE (or TAP on touch screens), dark on the lit key.
     ctx.font = `8px ${MONO}`;
     setSpacing(ctx, 1);
     const kw = Math.ceil(ctx.measureText(keyLabel).width) + 10;
     const kx = x + w - kw - 8;
-    ctx.strokeStyle = `rgba(${CYAN},0.75)`;
-    ctx.lineWidth = 1;
-    roundedRectPath(ctx, kx + 0.5, cy - 6, kw - 1, 12, 2.5);
-    ctx.stroke();
-    ctx.fillStyle = `rgba(${CYAN},0.75)`;
-    ctx.fillRect(kx + 2, cy + 5.5, kw - 4, 1.2);
+    ctx.fillStyle = "rgba(4,18,29,0.85)";
+    roundRect(ctx, kx, cy - 6, kw, 12, 2.5);
     ctx.fillStyle = `rgb(${CYAN})`;
     ctx.fillText(keyLabel, kx + 5, cy + 3);
-  } else if (open || hot) {
-    // Arrow: right on hover, down while the sheet is open.
+  } else {
+    // Arrow: right (faint until hovered), down while the sheet is open.
     const ax = x + w - 12;
-    ctx.fillStyle = `rgb(${CYAN})`;
+    ctx.fillStyle = `rgba(${accent},${hot || open ? 1 : 0.45})`;
     ctx.beginPath();
     if (open) {
       ctx.moveTo(ax - 4, cy - 2);
@@ -468,21 +489,23 @@ function drawWakeFlash(ctx, r, k) {
   ctx.save();
   ctx.globalAlpha = k;
   ctx.shadowColor = `rgba(${CYAN},1)`;
-  ctx.shadowBlur = 22;
-  ctx.fillStyle = `rgba(${CYAN},0.3)`;
-  roundRect(ctx, r.x, r.y, r.w, r.h, 4);
+  ctx.shadowBlur = 26;
+  ctx.strokeStyle = "rgba(230,248,255,0.95)";
+  ctx.lineWidth = 2;
+  roundedRectPath(ctx, r.x, r.y, r.w, r.h, 4);
+  ctx.stroke();
   ctx.restore();
 }
 
-// TRAINING's row pulses (a soft outline) until TRAINING has been finished on this device.
+// TRAINING's row pulses (a soft outline in its colour) until TRAINING has been finished on this device.
 function drawPulse(ctx, r, uiTime) {
   const k = 0.5 + 0.5 * Math.sin((uiTime || 0) * 3);
   ctx.save();
-  ctx.globalAlpha = 0.2 + 0.5 * k;
-  ctx.lineWidth = 1.2;
-  ctx.shadowColor = "rgba(0,255,225,0.9)";
-  ctx.shadowBlur = 4 + 6 * k;
-  ctx.strokeStyle = "rgba(0,255,225,0.85)";
+  ctx.globalAlpha = 0.25 + 0.6 * k;
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = `rgba(${GREEN},0.9)`;
+  ctx.shadowBlur = 4 + 8 * k;
+  ctx.strokeStyle = `rgba(${GREEN},0.95)`;
   roundedRectPath(ctx, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 4);
   ctx.stroke();
   ctx.restore();
