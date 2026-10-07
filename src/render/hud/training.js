@@ -1,10 +1,12 @@
 // src/render/hud/training.js
 // TRAINING on screen (game/tutorial.js): the start screen's TRAINING button, the lesson prompt
-// under the HUD, CLEAR between lessons, TRAINING COMPLETE at the end, and the glitch on a retry.
+// under the HUD, EXIT and SKIP, CLEAR between lessons, TRAINING COMPLETE at the end, and the glitch
+// on a retry.
 
-import { CLEAR_FLASH_SEC, LESSONS, currentStep } from "../../game/tutorial.js";
+import { CLEAR_FLASH_SEC, LESSONS, TAUGHT_LESSONS, currentStep, trainingButtonsLive } from "../../game/tutorial.js";
 import { roundedRectPath } from "../../shared/canvas.js";
 import { clamp, easeOutCubic } from "../../shared/math.js";
+import { getTrainingExitRect, getTrainingSkipRect, pointInRect } from "../../ui/layout.js";
 import { isTrainingDone } from "../../ui/training.js";
 import { drawMenuButton } from "./controls.js";
 import { drawCachedPanel } from "./panelCache.js";
@@ -41,6 +43,24 @@ export function drawTrainingButton(ctx, rect, hot, uiTime) {
   ctx.restore();
 }
 
+// EXIT and SKIP, top left, sliding in with the HUD. Hidden once TRAINING is ending.
+export function drawTrainingButtons(ctx, state, introK = 1) {
+  if (!trainingButtonsLive(state)) return;
+  const exitRect = getTrainingExitRect();
+  const skipRect = getTrainingSkipRect();
+  const pointer = state.pointerInViewport === true;
+  ctx.save();
+  ctx.globalAlpha = clamp(introK, 0, 1);
+  if (ctx.globalAlpha > 0.999) ctx.globalAlpha = 1; // exactly 1 lets the cached panels be used
+  if (ctx.globalAlpha > 0) {
+    drawMenuButton(ctx, "trainingExit", exitRect, "EXIT", false,
+      pointer && pointInRect(state.pointerUiX, state.pointerUiY, exitRect));
+    drawMenuButton(ctx, "trainingSkip", skipRect, "SKIP", false,
+      pointer && pointInRect(state.pointerUiX, state.pointerUiY, skipRect));
+  }
+  ctx.restore();
+}
+
 // An ad (in world px; the world is drawn shifted left by camShift) reaching up behind rect.
 function adBehind(state, rect, camShift) {
   for (const plat of state.platforms) {
@@ -66,16 +86,18 @@ export function drawTrainingPrompt(ctx, state, W, H, touchUi, introK = 1, camShi
     return;
   }
 
+  // The final test names no key: just what to do.
   const lesson = LESSONS[tut.lesson];
   const step = currentStep(tut);
-  const chip = touchUi ? step.tap : step.key;
-  const action = touchUi ? step.tapAction : step.action;
-  const done = tut.moveDone === true;
+  const chip = step ? (touchUi ? step.tap : step.key) : "";
+  const action = step ? (touchUi ? step.tapAction : step.action) : "GET TO THE LAST ROOF";
+  const done = tut.moveDone === true && !lesson.test;
   const again = tut.retries > 0;
+  const header = lesson.test ? "FINAL TEST" : `LESSON ${tut.lesson + 1}/${TAUGHT_LESSONS}`;
 
   ctx.save();
   ctx.font = `700 14px ${MONO}`;
-  const chipW = Math.ceil(ctx.measureText(chip).width) + 18;
+  const chipW = chip ? Math.ceil(ctx.measureText(chip).width) + 18 : -12; // -12: no chip, no gap
   ctx.font = `800 13px ${ORBITRON}`;
   const actionW = Math.ceil(ctx.measureText(action).width) + (done ? 22 : 0);
   ctx.restore();
@@ -96,15 +118,15 @@ export function drawTrainingPrompt(ctx, state, W, H, touchUi, introK = 1, camShi
     * (1 - (1 - AD_BEHIND_ALPHA) * _adBehindK);
   if (ctx.globalAlpha > 0.999) ctx.globalAlpha = 1; // exactly 1 lets the cached panel be used
   if (ctx.globalAlpha > 0) {
-    const key = `${tut.lesson}|${chip}|${action}|${done}|${again}|${rect.x}|${w}`;
+    const key = `${header}|${chip}|${action}|${done}|${again}|${rect.x}|${w}`;
     drawCachedPanel(ctx, "trainingPrompt", key, rect, (pctx) =>
-      drawPromptDirect(pctx, rect, tut.lesson, chip, chipW, action, lesson.why, done, again)
+      drawPromptDirect(pctx, rect, header, chip, chipW, action, lesson.why, done, again)
     );
   }
   ctx.restore();
 
   // Stopped for this move: the key chip pulses until it's given.
-  if (tut.waiting) {
+  if (tut.waiting && chip) {
     const k = 0.5 + 0.5 * Math.sin(tut.waitT * 6);
     ctx.save();
     ctx.globalAlpha = 0.4 + 0.6 * k;
@@ -128,7 +150,7 @@ export function drawTrainingWaitDim(ctx, state, W, H) {
   ctx.restore();
 }
 
-function drawPromptDirect(ctx, rect, lessonIndex, chip, chipW, action, why, done, again) {
+function drawPromptDirect(ctx, rect, header, chip, chipW, action, why, done, again) {
   const { x, y, w, h } = rect;
   const edge = done ? `rgba(${DONE_RGB},0.8)` : "rgba(120,205,255,0.6)";
   ctx.save();
@@ -144,12 +166,12 @@ function drawPromptDirect(ctx, rect, lessonIndex, chip, chipW, action, why, done
   roundedRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, 12);
   ctx.stroke();
 
-  // Header: lesson count, and AGAIN after a retry.
+  // Header: lesson count (or FINAL TEST), and AGAIN after a retry.
   ctx.textBaseline = "alphabetic";
   ctx.font = `700 10px ${ORBITRON}`;
   ctx.textAlign = "left";
   ctx.fillStyle = "rgba(150,245,255,0.7)";
-  ctx.fillText(`LESSON ${lessonIndex + 1}/${LESSONS.length}`, x + 20, y + 17);
+  ctx.fillText(header, x + 20, y + 17);
   if (again) {
     ctx.textAlign = "right";
     ctx.fillStyle = "rgba(255,200,110,0.95)";
@@ -160,16 +182,18 @@ function drawPromptDirect(ctx, rect, lessonIndex, chip, chipW, action, why, done
   // Key (or button) chip, then what to do with it.
   const chipX = x + 20;
   const chipY = y + 24;
-  ctx.fillStyle = done ? `rgba(${DONE_RGB},0.16)` : "rgba(120,205,255,0.1)";
-  roundRect(ctx, chipX, chipY, chipW, 22, 6);
-  ctx.lineWidth = 1.25;
-  ctx.strokeStyle = done ? `rgba(${DONE_RGB},0.9)` : "rgba(120,205,255,0.75)";
-  roundedRectPath(ctx, chipX + 0.5, chipY + 0.5, chipW - 1, 21, 6);
-  ctx.stroke();
-  ctx.font = `700 14px ${MONO}`;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(240,255,255,0.98)";
-  ctx.fillText(chip, chipX + chipW / 2, chipY + 16);
+  if (chip) {
+    ctx.fillStyle = done ? `rgba(${DONE_RGB},0.16)` : "rgba(120,205,255,0.1)";
+    roundRect(ctx, chipX, chipY, chipW, 22, 6);
+    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = done ? `rgba(${DONE_RGB},0.9)` : "rgba(120,205,255,0.75)";
+    roundedRectPath(ctx, chipX + 0.5, chipY + 0.5, chipW - 1, 21, 6);
+    ctx.stroke();
+    ctx.font = `700 14px ${MONO}`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(240,255,255,0.98)";
+    ctx.fillText(chip, chipX + chipW / 2, chipY + 16);
+  }
 
   const textX = chipX + chipW + 12;
   ctx.textAlign = "left";

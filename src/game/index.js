@@ -36,8 +36,13 @@ import {
 import { startSpin, updateTricks } from "./tricks.js";
 import { spawnBreakShards, updateBreakShards } from "./breakShards.js";
 import { START_PANE_H, START_PANE_W, START_PANE_Y, checkStartSmash, startPaneX } from "./firewall.js";
-import { retryTraining, startTraining, updateTraining, waitForMove } from "./tutorial.js";
-import { getControlsButtonRect, getControlsPanelRect, getTrainingButtonRect, hitAreas, pointInRect } from "../ui/layout.js";
+import {
+  exitTraining, retryTraining, skipLesson, startTraining, trainingButtonsLive, updateTraining, waitForMove,
+} from "./tutorial.js";
+import {
+  getControlsButtonRect, getControlsPanelRect, getTrainingButtonRect, getTrainingExitRect, getTrainingSkipRect,
+  hitAreas, pointInRect,
+} from "../ui/layout.js";
 import { onGameFinished } from "../leaderboard/view.js";
 import { getBoards, getMyBest } from "../leaderboard/state.js";
 import { loadIteration, saveIteration } from "../ui/iteration.js";
@@ -263,7 +268,36 @@ export function createGame() {
     return false;
   }
 
+  // TRAINING: EXIT (or Esc) glitches back to the start screen; SKIP goes on to the next lesson.
+  // Runs first, so a click on either works while TRAINING is stopped for a move and isn't a jump.
+  function updateTrainingButtons(input) {
+    const escPressed = input?.consumeEscapePressed?.() === true;
+    if (!trainingButtonsLive(state)) return;
+    let exit = escPressed;
+    let skip = false;
+    if (!state.paused && !(state.resumeCountdownT > 0) && input?.consumePointerPressed?.() === true) {
+      const x = input.pointerInternalX;
+      const y = input.pointerInternalY;
+      exit = exit || pointInRect(x, y, getTrainingExitRect());
+      skip = !exit && pointInRect(x, y, getTrainingSkipRect());
+      if (exit || skip) {
+        input.consumeJumpPress?.();
+        input.suppressPointerJump?.();
+      }
+    }
+    if (exit) {
+      input?.consumePausePressed?.(); // Esc is also the pause key
+      state.paused = false;
+      state.resumeCountdownT = 0;
+      exitTraining(state);
+      if (!state.restartSmashActive) startResetGlitch(false);
+    } else if (skip) {
+      skipLesson(state);
+    }
+  }
+
   function update(dt, input) {
+    updateTrainingButtons(input);
     if (updatePause(dt, input)) return state;
     // TRAINING stopped for a move: nothing runs until the player gives it, then it's carried out below.
     const trainingMove = waitForMove(state, dt, input);

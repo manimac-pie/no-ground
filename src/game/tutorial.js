@@ -3,18 +3,21 @@
 // index.html?tutorial), that teaches one move per lesson at a steady speed.
 //
 // Each lesson runs from a runway roof, over the gap or past the ad that needs its move, to a goal
-// roof, which is also the next lesson's runway. A lesson is a few steps (jump, then the new move).
-// When a step's moment comes (the edge of the roof, the top of the jump, the ad just ahead), the game
-// stops and waits until the player gives that step's input, then carries on with it.
+// roof, which is also the next lesson's runway. A lesson is one or two steps: an air move starts with
+// the jump that leads into it; a roof move (duck, dash) is the move alone, since the gap before it
+// only needs the jump lesson 1 taught. When a step's moment comes (the edge of the roof, the top of
+// the jump, the ad just ahead), the game stops and waits until the player gives that step's input,
+// then carries on with it. The FINAL TEST mixes the moves with no stops and no keys shown.
+// EXIT (or Esc) leaves for the start screen; SKIP moves on to the next lesson.
 // Landing on the goal with every step done clears the lesson. Falling, crashing into an ad, or
 // reaching the goal without the move (say, jumping over the ad instead of ducking) rebuilds the course
 // from a fresh runway before that lesson: no death cinematic, and nothing goes to the leaderboard.
-// After the last lesson, TRAINING COMPLETE shows, then the screen glitches back to the start screen.
+// After the final test, TRAINING COMPLETE shows, then the screen glitches back to the start screen.
 //
 // The whole course is built up front (game/platforms.js spawns no random roofs during training).
 // Gaps are sized with game/reach.js at the training speed (SPEED_START):
-//   jump 120 (one jump reaches ~200), double jump / slowfall 280 (one jump ~240, a double jump or
-//   slowfall ~370). The dive drop is forgiving: any dive lands.
+//   jump 120 (one jump reaches ~200), double jump / slowfall 280 (one jump ~230, a double jump or
+//   slowfall ~360). The dive drop is forgiving: any dive lands.
 
 import { GROUND_Y, PLAYER_X, SAFE_CLEARANCE } from "./constants.js";
 import { makeRoof } from "./generator.js";
@@ -51,6 +54,12 @@ function onRunwayEdge(state) {
   if (!plat || plat.trainingGoal === state.tutorial.lesson) return false;
   // At most one step's travel from leaving the roof, so even at dash speed it can't be skipped.
   return plat.x + plat.w - p.x <= Math.max(10, state.speed / 60 + 4);
+}
+
+// On the lesson's goal roof (a roof move only counts there, not early on the runway).
+function onGoal(state) {
+  const p = state.player;
+  return p.onGround && p.groundPlat?.trainingGoal === state.tutorial.lesson;
 }
 
 function adAhead(state) {
@@ -100,19 +109,19 @@ export const LESSONS = [
   },
   {
     why: "STEEL ADS DON'T BREAK",
-    steps: [JUMP_STEP, {
+    steps: [{
       key: "S", action: "HOLD TO DUCK UNDER THE AD", tap: "DUCK/DIVE", tapAction: "HOLD TO DUCK", need: "duck",
-      stopAt: (state) => state.player.onGround && adAhead(state) <= 70,
-      done: (state) => state.player.onGround && state.player.ducking === true,
+      stopAt: (state) => onGoal(state) && adAhead(state) <= 70,
+      done: (state) => onGoal(state) && state.player.ducking === true,
     }],
     roofs: [{ gap: 100, y: 270, w: AD_X + 110 + AD_RUNOUT, ad: "steel" }],
   },
   {
     why: "GLASS ADS SHATTER",
-    steps: [JUMP_STEP, {
+    steps: [{
       key: "D", action: "DASH THROUGH THE GLASS", tap: "DASH", tapAction: "THROUGH THE GLASS", need: "dash",
-      stopAt: (state) => state.player.onGround && adAhead(state) <= 45,
-      done: (state) => state.player.dashAgeSec < 0.05,
+      stopAt: (state) => onGoal(state) && adAhead(state) <= 45,
+      done: (state) => onGoal(state) && state.player.dashAgeSec < 0.05,
     }],
     roofs: [{ gap: 100, y: 250, w: AD_X + 110 + DASH_RUNOUT, ad: "glass" }],
   },
@@ -132,14 +141,28 @@ export const LESSONS = [
       stopAt: (state) => airborne(state) && state.player.vy > -350,
       done: (state) => state.player.spinning === true && state.player.trickKind === "flip",
     }],
-    roofs: [{ gap: 130, y: 320, w: FINAL_W }],
+    roofs: [{ gap: 130, y: 320, w: GOAL_W }],
+  },
+  {
+    // No steps: nothing stops and no key is shown. Reaching the goal is the test.
+    test: true,
+    why: "NO STOPS, NO HINTS",
+    steps: [],
+    roofs: [
+      { gap: 280, y: 300, w: AD_X + 110 + AD_RUNOUT, ad: "steel" }, // double jump or slowfall, then duck
+      { gap: 110, y: 280, w: AD_X + 110 + DASH_RUNOUT, ad: "glass" }, // jump, then dash
+      { gap: 80, y: 345, w: FINAL_W },                                 // down onto the low roof
+    ],
   },
 ];
 
-// The step the prompt shows: the current one, or the last once all are done.
+// The lessons that teach a move (the final test isn't counted).
+export const TAUGHT_LESSONS = LESSONS.filter((lesson) => !lesson.test).length;
+
+// The step the prompt shows: the current one, or the last once all are done (null in the test).
 export function currentStep(tut) {
   const steps = LESSONS[tut.lesson].steps;
-  return steps[Math.min(tut.step, steps.length - 1)];
+  return steps[Math.min(tut.step, steps.length - 1)] ?? null;
 }
 
 // The roof Bob starts a lesson from: the starter roof, then each lesson's goal.
@@ -182,18 +205,20 @@ export function startTraining(state) {
     clearT: Infinity,   // seconds since a lesson was cleared
     retryT: Infinity,   // seconds since the last retry
     retries: 0,         // retries of this lesson (the prompt says AGAIN)
+    exiting: false,     // EXIT pressed: the screen is glitching back to the start
     finished: false,
     finishT: 0,
   };
   buildCourse(state, 0, starter.x + starter.w);
 }
 
-// Put Bob back on a fresh runway before the current lesson, and rebuild the rest of the course.
-export function retryTraining(state) {
+// Put Bob on a fresh runway before the current lesson, and rebuild the rest of the course.
+// runwayW: how far the runway runs ahead of Bob.
+function restartLesson(state, runwayW = RETRY_RUNWAY) {
   const tut = state.tutorial;
   const p = state.player;
   const y = runwayY(tut.lesson);
-  const runway = makeRoof({ x: -200, y, w: PLAYER_X + 200 + RETRY_RUNWAY, seq: state.gen.roofCount++ });
+  const runway = makeRoof({ x: -200, y, w: PLAYER_X + 200 + runwayW, seq: state.gen.roofCount++ });
   state.platforms.length = 0;
   state.platforms.push(runway);
   buildCourse(state, tut.lesson, runway.x + runway.w);
@@ -214,7 +239,44 @@ export function retryTraining(state) {
   tut.promptT = 0;
   tut.clearT = Infinity;
   tut.retryT = 0;
-  tut.retries += 1;
+}
+
+// Another go at the current lesson (a fall, a crash, or getting past without the move).
+export function retryTraining(state) {
+  restartLesson(state);
+  state.tutorial.retries += 1;
+}
+
+function finishTraining(tut) {
+  tut.waiting = false;
+  tut.finished = true;
+  tut.finishT = 0;
+  saveTrainingDone();
+}
+
+// SKIP: straight to the next lesson's runway. Skipping the final test finishes TRAINING.
+export function skipLesson(state) {
+  const tut = state.tutorial;
+  tut.retries = 0;
+  if (tut.lesson + 1 >= LESSONS.length) {
+    restartLesson(state, FINAL_W); // a roof that outlasts the finish, like the course's last one
+    finishTraining(tut);
+    return;
+  }
+  tut.lesson += 1;
+  restartLesson(state);
+}
+
+// EXIT: nothing more happens in TRAINING while the screen glitches back to the start.
+export function exitTraining(state) {
+  state.tutorial.waiting = false;
+  state.tutorial.exiting = true;
+}
+
+// EXIT and SKIP can be used: TRAINING is under way, past the zoom-out, and not ending.
+export function trainingButtonsLive(state) {
+  const tut = state.tutorial;
+  return !!tut && state.running && !state.menuZooming && !tut.finished && !tut.exiting;
 }
 
 // Each step of a training run, after Bob has moved. Returns true once TRAINING COMPLETE has had
@@ -224,6 +286,7 @@ export function updateTraining(state, dt) {
   tut.promptT += dt;
   tut.clearT += dt;
   tut.retryT += dt;
+  if (tut.exiting) return false;
   if (tut.finished) {
     tut.finishT += dt;
     return tut.finishT >= FINISH_HOLD_SEC;
@@ -257,11 +320,7 @@ export function updateTraining(state, dt) {
   tut.promptT = -CLEAR_FLASH_SEC;
   tut.clearT = 0;
   tut.retries = 0;
-  if (tut.lesson >= LESSONS.length) {
-    tut.finished = true;
-    tut.finishT = 0;
-    saveTrainingDone();
-  }
+  if (tut.lesson >= LESSONS.length) finishTraining(tut);
   return false;
 }
 
@@ -279,7 +338,7 @@ export function waitForMove(state, dt, input) {
   input?.consumeTrickIntent?.();
   const dash = input?.consumeDashPressed?.() === true;
   const dive = input?.consumeDivePressed?.() === true;
-  const need = currentStep(tut).need;
+  const need = currentStep(tut)?.need;
   const given =
     need === "jump" ? jump
       : need === "dash" ? dash

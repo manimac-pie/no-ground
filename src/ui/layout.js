@@ -26,6 +26,15 @@ export function getTrainingButtonRect() {
   return { x: 16, y: 18, w: 150, h: 30 };
 }
 
+// During TRAINING, top left (clear of the HUD): EXIT to the start screen, SKIP the lesson.
+export function getTrainingExitRect() {
+  return { x: 16, y: 18, w: 84, h: 30 };
+}
+
+export function getTrainingSkipRect() {
+  return { x: 108, y: 18, w: 84, h: 30 };
+}
+
 export function getControlsPanelRect(W = 800, H = 450) {
   const btn = getControlsButtonRect(W, H);
   const panelW = Math.min(380, Math.max(350, W * 0.45));

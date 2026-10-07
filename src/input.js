@@ -33,6 +33,7 @@ export function createInput(canvas, options = {}) {
     divePressed: false,
     dashPressed: false,
     pausePressed: false,
+    escapePressed: false, // Esc also pauses; TRAINING uses it to EXIT
     lastJumpSource: null,
 
     // Holds
@@ -142,6 +143,7 @@ export function createInput(canvas, options = {}) {
     }
 
     if (isPauseKey) {
+      if (key === "Escape") state.escapePressed = true;
       pressPause();
       return;
     }
@@ -401,6 +403,12 @@ export function createInput(canvas, options = {}) {
     consumePausePressed() {
       const v = state.pausePressed;
       state.pausePressed = false;
+      return v;
+    },
+
+    consumeEscapePressed() {
+      const v = state.escapePressed;
+      state.escapePressed = false;
       return v;
     },
 
