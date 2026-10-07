@@ -24,8 +24,8 @@ export function drawResetButton(ctx, button, red, keyHint, subline, typedK) {
   ctx.save();
 
   // Terminal panel
-  ctx.shadowColor = `rgba(${rgb},${red ? 0.75 : 0.45})`;
-  ctx.shadowBlur = red ? 22 : 14;
+  ctx.shadowColor = `rgba(${rgb},${red ? 0.4 : 0.2})`;
+  ctx.shadowBlur = red ? 12 : 8;
   ctx.fillStyle = red ? "rgba(26,8,12,0.94)" : "rgba(6,10,16,0.94)";
   roundRect(ctx, x, y, w, h, 10);
   ctx.shadowBlur = 0;
@@ -48,8 +48,8 @@ export function drawResetButton(ctx, button, red, keyHint, subline, typedK) {
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.font = RESET_PROMPT_FONT;
-  ctx.shadowColor = `rgba(${rgb},0.9)`;
-  ctx.shadowBlur = 10;
+  ctx.shadowColor = `rgba(${rgb},0.35)`;
+  ctx.shadowBlur = 4;
   ctx.fillStyle = `rgba(${rgb},1)`;
   ctx.fillText(shown, resetPromptX(button), y + 24);
   ctx.shadowBlur = 0;
@@ -75,6 +75,7 @@ export function drawResetCursor(ctx, button, red) {
   ctx.save();
   ctx.font = RESET_PROMPT_FONT;
   const cx = resetPromptX(button) + ctx.measureText(RESET_PROMPT).width + 4;
+  ctx.shadowBlur = 0; // no glow left over from the summary
   ctx.fillStyle = red ? "rgba(255,110,120,0.95)" : "rgba(120,220,255,0.95)";
   ctx.fillRect(cx, button.y + 10, 9, 16);
   ctx.restore();

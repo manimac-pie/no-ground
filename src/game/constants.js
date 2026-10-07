@@ -47,13 +47,14 @@ export const world = {
   PLATFORM_H,
 };
 
-// Physics tuning
-export const GRAVITY = 1800;
-export const JUMP_VELOCITY = -630;
+// Physics tuning. A jump peaks ~110 px up; stronger gravity with a faster takeoff gets it there
+// sooner and brings Bob down harder, so it reads snappy rather than floaty.
+export const GRAVITY = 2250;
+export const JUMP_VELOCITY = -705;
 export const MAX_FALL_SPEED = 1800;
 
 // Feel adjustments
-export const FALL_GRAVITY_MULT = 1.20;
+export const FALL_GRAVITY_MULT = 1.45;
 export const JUMP_CUT_MULT = 2.0;
 
 export const JUMP_CUT_RAMP_PER_SEC = 18;
@@ -62,19 +63,24 @@ export const JUMP_IMPULSE_FX_SEC = 0.18; // jump trail burst duration
 // Air control (W = slowfall, S = dive)
 export const SLOWFALL_FUEL_MAX = 0.55;           // seconds of slowfall available
 export const SLOWFALL_FUEL_REGEN_PER_SEC = 0.70; // fuel/sec regained while grounded
-export const SLOWFALL_GRAVITY_MULT = 0.30;       // gravity multiplier while slowfalling
+export const SLOWFALL_GRAVITY_MULT = 0.20;       // gravity multiplier while slowfalling (about the same pull as before the snappier jump)
 export const BACKFLIP_SLOWFALL_SEC = 0.08;       // slowfall fuel each backflip adds (about 15% of a full tank)
 export const SLOWFALL_FUEL_OVERFILL_SEC = 0.16;  // backflips can fill the tank past full by up to this much
-export const DIVE_GRAVITY_MULT = 4.2;            // extra gravity while diving (faster descent)
+export const DIVE_GRAVITY_MULT = 3.4;            // extra gravity while diving (faster descent)
 export const DIVE_MAX_FALL_SPEED = 4200;         // faster terminal speed when diving
 
 // Duck (S held on a roof; a dive landing flows into it)
 export const DUCK_HEIGHT_FRAC = 0.5;    // hitbox height while ducking (fraction of PLAYER_H)
 export const DUCK_LAND_SQUAT_SEC = 0.2; // brief squat after a dive landing when S is already released
 export const DUCK_JUMP_WINDOW_SEC = 0.15;   // jump while ducking, or this soon after letting go of S...
-export const DUCK_JUMP_VELOCITY_MULT = 1.08; // ...for a slightly higher jump (x1.08 speed ≈ 17% higher)
+export const DUCK_JUMP_VELOCITY_MULT = 1.15; // ...for a higher jump (x1.15 speed ≈ 32% higher at the 60 Hz step)
 
 export const LAND_GRACE_SEC = 0.06;
+export const LAND_IMPACT_SEC = 0.14;      // every landing squashes Bob for this long...
+export const LAND_IMPACT_FULL_VY = 1300;  // ...fully at this fall speed (px/s), less when he lands softer
+export const DIVE_LAND_SHAKE_SEC = 0.18;      // a dive landing shakes the screen for this long...
+export const DIVE_LAND_SHAKE_PX = 7;          // ...by up to this much...
+export const DIVE_LAND_SHAKE_FULL_DROP = 260; // ...when the dive started this many px above the landing (less for a shorter drop)
 export const LEDGE_CATCH_PX = 6; // land on a roof edge that scrolls in under Bob's feet up to this far below its top
 
 // Runner speed

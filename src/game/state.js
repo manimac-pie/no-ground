@@ -156,9 +156,14 @@ export function createInitialState() {
       divePhaseT: 0,
       ducking: false,
       duckLandT: 0,
+      landImpactT: 0, // seconds of landing squash left (game/player.js landImpact)
+      landImpactK: 0, // its strength, 0..1
+      diveStartY: 0,  // Bob's y when his current dive started
+      diveDropPx: 0,  // how far his last dive dropped before landing (the slam's screen shake)
       duckingPrev: false,
       duckAgeSec: 0,          // how long the current duck has lasted
       unduckAgeSec: Infinity, // time since the last duck ended (duck jump)
+      duckJumped: false,      // the last jump was a duck jump
 
       dashCooldown: 0,
       dashAgeSec: Infinity, // time since the last dash press (perfect ad break)
@@ -296,9 +301,14 @@ export function resetPlayer(p) {
   p.divePhaseT = 0;
   p.ducking = false;
   p.duckLandT = 0;
+  p.landImpactT = 0;
+  p.landImpactK = 0;
+  p.diveStartY = 0;
+  p.diveDropPx = 0;
   p.duckingPrev = false;
   p.duckAgeSec = 0;
   p.unduckAgeSec = Infinity;
+  p.duckJumped = false;
   p.slowfallFuel = SLOWFALL_FUEL_MAX;
   p.slowfallFuelMax = SLOWFALL_FUEL_MAX;
   p.dashCooldown = 0;

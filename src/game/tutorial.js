@@ -5,7 +5,8 @@
 // Each lesson runs from a runway roof, over the gap or past the ad that needs its move, to a goal
 // roof, which is also the next lesson's runway. A lesson is one or two steps: an air move starts with
 // the jump that leads into it; a roof move (duck, dash) is the move alone, since the gap before it
-// only needs the jump lesson 1 taught. When a step's moment comes (the edge of the roof, the top of
+// only needs the jump lesson 1 taught. The duck jump is a duck at the roof's edge, then a jump out
+// of it, up to a roof a plain jump can't reach. When a step's moment comes (the edge of the roof, the top of
 // the jump, the ad just ahead), the game stops and waits until the player gives that step's input,
 // then carries on with it. The FINAL TEST mixes the moves with no stops and no keys shown.
 // EXIT (or Esc) leaves for the start screen; SKIP moves on to the next lesson.
@@ -17,7 +18,8 @@
 // The whole course is built up front (game/platforms.js spawns no random roofs during training).
 // Gaps are sized with game/reach.js at the training speed (SPEED_START):
 //   jump 120 (one jump reaches ~200), double jump / slowfall 280 (one jump ~230, a double jump or
-//   slowfall ~360). The dive drop is forgiving: any dive lands.
+//   slowfall ~360), duck jump a 120 px climb (a plain jump peaks ~105 px, a duck jump ~139).
+//   The dive drop is forgiving: any dive lands.
 
 import { GROUND_Y, PLAYER_X, SAFE_CLEARANCE } from "./constants.js";
 import { makeRoof } from "./generator.js";
@@ -71,11 +73,21 @@ function adAhead(state) {
   return Infinity;
 }
 
+// How far Bob's back is from the end of the lesson's runway (Infinity off it).
+function runwayEdgeDist(state) {
+  const p = state.player;
+  const plat = p.onGround ? p.groundPlat : null;
+  if (!plat || plat.trainingGoal === state.tutorial.lesson) return Infinity;
+  return plat.x + plat.w - p.x;
+}
+
+const DUCK_JUMP_FROM = 90; // the duck jump lesson asks for the duck this far before the edge
+
 const airborne = (state) => !state.player.onGround && state.player.billboardDeath !== true;
 
 // A step: key/action is the prompt on a keyboard, tap/tapAction on a touch screen (the mobile button
 // names). need: the input that carries on after the stop ("jump" | "dash" | "dive" | "trick" presses,
-// "slowfall" | "duck" holds). stopAt(state): the moment to stop. done(state): the step happened.
+// "slowfall" | "duck" holds, "duckjump": a jump press with the duck held). stopAt(state): the moment to stop. done(state): the step happened.
 const JUMP_STEP = {
   key: "SPACE", action: "JUMP", tap: "TAP", tapAction: "JUMP", need: "jump",
   stopAt: onRunwayEdge,
@@ -114,7 +126,20 @@ export const LESSONS = [
       stopAt: (state) => onGoal(state) && adAhead(state) <= 70,
       done: (state) => onGoal(state) && state.player.ducking === true,
     }],
-    roofs: [{ gap: 100, y: 270, w: AD_X + 110 + AD_RUNOUT, ad: "steel" }],
+    roofs: [{ gap: 100, y: 330, w: AD_X + 110 + AD_RUNOUT, ad: "steel" }],
+  },
+  {
+    why: "A PLAIN JUMP WON'T REACH",
+    steps: [{
+      key: "S", action: "HOLD TO DUCK AT THE EDGE", tap: "DUCK/DIVE", tapAction: "HOLD TO DUCK", need: "duck",
+      stopAt: (state) => runwayEdgeDist(state) <= DUCK_JUMP_FROM,
+      done: (state) => runwayEdgeDist(state) <= DUCK_JUMP_FROM && state.player.ducking === true,
+    }, {
+      key: "SPACE", action: "STILL DUCKING: JUMP HIGHER", tap: "TAP", tapAction: "STILL DUCKING: JUMP", need: "duckjump",
+      stopAt: onRunwayEdge,
+      done: (state) => airborne(state) && state.player.duckJumped === true,
+    }],
+    roofs: [{ gap: 40, y: 210, w: GOAL_W }],
   },
   {
     why: "GLASS ADS SHATTER",
@@ -346,8 +371,9 @@ export function waitForMove(state, dt, input) {
           : need === "trick" ? trick
             : need === "slowfall" ? input?.slowfallHeld === true
               : need === "duck" ? input?.diveHeld === true
-                : true;
+                : need === "duckjump" ? jump && input?.diveHeld === true
+                  : true;
   if (!given) return "wait";
   tut.waiting = false;
-  return need;
+  return need === "duckjump" ? "jump" : need;
 }

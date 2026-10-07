@@ -10,6 +10,7 @@ import {
   world,
   DIVE_ANTICIPATION_SEC,
   JUMP_IMPULSE_FX_SEC,
+  LAND_IMPACT_SEC,
 } from "../../game/constants.js";
 
 import { clamp, smoothstep01 } from "../../shared/math.js";
@@ -119,8 +120,18 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
   const duckSy = 1 - 0.44 * _duckK;
   const duckSx = 1 + 0.16 * _duckK;
 
+  // Landing: a quick squash toward the feet on touchdown that springs back (game/player.js landImpact).
+  // A dive landing adds the heavy squash on top (state.heavyLandT).
+  const impactT = Number.isFinite(player.landImpactT) ? player.landImpactT : 0;
+  const impact01 = clamp(impactT / LAND_IMPACT_SEC, 0, 1);
+  const impactK = impact01 * impact01 * clamp(player.landImpactK ?? 0, 0, 1);
+  const heavyT = Number.isFinite(state.heavyLandT) ? state.heavyLandT : 0;
+  const heavy01 = clamp(heavyT / 0.22, 0, 1);
+  const landSy = (1 - 0.24 * impactK) * (1 - 0.26 * heavy01);
+  const landSx = (1 + 0.16 * impactK) * (1 + 0.18 * heavy01);
+
   const cx = player.x + player.w / 2;
-  const cy = player.y + player.h / 2 + (player.h / 2) * (1 - duckSy);
+  const cy = player.y + player.h / 2 + (player.h / 2) * (1 - duckSy) + (player.h / 2) * (1 - landSy);
 
   const bodyW = player.w * 0.70;
   const bodyH = player.h * 0.78;
@@ -196,13 +207,8 @@ export function drawPlayer(ctx, state, animTime, landed, COLORS, opts = {}) {
     poseRot *= 1 - _duckK;
   }
 
-  // Heavy landing squash if the game provides a timer.
-  const heavyT = Number.isFinite(state.heavyLandT) ? state.heavyLandT : 0;
-  if (heavyT > 0) {
-    const t01 = clamp(heavyT / 0.22, 0, 1);
-    poseSx *= 1.00 + 0.14 * t01;
-    poseSy *= 1.00 - 0.18 * t01;
-  }
+  poseSx *= landSx;
+  poseSy *= landSy;
 
   ctx.save();
   ctx.translate(cx, cy);

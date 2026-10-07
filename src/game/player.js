@@ -41,6 +41,8 @@ const SLOWFALL_FUEL_REGEN_PER_SEC = getConst("SLOWFALL_FUEL_REGEN_PER_SEC", 0.7)
 const GROUND_Y = getConst("GROUND_Y", 390);
 const COYOTE_TIME_SEC = getConst("COYOTE_TIME_SEC", 0.13);
 const LAND_GRACE_SEC = getConst("LAND_GRACE_SEC", 0.06);
+const LAND_IMPACT_SEC = getConst("LAND_IMPACT_SEC", 0.14);
+const LAND_IMPACT_FULL_VY = getConst("LAND_IMPACT_FULL_VY", 1300);
 const JUMP_BUFFER_SEC = getConst("JUMP_BUFFER_SEC", 0.13);
 const JUMP_VELOCITY = getConst("JUMP_VELOCITY", -630);
 const BREAK_JIT_BONUS_SEC = getConst("BREAK_JIT_BONUS_SEC", 0);
@@ -54,6 +56,15 @@ const CLOSE_CALL_OVERLAP_FRAC = getConst("CLOSE_CALL_OVERLAP_FRAC", 0.6);
 const BILLBOARD_BOUNCE_VY = getConst("BILLBOARD_BOUNCE_VY", 0);
 
 // ---------------- helpers ----------------
+// Touchdown: the renderer squashes Bob for a moment, harder the faster he came down (a dive lands
+// at full strength). vy: his fall speed just before landing.
+// A dive landing also records how far Bob dropped since the dive started (the renderer's screen shake).
+function landImpact(p, vy, diving, landY) {
+  p.landImpactT = LAND_IMPACT_SEC;
+  p.landImpactK = diving ? 1 : clamp(vy / LAND_IMPACT_FULL_VY, 0.3, 1);
+  if (diving) p.diveDropPx = Math.max(0, landY - p.diveStartY);
+}
+
 function canJumpNow(state) {
   const p = state.player;
   if (!p || p.jumpsRemaining <= 0) return false;
@@ -85,6 +96,7 @@ export function performJump(state) {
   if (isDoubleJump) awardBonus(state, DOUBLE_JUMP_BONUS_SEC, "DOUBLE JUMP");
 
   p.vy = duckJump ? JUMP_VELOCITY * DUCK_JUMP_VELOCITY_MULT : JUMP_VELOCITY;
+  p.duckJumped = duckJump; // TRAINING's duck jump lesson checks it
   p.ducking = false;
   p.duckingPrev = false; // so the next step doesn't count this as letting go of a duck
   p.unduckAgeSec = Infinity;
@@ -144,6 +156,7 @@ function updateDivePhase(state, dt, airborne) {
     p.diving = true;
     p.divePhase = "anticipate";
     p.divePhaseT = 0;
+    p.diveStartY = p.y;
 
     if (p.vy < 220) p.vy = 220;
     awardBonus(state, DIVE_BONUS_SEC, "DIVE");
@@ -320,6 +333,7 @@ export function integratePlayer(state, dt, endGame) {
           billboardHit = true;
           break;
         }
+        if (!wasOnGround) landImpact(p, p.vy, wasDiving, by - p.h);
         p.y = by - p.h;
         p.vy = 0;
         p.onGround = true;
@@ -395,6 +409,7 @@ export function integratePlayer(state, dt, endGame) {
       const ledgeCatch = justReached && bottom >= plat.y && prevBottom <= topBefore + LEDGE_CATCH_PX;
 
       if (overlapsX && (crossedTop || ledgeCatch)) {
+        if (!wasOnGround) landImpact(p, p.vy, wasDiving, plat.y - p.h);
         p.y = plat.y - p.h;
         p.vy = 0;
         p.onGround = true;
@@ -479,6 +494,7 @@ export function integratePlayer(state, dt, endGame) {
   if (state.heavyLandT > 0) {
     state.heavyLandT = Math.max(0, state.heavyLandT - dt);
   }
+  if (p.landImpactT > 0) p.landImpactT = Math.max(0, p.landImpactT - dt);
 }
 
 // ---------------- DASH ----------------

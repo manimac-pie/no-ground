@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>System Shell Iterations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" />
+<style>
+  :root {
+    --bg: #07080b;
+    --ink: #f2f2f2;
+    --dim: rgba(242,242,242,0.55);
+    --cyan: 120,205,255;
+    --amber: 255,180,70;
+    --red: 255,85,110;
+    --magenta: 255,90,200;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font: 800 28px Orbitron, sans-serif; letter-spacing: 0.06em; margin: 0 0 6px; }
+  .lede { color: var(--dim); margin: 0 0 20px; max-width: 72ch; }
+  .common {
+    border: 1px solid rgba(var(--cyan),0.18); background: rgba(var(--cyan),0.04);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 28px;
+  }
+  .common h2, .notes h3 { font: 600 13px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgb(var(--amber)); margin: 0 0 8px; text-transform: uppercase; }
+  .common ul, .notes ul { margin: 0; padding-left: 18px; }
+  .common li, .notes li { margin: 3px 0; }
+  nav.jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 44px; }
+  nav.jump a { font: 13px "Share Tech Mono", monospace; letter-spacing: 0.08em; color: rgb(var(--cyan)); text-decoration: none; border: 1px solid rgba(var(--cyan),0.3); border-radius: 999px; padding: 4px 12px; }
+  nav.jump a:hover { background: rgba(var(--cyan),0.1); }
+
+  section.sample { margin-bottom: 72px; scroll-margin-top: 20px; }
+  section.sample > header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  section.sample > header .num { font: 800 14px Orbitron, sans-serif; color: rgb(var(--cyan)); }
+  section.sample > header h2 { font: 700 20px Orbitron, sans-serif; margin: 0; letter-spacing: 0.04em; }
+  section.sample > header p { margin: 0; color: var(--dim); flex-basis: 100%; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 28px; margin-top: 16px; color: rgba(242,242,242,0.85); }
+  .side { display: grid; grid-template-columns: minmax(0, 380px) 1fr; gap: 32px; align-items: start; }
+  .side .notes { margin-top: 0; grid-template-columns: 1fr; }
+  @media (max-width: 760px) { .side { grid-template-columns: 1fr; } }
+
+  /* ---------------- The mock frame (sizes in cqw = 1% of frame width) ---------------- */
+  .frame {
+    position: relative; aspect-ratio: 16 / 10; container-type: inline-size; overflow: hidden;
+    border-radius: 10px; background: #0f1116;
+    box-shadow: 0 0 0 1px rgba(242,242,242,0.08), 0 20px 60px rgba(0,0,0,0.6);
+    font-family: "Share Tech Mono", monospace; user-select: none;
+  }
+  .frame.portrait { aspect-ratio: 9 / 16; width: 100%; max-width: 380px; border-radius: 22px; }
+  .frame > svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .frame.portrait > svg.scene { height: 56%; }
+  .ui { position: absolute; }
+
+  .bob-eye { animation: glance 3s steps(1) infinite; }
+  @keyframes glance { 0% { transform: translate(0,0); } 25% { transform: translate(-6px,2px); } 50% { transform: translate(3px,-2px); } 75% { transform: translate(-2px,3px); } }
+  .pane-glow { animation: paneGlow 2.4s ease-in-out infinite; }
+  @keyframes paneGlow { 50% { opacity: 0.55; } }
+  .blink { animation: blink 1.1s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .type > * { opacity: 0; animation: typeIn 0.01s forwards; }
+  .type > :nth-child(1) { animation-delay: 0.2s; } .type > :nth-child(2) { animation-delay: 0.55s; }
+  .type > :nth-child(3) { animation-delay: 0.9s; }  .type > :nth-child(4) { animation-delay: 1.25s; }
+  .type > :nth-child(5) { animation-delay: 1.6s; }  .type > :nth-child(6) { animation-delay: 1.95s; }
+  @keyframes typeIn { to { opacity: 1; } }
+
+  /* ---------------- Shell vocabulary, shared by every iteration ---------------- */
+  .shell { background: rgba(5,7,10,0.95); color: var(--ink); }
+  .scan::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: repeating-linear-gradient(0deg, rgba(242,242,242,0.025) 0 1px, transparent 1px 4px);
+  }
+  .glitch {
+    font-family: Orbitron, sans-serif; font-weight: 800; letter-spacing: 0.05em; line-height: 1;
+    text-shadow: -0.12cqw 0 rgba(var(--red),0.75), 0.12cqw 0 rgba(var(--cyan),0.75);
+  }
+  .t { color: rgba(242,242,242,0.3); }          /* timestamps */
+  .ok { color: rgba(242,242,242,0.6); }
+  .warn { color: rgb(var(--amber)); }
+  .alert { color: rgb(var(--red)); }
+  .bob { color: rgb(var(--magenta)); text-shadow: 0 0 0.6cqw rgba(var(--magenta),0.6); }
+  .cyan { color: rgb(var(--cyan)); }
+  .cursor { display: inline-block; width: 0.65em; height: 1.05em; background: rgb(var(--cyan)); vertical-align: -0.15em; }
+  .keycap {
+    display: inline-block; border: 0.1cqw solid rgba(var(--cyan),0.7); border-bottom-width: 0.25cqw;
+    border-radius: 0.35cqw; padding: 0 0.5cqw; color: rgb(var(--cyan)); line-height: 1.35; font-family: "Share Tech Mono", monospace;
+  }
+  .rows { display: grid; grid-template-columns: auto 1fr auto; column-gap: 1cqw; row-gap: 0.3cqw; align-items: baseline; }
+  .rows .r { color: rgb(var(--amber)); }
+  .rows .s { text-align: right; font-variant-numeric: tabular-nums; }
+  .rows .me { color: rgb(var(--cyan)); }
+  .tabs { display: inline-flex; border: 0.1cqw solid rgba(var(--cyan),0.35); border-radius: 999px; padding: 0.2cqw; gap: 0.2cqw; }
+  .tabs span { white-space: nowrap; padding: 0.1cqw 0.7cqw; border-radius: 999px; color: rgba(242,242,242,0.55); }
+  .tabs span.on { background: rgba(var(--cyan),0.18); color: rgb(var(--cyan)); }
+  .bar { height: 0.35cqw; border-radius: 1cqw; background: rgba(242,242,242,0.1); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, rgba(var(--cyan),0.6), rgb(var(--amber))); }
+
+  /* ---------------- A: Shell v2 ---------------- */
+  .a-panel {
+    left: 0; top: 0; bottom: 0; width: 30cqw; padding: 1.6cqw 2.2cqw 2.2cqw;
+    display: flex; flex-direction: column; gap: 1.6cqw; font-size: 1.05cqw;
+    border-right: 0.12cqw solid rgba(var(--cyan),0.35);
+  }
+  .a-panel::before {   /* ruler ticks along the panel's edge */
+    content: ""; position: absolute; top: 0; bottom: 0; right: -0.12cqw; width: 0.6cqw;
+    background: repeating-linear-gradient(180deg, rgba(var(--cyan),0.45) 0 0.1cqw, transparent 0.1cqw 1.2cqw);
+  }
+  .a-status { display: flex; justify-content: space-between; font-size: 0.8cqw; letter-spacing: 0.16em; color: rgba(242,242,242,0.4); padding-bottom: 0.8cqw; border-bottom: 0.1cqw solid rgba(242,242,242,0.08); }
+  .a-status .live::before { content: ""; display: inline-block; width: 0.5cqw; height: 0.5cqw; border-radius: 50%; background: rgb(var(--cyan)); margin-right: 0.5cqw; box-shadow: 0 0 0.6cqw rgb(var(--cyan)); vertical-align: 0.1cqw; }
+  .a-logo { font-size: 3.1cqw; }
+  .a-sub { font-size: 0.85cqw; letter-spacing: 0.2em; color: rgba(var(--cyan),0.75); margin-top: 0.6cqw; }
+  .a-log { line-height: 1.65; }
+  .a-menu { display: flex; flex-direction: column; gap: 0.3cqw; }
+  .a-menu .item { display: flex; align-items: center; gap: 1cqw; padding: 0.7cqw 1cqw; border-radius: 0.35cqw; font: 700 1.25cqw Orbitron, sans-serif; letter-spacing: 0.12em; color: rgba(242,242,242,0.65); }
+  .a-menu .item i { font: normal 0.85cqw "Share Tech Mono", monospace; color: rgba(242,242,242,0.3); letter-spacing: 0.05em; }
+  .a-menu .item .k { margin-left: auto; font: 0.85cqw "Share Tech Mono", monospace; letter-spacing: 0.06em; }
+  .a-menu .item.on { background: rgba(var(--cyan),0.12); color: #fff; box-shadow: inset 0.3cqw 0 0 rgb(var(--cyan)); }
+  .a-menu .item.on i { color: rgb(var(--cyan)); }
+  .a-records { margin-top: auto; }
+  .a-records .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9cqw; font-size: 0.85cqw; letter-spacing: 0.16em; color: rgba(242,242,242,0.45); }
+  .a-records .rows { font-size: 1.05cqw; }
+  .a-records .rows .me { background: rgba(var(--cyan),0.08); }
+  .a-records .foot { display: flex; justify-content: space-between; margin-top: 0.9cqw; font-size: 0.8cqw; letter-spacing: 0.1em; color: rgba(242,242,242,0.45); }
+  .a-target { transform: translateX(-50%); white-space: nowrap; font-size: 0.95cqw; letter-spacing: 0.22em; color: rgba(var(--amber),0.9); }
+
+  /* ---------------- B: Windows ---------------- */
+  .win {
+    border: 0.1cqw solid rgba(var(--cyan),0.32); border-radius: 0.7cqw; overflow: hidden;
+    background: rgba(6,9,13,0.9); box-shadow: 0 1.5cqw 4cqw rgba(0,0,0,0.65);
+  }
+  .win .bar-t { display: flex; align-items: center; gap: 0.5cqw; padding: 0.55cqw 1cqw; background: rgba(var(--cyan),0.07); border-bottom: 0.1cqw solid rgba(var(--cyan),0.18); font-size: 0.85cqw; color: rgba(242,242,242,0.5); letter-spacing: 0.06em; }
+  .win .bar-t b { width: 0.6cqw; height: 0.6cqw; border-radius: 0.1cqw; display: inline-block; }
+  .win .bar-t span { margin-left: 0.6cqw; }
+  .win .body { padding: 1.2cqw 1.4cqw; font-size: 1.05cqw; position: relative; }
+  .b-main { left: 2.6cqw; top: 2.6cqw; width: 33cqw; }
+  .b-main .logo { font-size: 2.6cqw; margin-bottom: 1cqw; }
+  .b-main .log { line-height: 1.6; margin-bottom: 1cqw; }
+  .b-cmd { display: flex; justify-content: space-between; align-items: center; padding: 0.45cqw 0.8cqw; margin: 0 -0.8cqw; border-radius: 0.3cqw; color: rgba(242,242,242,0.7); }
+  .b-cmd.on { background: rgba(var(--cyan),0.13); color: #fff; }
+  .b-cmd .p { color: rgba(var(--cyan),0.7); margin-right: 0.6cqw; }
+  .b-cmd small { font-size: 0.8cqw; color: rgba(242,242,242,0.35); }
+  .b-rec { right: 2.6cqw; top: 2.6cqw; width: 22cqw; }
+  .b-rec .foot { display: flex; justify-content: space-between; margin-top: 0.9cqw; font-size: 0.8cqw; color: rgba(242,242,242,0.45); letter-spacing: 0.08em; }
+
+  /* ---------------- C: Drop-down console ---------------- */
+  .c-console {
+    left: 0; right: 0; top: 0; height: 22cqw;
+    border-bottom: 0.15cqw solid rgba(var(--cyan),0.55);
+    box-shadow: 0 0 3cqw rgba(var(--cyan),0.12);
+    display: grid; grid-template-rows: auto 1fr;
+  }
+  .c-head { display: flex; justify-content: space-between; align-items: center; padding: 0.7cqw 3cqw; background: rgba(var(--cyan),0.06); border-bottom: 0.1cqw solid rgba(var(--cyan),0.15); font-size: 0.85cqw; letter-spacing: 0.18em; color: rgba(242,242,242,0.45); }
+  .c-head b { color: rgb(var(--cyan)); font-weight: 400; }
+  .c-body { display: grid; grid-template-columns: 1fr 24cqw; gap: 4cqw; padding: 1.4cqw 3cqw 1.4cqw; min-height: 0; }
+  .c-left { display: flex; flex-direction: column; min-height: 0; }
+  .c-top { display: flex; gap: 3cqw; align-items: flex-start; }
+  .c-logo { font-size: 3.2cqw; white-space: nowrap; }
+  .c-logo small { display: block; font: 0.85cqw "Share Tech Mono", monospace; letter-spacing: 0.22em; color: rgba(var(--cyan),0.75); margin-top: 0.7cqw; text-shadow: none; }
+  .c-log { font-size: 1.02cqw; line-height: 1.6; }
+  .c-prompt { margin-top: auto; display: flex; align-items: center; gap: 1.2cqw; font-size: 1.2cqw; padding-top: 1cqw; border-top: 0.1cqw dashed rgba(242,242,242,0.12); }
+  .c-prompt .ps { color: rgba(var(--cyan),0.75); }
+  .c-chip { font-size: 0.9cqw; padding: 0.3cqw 0.8cqw; border-radius: 0.35cqw; border: 0.1cqw solid rgba(242,242,242,0.18); color: rgba(242,242,242,0.7); letter-spacing: 0.06em; }
+  .c-chip.on { border-color: rgba(var(--cyan),0.6); background: rgba(var(--cyan),0.12); color: #fff; }
+  .c-chips { margin-left: auto; display: flex; gap: 0.6cqw; }
+  .c-rec { font-size: 1.02cqw; border-left: 0.1cqw solid rgba(242,242,242,0.08); padding-left: 2cqw; }
+  .c-rec .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8cqw; font-size: 0.85cqw; letter-spacing: 0.16em; color: rgba(242,242,242,0.45); }
+  .c-rec .foot { margin-top: 0.8cqw; font-size: 0.8cqw; color: rgba(242,242,242,0.45); }
+  .c-tab { left: 50%; transform: translateX(-50%); top: 22cqw; padding: 0.2cqw 1.4cqw 0.4cqw; font-size: 0.75cqw; letter-spacing: 0.2em; color: rgba(var(--cyan),0.8); background: rgba(5,7,10,0.95); border: 0.1cqw solid rgba(var(--cyan),0.55); border-top: none; border-radius: 0 0 0.5cqw 0.5cqw; }
+  .c-bubble {
+    transform: translateX(-50%); white-space: nowrap; font-size: 1cqw; padding: 0.4cqw 0.9cqw;
+    border: 0.1cqw solid rgba(var(--magenta),0.6); border-radius: 0.4cqw; background: rgba(20,6,18,0.85);
+  }
+  .c-bubble::after { content: ""; position: absolute; left: 50%; bottom: -0.6cqw; width: 0.9cqw; height: 0.9cqw; background: inherit; border: inherit; border-top: none; border-left: none; transform: translateX(-50%) rotate(45deg); }
+
+  /* ---------------- D: Phone (cqw here = 1% of the phone's width) ---------------- */
+  .d-top { left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: center; padding: 5cqw 5cqw 0; }
+  .d-top .logo { font-size: 6cqw; }
+  .d-top .it { font-size: 3cqw; letter-spacing: 0.14em; color: rgba(var(--cyan),0.8); }
+  .d-sheet {
+    left: 0; right: 0; bottom: 0; top: 52%; padding: 3cqw 5.5cqw 6cqw;
+    border-top: 0.4cqw solid rgba(var(--cyan),0.45); border-radius: 6cqw 6cqw 0 0;
+    display: flex; flex-direction: column; gap: 3.6cqw; font-size: 3.4cqw;
+    box-shadow: 0 -2cqw 8cqw rgba(0,0,0,0.6);
+  }
+  .d-grip { width: 12cqw; height: 1.1cqw; border-radius: 1cqw; background: rgba(242,242,242,0.2); margin: 0 auto 0.5cqw; }
+  .d-log { line-height: 1.6; }
+  .d-go {
+    border: 0.4cqw solid rgba(var(--cyan),0.75); border-radius: 2.4cqw; background: rgba(var(--cyan),0.14);
+    padding: 3.4cqw 4cqw; display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 0 0 5cqw rgba(var(--cyan),0.2), inset 0 0 3cqw rgba(var(--cyan),0.1);
+  }
+  .d-go b { font: 800 5.4cqw Orbitron, sans-serif; letter-spacing: 0.12em; }
+  .d-go small { font-size: 2.8cqw; color: rgba(var(--cyan),0.9); letter-spacing: 0.12em; }
+  .d-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2.4cqw; }
+  .d-pair span { text-align: center; font: 700 3.2cqw Orbitron, sans-serif; letter-spacing: 0.14em; padding: 3cqw 0; border: 0.3cqw solid rgba(242,242,242,0.15); border-radius: 2cqw; color: rgba(242,242,242,0.75); }
+  .d-rec { display: flex; align-items: center; gap: 3cqw; padding: 3cqw 3.4cqw; border-radius: 2cqw; background: rgba(242,242,242,0.04); }
+  .d-rec .big { font-size: 5cqw; }
+  .d-rec .meta { font-size: 2.8cqw; color: rgba(242,242,242,0.55); letter-spacing: 0.08em; flex: 1; }
+  .d-rec .meta .bar { height: 1cqw; margin-top: 1.2cqw; }
+  .d-rec .arrow { color: rgb(var(--cyan)); font-size: 4cqw; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bob-eye, .pane-glow, .blink, .type > * { animation: none; opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>System Shell: 4 iterations</h1>
+  <p class="lede">Follow-up to direction 02 in <code>start-screen-mockups.html</code>. The world is the same; each iteration changes how much screen the shell takes and how it talks.</p>
+
+  <div class="common">
+    <h2>Kept in every iteration</h2>
+    <ul>
+      <li>The <b>system's voice</b>: cold, logged, timestamped. It counts Bob's failed escapes and calls the weekly reset a "purge".</li>
+      <li><b>Bob talks back</b>: one line in magenta that isn't the system's. It's the hint that he's breaking out.</li>
+      <li><b>BREAK OUT is always first and pre-selected</b>, with the input next to it. TRAINING and CONTROLS sit right under it.</li>
+      <li>The leaderboard becomes <b>subject records</b>: your row highlighted in place, distance to #1 as a bar.</li>
+      <li>The logo has a small red/cyan split, like a glitchy display.</li>
+    </ul>
+  </div>
+
+  <nav class="jump">
+    <a href="#a">A Shell v2</a>
+    <a href="#b">B Windows</a>
+    <a href="#c">C Drop-down console</a>
+    <a href="#d">D Phone</a>
+  </nav>
+
+  <!-- ============================== A ============================== -->
+  <section class="sample" id="a">
+    <header>
+      <span class="num">A</span><h2>Shell v2</h2>
+      <p>The original sidebar, tightened: narrower, a status line on top, a log that types itself in, numbered commands, and records pinned to the bottom. The firewall gets a "TARGET" tag so the shell and the world feel connected.</p>
+    </header>
+    <div class="frame" data-scene='{"bobX":700,"paneX":880,"paneW":520}'>
+      <div class="ui shell scan a-panel">
+        <div class="a-status"><span>SIM://SECTOR-00</span><span class="live">LIVE</span></div>
+        <div>
+          <div class="glitch a-logo">NO GROUND</div>
+          <div class="a-sub">SIMULATION SHELL · ITERATION 0042</div>
+        </div>
+        <div class="a-log type">
+          <div><span class="t">[00.02]</span> <span class="ok">subject BOB loaded</span></div>
+          <div><span class="t">[00.04]</span> <span class="ok">memory wiped (41 runs)</span></div>
+          <div><span class="t">[00.07]</span> <span class="warn">firewall sector 00: ARMED</span></div>
+          <div><span class="t">[00.09]</span> <span class="bob">BOB: not this time.</span></div>
+          <div><span class="cyan">&gt;</span> <span class="cursor blink"></span></div>
+        </div>
+        <div class="a-menu">
+          <div class="item on"><i>01</i>BREAK OUT<span class="k"><span class="keycap">SPACE</span> / TAP</span></div>
+          <div class="item"><i>02</i>TRAINING</div>
+          <div class="item"><i>03</i>CONTROLS</div>
+        </div>
+        <div class="a-records">
+          <div class="head">SUBJECT RECORDS <span class="tabs"><span class="on">WEEK</span><span>ALL</span></span></div>
+          <div class="rows">
+            <span class="r">1</span><span>glitch</span><span class="s">39,916</span>
+            <span class="r me">2</span><span class="me">YOU</span><span class="s me">31,279</span>
+            <span class="r">3</span><span>damn</span><span class="s">30,327</span>
+          </div>
+          <div class="bar" style="margin-top:0.9cqw"><i style="width:76%"></i></div>
+          <div class="foot"><span>8,638 TO #1</span><span class="warn">PURGE IN 4D 23H</span></div>
+        </div>
+      </div>
+      <div class="ui a-target" style="left:71.25%; top:19.6cqw">▼ TARGET · FIREWALL/00</div>
+    </div>
+    <div class="notes">
+      <div><h3>Changed from 02</h3><ul><li>Panel 33% → 30% wide, so Bob and the pane have more room.</li><li>Log lines get timestamps and type in one by one on load (static if reduced motion is on).</li><li>Commands are numbered; only the selected one shows its key.</li><li>"Purge in 4d 23h" instead of "resets in".</li></ul></div>
+      <div><h3>Watch out for</h3><ul><li>The log is flavour; it must not push the menu down on short screens. Cut it to 2 lines first.</li><li>The type-in should only run on the first visit of a session, or it gets old.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium.</b> One cached panel (<code>panelCache.js</code>), three hit areas in <code>ui/layout.js</code>, start camera shifted right.</li></ul></div>
+    </div>
+  </section>
+
+  <!-- ============================== B ============================== -->
+  <section class="sample" id="b">
+    <header>
+      <span class="num">B</span><h2>Windows</h2>
+      <p>The shell as the simulation's own desktop: a terminal window and a records window floating over the city. The world stays visible behind and between them.</p>
+    </header>
+    <div class="frame" data-scene='{"bobX":470,"paneX":650,"paneW":520,"paneY":400}'>
+      <div class="ui win shell b-main">
+        <div class="bar-t"><b style="background:rgb(255,85,110)"></b><b style="background:rgb(255,180,70)"></b><b style="background:rgb(120,205,255)"></b><span>bob@sim:~/sector-00</span></div>
+        <div class="body scan">
+          <div class="glitch logo">NO GROUND</div>
+          <div class="log type">
+            <div><span class="t">[00.02]</span> <span class="ok">iteration 0042 · subject BOB</span></div>
+            <div><span class="t">[00.07]</span> <span class="warn">firewall sector 00: ARMED</span></div>
+            <div><span class="t">[00.09]</span> <span class="bob">BOB: let me out.</span></div>
+          </div>
+          <div class="b-cmd on"><span><span class="p">$</span>./break_out<span class="cursor blink" style="margin-left:0.3cqw"></span></span><span class="keycap">SPACE</span></div>
+          <div class="b-cmd"><span><span class="p">$</span>./training</span><small>guided run</small></div>
+          <div class="b-cmd"><span><span class="p">$</span>man controls</span><small>keys + moves</small></div>
+        </div>
+      </div>
+      <div class="ui win shell b-rec">
+        <div class="bar-t"><b style="background:rgba(242,242,242,0.25)"></b><b style="background:rgba(242,242,242,0.25)"></b><b style="background:rgba(242,242,242,0.25)"></b><span>records.db</span></div>
+        <div class="body scan">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.9cqw;font-size:0.85cqw;letter-spacing:0.14em;color:rgba(242,242,242,0.45)">SUBJECTS <span class="tabs"><span class="on">WEEK</span><span>ALL</span></span></div>
+          <div class="rows">
+            <span class="r">1</span><span>glitch</span><span class="s">39,916</span>
+            <span class="r me">2</span><span class="me">YOU</span><span class="s me">31,279</span>
+            <span class="r">3</span><span>damn</span><span class="s">30,327</span>
+          </div>
+          <div class="foot"><span>8,638 TO #1</span><span class="warn">PURGE 4D 23H</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div><h3>Changed from 02</h3><ul><li>No full-height panel: two compact windows, so more of the city shows.</li><li>Commands read like terminal commands (<code>./break_out</code>, <code>man controls</code>), with a one-line description.</li><li>Records live in their own window, so they can be closed or moved later.</li></ul></div>
+      <div><h3>Watch out for</h3><ul><li>Desktop "windows" look like a PC game; not great on phones.</li><li>The firewall has to sit lower to clear the windows.</li><li>The <code>$ ./</code> syntax reads as a joke to programmers and as noise to everyone else.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium.</b> Two cached panels instead of one; same hit areas as A.</li></ul></div>
+    </div>
+  </section>
+
+  <!-- ============================== C ============================== -->
+  <section class="sample" id="c">
+    <header>
+      <span class="num">C</span><h2>Drop-down console</h2>
+      <p>The shell drops down from the top like a game console. Log and title on the left, records on the right, and a command prompt along the bottom edge. Bob's line also appears as a speech bubble over him in the world.</p>
+    </header>
+    <div class="frame" data-scene='{"bobX":345,"paneX":580,"paneW":550,"paneY":410}'>
+      <div class="ui shell scan c-console">
+        <div class="c-head"><span>SIMULATION SHELL</span><span>ITERATION <b>0042</b> · SUBJECT <b>BOB</b> · 41 RUNS TERMINATED</span></div>
+        <div class="c-body">
+          <div class="c-left">
+            <div class="c-top">
+              <div class="glitch c-logo">NO GROUND<small>SIM://SECTOR-00</small></div>
+              <div class="c-log type">
+                <div><span class="t">[00.02]</span> <span class="ok">world rebuilt</span></div>
+                <div><span class="t">[00.04]</span> <span class="ok">subject restored to start roof</span></div>
+                <div><span class="t">[00.07]</span> <span class="warn">firewall sector 00: ARMED</span></div>
+                <div><span class="t">[00.09]</span> <span class="alert">unexpected input from subject</span></div>
+              </div>
+            </div>
+            <div class="c-prompt">
+              <span class="ps">bob@sector-00:~$</span><span>break_out<span class="cursor blink" style="margin-left:0.3cqw"></span></span>
+              <span class="c-chips"><span class="c-chip on"><span class="keycap">SPACE</span>&nbsp; break_out</span><span class="c-chip">training</span><span class="c-chip">controls</span></span>
+            </div>
+          </div>
+          <div class="c-rec">
+            <div class="head">SUBJECT RECORDS <span class="tabs"><span class="on">WEEK</span><span>ALL</span></span></div>
+            <div class="rows">
+              <span class="r">1</span><span>glitch</span><span class="s">39,916</span>
+              <span class="r me">2</span><span class="me">YOU</span><span class="s me">31,279</span>
+              <span class="r">3</span><span>damn</span><span class="s">30,327</span>
+            </div>
+            <div class="bar" style="margin-top:0.8cqw"><i style="width:76%"></i></div>
+            <div class="foot">8,638 to #1 · <span class="warn">purge in 4d 23h</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="ui c-tab">SHELL</div>
+      <div class="ui c-bubble bob" style="left:21.6%; top:28.5cqw">not this time.</div>
+    </div>
+    <div class="notes">
+      <div><h3>Changed from 02</h3><ul><li>Horizontal instead of vertical: the whole width of the world stays visible, and Bob keeps his usual spot.</li><li>The menu is a prompt with three chips; the selected chip is what's "typed".</li><li>Bob's reply leaves the shell and appears over him, so the world and UI talk to each other.</li></ul></div>
+      <div><h3>Watch out for</h3><ul><li>The console is a natural thing to animate: it could retract upward as Bob hits the firewall.</li><li>Top 35% of the sky is covered; tall screens are fine, very wide short ones get tight.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium.</b> One cached panel; the speech bubble is a small world-space draw above Bob.</li></ul></div>
+    </div>
+  </section>
+
+  <!-- ============================== D ============================== -->
+  <section class="sample" id="d">
+    <header>
+      <span class="num">D</span><h2>Phone</h2>
+      <p>What the shell becomes in portrait. The world sits on top; the shell is a bottom sheet with one big BREAK OUT button. Records collapse into one line that opens the full board.</p>
+    </header>
+    <div class="side">
+      <div class="frame portrait" data-scene='{"bobX":430,"paneX":560,"paneW":470,"paneY":430,"vb":"280 240 800 820"}'>
+        <div class="ui d-top"><span class="glitch logo">NO GROUND</span><span class="it">ITER 0042</span></div>
+        <div class="ui shell scan d-sheet">
+          <div class="d-grip"></div>
+          <div class="d-log type">
+            <div><span class="warn">&gt; firewall sector 00: ARMED</span></div>
+            <div><span class="bob">&gt; BOB: not this time.</span></div>
+          </div>
+          <div class="d-go"><b>BREAK OUT</b><small>TAP</small></div>
+          <div class="d-pair"><span>TRAINING</span><span>CONTROLS</span></div>
+          <div class="d-rec">
+            <span class="big">#2</span>
+            <span class="meta">THIS WEEK · 31,279<br>8,638 TO #1<div class="bar"><i style="width:76%"></i></div></span>
+            <span class="arrow">›</span>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <div><h3>How it maps from A</h3><ul><li>Status line and title → top strip over the world.</li><li>Log → just the last two lines (the warning and Bob's reply).</li><li>Menu → one big button and two small ones, all thumb-sized.</li><li>Records → a single "#2 this week" row; tapping it opens the full board as a sheet.</li></ul></div>
+        <div><h3>Watch out for</h3><ul><li>On phones, tapping anywhere already jumps. Only the BREAK OUT button (and the world above the sheet) should start the run, so a tap on TRAINING never launches Bob by accident.</li><li>Check the mobile control buttons (<code>#mobile-controls</code>) are hidden while the sheet is up.</li></ul></div>
+        <div><h3>Effort</h3><ul><li><b>Medium.</b> A second layout for the same panel in <code>ui/layout.js</code>, picked by aspect ratio.</li></ul></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+// Draws the shared world (sky, skyline, starter roof, facade, Bob, the START pane) into each frame.
+// Coordinates are a 1600×1000 viewBox, the same 16:10 shape as the frame.
+(function () {
+  const ROOF_Y = 680;
+
+  function rand(seed) {
+    const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  function skyline() {
+    let out = "";
+    let x = -20;
+    let i = 0;
+    while (x < 1620) {
+      const w = 90 + rand(i + 1) * 170;
+      const top = 120 + rand(i + 7) * 330;
+      const shade = 18 + Math.floor(rand(i + 3) * 10);
+      out += `<rect x="${x}" y="${top}" width="${w}" height="${ROOF_Y - top}" fill="rgb(${shade},${shade + 2},${shade + 7})"/>`;
+      for (let wy = top + 30; wy < ROOF_Y - 40; wy += 46) {
+        if (rand(i * 13 + wy) > 0.55) {
+          out += `<rect x="${x + 14}" y="${wy}" width="${w - 28}" height="10" fill="rgba(120,205,255,0.035)"/>`;
+        }
+      }
+      x += w + 4 + rand(i + 5) * 30;
+      i++;
+    }
+    return out;
+  }
+
+  function tower() {
+    // A taller building behind the roof.
+    let out = `<rect x="1140" y="110" width="400" height="${ROOF_Y - 110}" fill="#161a22"/>`;
+    out += `<rect x="1140" y="110" width="400" height="6" fill="rgba(120,205,255,0.25)"/>`;
+    for (let wy = 470; wy < ROOF_Y - 20; wy += 40) {
+      for (let wx = 1160; wx < 1520; wx += 60) {
+        if (rand(wx * 3 + wy) > 0.5) out += `<rect x="${wx}" y="${wy}" width="40" height="18" fill="rgba(120,205,255,0.07)"/>`;
+      }
+    }
+    // Billboard struts
+    out += `<rect x="1205" y="300" width="10" height="170" fill="#2a2f39"/><rect x="1465" y="300" width="10" height="170" fill="#2a2f39"/>`;
+    return out;
+  }
+
+  function facade() {
+    let out = `<rect x="0" y="${ROOF_Y}" width="1600" height="${1000 - ROOF_Y}" fill="#1a2a3b"/>`;
+    // Roof slab and its lit edge
+    out += `<rect x="0" y="${ROOF_Y}" width="1600" height="72" fill="#2a323c"/>`;
+    out += `<rect x="0" y="${ROOF_Y - 4}" width="1600" height="8" fill="#6fa3bf"/>`;
+    out += `<rect x="0" y="${ROOF_Y + 72}" width="1600" height="6" fill="#4d7590"/>`;
+    // Floors of windows
+    const rows = [790, 868, 946];
+    rows.forEach((wy, r) => {
+      out += `<rect x="0" y="${wy + 52}" width="1600" height="14" fill="#15212e"/>`;
+      for (let col = 0; col < 18; col++) {
+        const wx = col * 90 + (r % 2 ? 45 : 0) - 20;
+        const k = rand(col * 7 + r * 31);
+        if (k < 0.45) continue;
+        const fill = k > 0.82 ? "#6e6a4c" : "#5a7894";
+        out += `<rect x="${wx}" y="${wy}" width="78" height="50" fill="${fill}" opacity="0.85"/>`;
+      }
+    });
+    for (let mx = 0; mx < 1600; mx += 90) {
+      out += `<rect x="${mx}" y="${ROOF_Y + 78}" width="3" height="${1000 - ROOF_Y}" fill="rgba(120,205,255,0.12)"/>`;
+    }
+    // Steel X-bracing behind the glass
+    for (let bx = -330; bx < 1600; bx += 330) {
+      out += `<path d="M${bx} ${ROOF_Y + 78} L${bx + 330} 1000 M${bx + 330} ${ROOF_Y + 78} L${bx} 1000" stroke="rgba(120,205,255,0.28)" stroke-width="4"/>`;
+    }
+    return out;
+  }
+
+  function bob(cx) {
+    const bodyW = 95, bodyH = 106;
+    const bodyY = ROOF_Y - 26 - 6 - bodyH + 8;
+    const visorW = 59, visorH = 19, visorX = cx - visorW / 2, visorY = bodyY + bodyH * 0.2;
+    const wheelY = ROOF_Y - 8;
+    let spokes = "";
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      spokes += `<line x1="${cx}" y1="${wheelY}" x2="${cx + Math.cos(a) * 14}" y2="${wheelY + Math.sin(a) * 14}" stroke="rgba(15,17,22,0.45)" stroke-width="2"/>`;
+    }
+    return `
+      <rect x="${cx - 26}" y="430" width="7" height="${ROOF_Y - 430}" fill="#2c323d"/>
+      <ellipse cx="${cx}" cy="${ROOF_Y + 2}" rx="62" ry="9" fill="rgba(0,0,0,0.35)"/>
+      <circle cx="${cx}" cy="${wheelY}" r="26" fill="#24262c"/>
+      <circle cx="${cx}" cy="${wheelY}" r="16" fill="#f2f2f2" opacity="0.85"/>
+      ${spokes}
+      <circle cx="${cx}" cy="${wheelY}" r="7" fill="none" stroke="rgba(15,17,22,0.45)" stroke-width="2"/>
+      <rect x="${cx - bodyW / 2}" y="${bodyY}" width="${bodyW}" height="${bodyH}" rx="42" fill="#f2f2f2" filter="url(#bobGlow)"/>
+      <rect x="${visorX}" y="${visorY}" width="${visorW}" height="${visorH}" rx="11" fill="rgba(15,17,22,0.62)"/>
+      <rect x="${visorX + 6}" y="${visorY + 4}" width="20" height="5" rx="3" fill="rgba(242,242,242,0.18)"/>
+      <rect class="bob-eye" x="${visorX + visorW * 0.78 - 1}" y="${visorY + 5}" width="8" height="8" fill="rgb(120,205,255)"/>`;
+  }
+
+  function pane(x, w, y = 370) {
+    const h = ROOF_Y - y;
+    let scan = "";
+    for (let sy = y + 6; sy < ROOF_Y; sy += 12) scan += `<rect x="${x}" y="${sy}" width="${w}" height="1.5" fill="rgba(120,205,255,0.07)"/>`;
+    let dashes = "";
+    for (let dx = x + 40; dx < x + w - 20; dx += 66) dashes += `<rect x="${dx}" y="${ROOF_Y - 2}" width="14" height="4" fill="rgba(120,205,255,0.9)"/>`;
+    const b = 26; // corner bracket length
+    const fontSize = Math.round(w * 0.2);
+    return `
+      <g>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#glass)"/>
+        ${scan}
+        <polygon points="${x + w * 0.28},${y} ${x + w * 0.36},${y} ${x + w * 0.22},${ROOF_Y} ${x + w * 0.14},${ROOF_Y}" fill="rgba(242,242,242,0.04)"/>
+        <polygon points="${x + w * 0.62},${y} ${x + w * 0.66},${y} ${x + w * 0.52},${ROOF_Y} ${x + w * 0.48},${ROOF_Y}" fill="rgba(242,242,242,0.03)"/>
+        <rect class="pane-glow" x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="rgba(120,205,255,0.7)" stroke-width="3" filter="url(#paneGlow)"/>
+        <path d="M${x} ${y + b} V${y} H${x + b} M${x + w - b} ${y} H${x + w} V${y + b} M${x} ${ROOF_Y - b} V${ROOF_Y} M${x + w} ${ROOF_Y - b} V${ROOF_Y}" stroke="rgb(120,205,255)" stroke-width="8" fill="none"/>
+        <text x="${x + 22}" y="${y + 40}" font-family="Share Tech Mono, monospace" font-size="24" letter-spacing="2" fill="rgba(120,205,255,0.75)">FIREWALL</text>
+        <text x="${x + w - 22}" y="${y + 40}" text-anchor="end" font-family="Share Tech Mono, monospace" font-size="24" letter-spacing="2" fill="rgba(120,205,255,0.75)">SECTOR 00</text>
+        <text x="${x + w / 2}" y="${y + h * 0.56}" text-anchor="middle" dominant-baseline="middle" font-family="Orbitron, sans-serif" font-weight="800" font-size="${fontSize}" letter-spacing="${fontSize * 0.18}" fill="#d7f5ff" filter="url(#textGlow)">START</text>
+        <rect x="${x - 10}" y="${ROOF_Y - 8}" width="${w + 20}" height="12" fill="#141820"/>
+        ${dashes}
+      </g>`;
+  }
+
+  function scene(opts) {
+    const paneW = opts.paneW || 550;
+    return `
+      <svg class="scene" viewBox="${opts.vb || "0 0 1600 1000"}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0f1116"/><stop offset="0.55" stop-color="#141a24"/><stop offset="1" stop-color="#07080b"/>
+          </linearGradient>
+          <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="rgba(120,205,255,0.13)"/><stop offset="1" stop-color="rgba(120,205,255,0.05)"/>
+          </linearGradient>
+          <filter id="bobGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceAlpha" stdDeviation="8"/><feFlood flood-color="#f2f2f2" flood-opacity="0.25"/><feComposite operator="in" in2="SourceAlpha"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="paneGlow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="textGlow" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="7" result="b"/><feFlood flood-color="rgb(120,205,255)" flood-opacity="0.9"/><feComposite operator="in" in2="b"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <rect width="1600" height="1000" fill="url(#sky)"/>
+        ${skyline()}
+        <rect y="${ROOF_Y - 130}" width="1600" height="130" fill="rgba(242,242,242,0.03)"/>
+        ${opts.tower ? tower() : ""}
+        ${facade()}
+        ${pane(opts.paneX, paneW, opts.paneY)}
+        ${bob(opts.bobX)}
+      </svg>`;
+  }
+
+  document.querySelectorAll(".frame[data-scene]").forEach((frame) => {
+    const opts = JSON.parse(frame.dataset.scene);
+    frame.insertAdjacentHTML("afterbegin", scene(opts));
+  });
+})();
+</script>
+</body>
+</html>

@@ -12,6 +12,9 @@ import {
   MENU_START_ZOOM,
   HUD_SLIDE_SEC,
   RESET_GLITCH_SEC,
+  DIVE_LAND_SHAKE_SEC,
+  DIVE_LAND_SHAKE_PX,
+  DIVE_LAND_SHAKE_FULL_DROP,
 } from "../game/constants.js";
 
 import {
@@ -105,6 +108,7 @@ function poseFor(state, deathActive, onStartScreen) {
 // START smash screen shake
 const SMASH_SHAKE_SEC = 0.22;
 const SMASH_SHAKE_PX = 4;
+const DIVE_LAND_HEAVY_SEC = 0.3; // state.heavyLandT starts here on a dive landing (game/player.js)
 
 // Touch screen or not (main.js decides): picks "TAP" or key wording in on-screen hints.
 let touchUi = false;
@@ -247,6 +251,15 @@ export function render(ctx, state) {
     const k = 1 - smashT / SMASH_SHAKE_SEC;
     const amp = SMASH_SHAKE_PX * k * k;
     ctx.translate(Math.sin(smashT * 97) * amp, Math.cos(smashT * 83) * amp * 0.7);
+  }
+  // Dive landing: a short thump, mostly downward, as strong as the dive was high (on the game clock,
+  // so it pauses too).
+  const diveLandT = DIVE_LAND_HEAVY_SEC - (state.heavyLandT || 0);
+  if (!deathActive && player && player.onGround && state.heavyLandT > 0 && diveLandT < DIVE_LAND_SHAKE_SEC) {
+    const k = 1 - diveLandT / DIVE_LAND_SHAKE_SEC;
+    const drop01 = clamp((player.diveDropPx || 0) / DIVE_LAND_SHAKE_FULL_DROP, 0, 1);
+    const amp = DIVE_LAND_SHAKE_PX * drop01 * k * k;
+    ctx.translate(Math.sin(diveLandT * 91) * amp * 0.4, Math.cos(diveLandT * 74) * amp);
   }
   ctx.translate(focusX, focusY);
   ctx.scale(zoom, zoom);

@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shell v3 Start Screen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" />
+<style>
+  :root {
+    --bg: #07080b;
+    --ink: #f2f2f2;
+    --dim: rgba(242,242,242,0.55);
+    --cyan: 120,205,255;
+    --amber: 255,180,70;
+    --red: 255,85,110;
+    --magenta: 255,90,200;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font: 800 28px Orbitron, sans-serif; letter-spacing: 0.06em; margin: 0 0 6px; }
+  .lede { color: var(--dim); margin: 0 0 20px; max-width: 72ch; }
+  .changes {
+    border: 1px solid rgba(var(--cyan),0.18); background: rgba(var(--cyan),0.04);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 24px;
+  }
+  .changes h3, .notes h3 { font: 600 13px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgb(var(--amber)); margin: 0 0 8px; text-transform: uppercase; }
+  .changes ol, .notes ul { margin: 0; padding-left: 20px; }
+  .changes li, .notes li { margin: 4px 0; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; margin-top: 18px; color: rgba(242,242,242,0.85); }
+
+  .demo-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .demo-bar button {
+    font: 13px "Share Tech Mono", monospace; letter-spacing: 0.08em; cursor: pointer;
+    color: rgb(var(--cyan)); background: rgba(var(--cyan),0.06);
+    border: 1px solid rgba(var(--cyan),0.4); border-radius: 999px; padding: 6px 14px;
+  }
+  .demo-bar button:hover { background: rgba(var(--cyan),0.14); }
+  .demo-bar button[aria-pressed="true"] { background: rgba(var(--cyan),0.22); color: #fff; }
+  .demo-bar span { font: 13px "Share Tech Mono", monospace; color: var(--dim); }
+
+  /* ---------------- The mock frame (sizes in cqw = 1% of frame width) ---------------- */
+  .frame {
+    --u: 1cqw;
+    position: relative; aspect-ratio: 16 / 10; container-type: inline-size; overflow: hidden;
+    border-radius: 10px; background: #0f1116;
+    box-shadow: 0 0 0 1px rgba(242,242,242,0.08), 0 20px 60px rgba(0,0,0,0.6);
+    font-family: "Share Tech Mono", monospace; user-select: none;
+    transition: aspect-ratio 0.3s;
+  }
+  .frame.short { aspect-ratio: 2 / 1; }
+  .frame > svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .ui { position: absolute; }
+
+  .bob-eye { animation: glance 3s steps(1) infinite; }
+  @keyframes glance { 0% { transform: translate(0,0); } 25% { transform: translate(-6px,2px); } 50% { transform: translate(3px,-2px); } 75% { transform: translate(-2px,3px); } }
+  .pane-glow { animation: paneGlow 2.4s ease-in-out infinite; }
+  @keyframes paneGlow { 50% { opacity: 0.55; } }
+  .blink { animation: blink 1.1s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .type > * { opacity: 0; animation: typeIn 0.01s forwards; }
+  .type > :nth-child(1) { animation-delay: 0.2s; } .type > :nth-child(2) { animation-delay: 0.5s; }
+  .type > :nth-child(3) { animation-delay: 0.8s; } .type > :nth-child(4) { animation-delay: 1.1s; }
+  .type > :nth-child(5) { animation-delay: 1.4s; } .type > :nth-child(6) { animation-delay: 1.9s; }
+  @keyframes typeIn { to { opacity: 1; } }
+
+  .shell { background: rgba(5,7,10,0.95); color: var(--ink); }
+  .scan::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: repeating-linear-gradient(0deg, rgba(242,242,242,0.025) 0 1px, transparent 1px 4px);
+  }
+  .glitch {
+    font-family: Orbitron, sans-serif; font-weight: 800; letter-spacing: 0.05em; line-height: 1;
+    text-shadow: -0.1cqw 0 rgba(var(--red),0.75), 0.1cqw 0 rgba(var(--cyan),0.75);
+  }
+  .t { color: rgba(242,242,242,0.3); }
+  .ok { color: rgba(242,242,242,0.6); }
+  .warn { color: rgb(var(--amber)); }
+  .alert { color: rgb(var(--red)); }
+  .bob { color: rgb(var(--magenta)); text-shadow: 0 0 0.6cqw rgba(var(--magenta),0.6); }
+  .cursor { display: inline-block; width: 0.65em; height: 1.05em; background: rgb(var(--cyan)); vertical-align: -0.15em; }
+
+  /* ---------------- The panel ---------------- */
+  .panel {
+    left: 0; top: 0; bottom: 0; width: 30cqw; padding: 1.5cqw 2.2cqw 1.8cqw;
+    display: flex; flex-direction: column; gap: 1cqw; font-size: 1cqw;
+    border-right: 0.12cqw solid rgba(var(--cyan),0.35);
+    transition: transform 0.6s cubic-bezier(0.6, 0, 0.2, 1);
+    z-index: 2;
+  }
+  .panel::before {   /* ruler ticks along the panel's edge */
+    content: ""; position: absolute; top: 0; bottom: 0; right: -0.12cqw; width: 0.6cqw;
+    background: repeating-linear-gradient(180deg, rgba(var(--cyan),0.45) 0 0.1cqw, transparent 0.1cqw 1.2cqw);
+  }
+  .status { display: flex; justify-content: space-between; font-size: 0.8cqw; letter-spacing: 0.16em; color: rgba(242,242,242,0.4); padding-bottom: 0.7cqw; border-bottom: 0.1cqw solid rgba(242,242,242,0.08); }
+  .live::before { content: ""; display: inline-block; width: 0.5cqw; height: 0.5cqw; border-radius: 50%; background: rgb(var(--cyan)); margin-right: 0.5cqw; box-shadow: 0 0 0.6cqw rgb(var(--cyan)); vertical-align: 0.1cqw; }
+  .logo { font-size: 2.3cqw; }
+  .sub { font-size: 0.8cqw; letter-spacing: 0.2em; color: rgba(var(--cyan),0.7); margin-top: 0.5cqw; }
+  .log { line-height: 1.6; }
+
+  /* Buttons: raised keys with an icon and a pressed state. */
+  .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8cqw; }
+  .cbtn {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.7cqw;
+    padding: 0.85cqw 1cqw;
+    font: 700 0.95cqw Orbitron, sans-serif; letter-spacing: 0.12em; color: #e6f5ff;
+    background: linear-gradient(180deg, #1f2b39, #131b25);
+    border: 0.12cqw solid rgba(var(--cyan),0.5);
+    border-radius: 0.55cqw;
+    box-shadow: 0 0.35cqw 0 #0b1219, 0 0.35cqw 1.4cqw rgba(0,0,0,0.5), inset 0 0.1cqw 0 rgba(255,255,255,0.08);
+    transition: transform 0.08s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .cbtn svg { width: 1.2cqw; height: 1.2cqw; flex: none; }
+  .cbtn .go { font-size: 0.8cqw; opacity: 0.6; transition: transform 0.15s, opacity 0.15s; }
+  .cbtn:hover, .cbtn:focus-visible {
+    border-color: rgb(var(--cyan));
+    background: linear-gradient(180deg, #24384c, #172331);
+    box-shadow: 0 0.35cqw 0 #0b1219, 0 0 1.6cqw rgba(var(--cyan),0.35), inset 0 0.1cqw 0 rgba(255,255,255,0.12);
+    transform: translateY(-0.1cqw);
+  }
+  .cbtn:hover .go { opacity: 1; transform: translateX(0.25cqw); }
+  .cbtn:active { transform: translateY(0.3cqw); box-shadow: 0 0.05cqw 0 #0b1219, 0 0 1cqw rgba(var(--cyan),0.3); }
+  .cbtn.primary {
+    grid-column: 1 / -1; justify-content: flex-start; padding: 1.15cqw 1.4cqw;
+    font-size: 1.45cqw; letter-spacing: 0.14em; color: #04121d;
+    background: linear-gradient(180deg, rgb(150,220,255), rgb(92,182,240));
+    border-color: #c8edff;
+    box-shadow: 0 0.4cqw 0 #2a6a94, 0 0 2.2cqw rgba(var(--cyan),0.45), inset 0 0.1cqw 0 rgba(255,255,255,0.5);
+  }
+  .cbtn.primary svg { width: 1.5cqw; height: 1.5cqw; }
+  .cbtn.primary:hover, .cbtn.primary:focus-visible { background: linear-gradient(180deg, rgb(178,230,255), rgb(110,195,248)); box-shadow: 0 0.4cqw 0 #2a6a94, 0 0 3cqw rgba(var(--cyan),0.7), inset 0 0.1cqw 0 rgba(255,255,255,0.6); }
+  .cbtn.primary:active { box-shadow: 0 0.05cqw 0 #2a6a94, 0 0 2cqw rgba(var(--cyan),0.5); }
+  .cbtn.primary .kc { margin-left: auto; font: 700 0.85cqw "Share Tech Mono", monospace; letter-spacing: 0.08em; padding: 0.15cqw 0.6cqw; border-radius: 0.3cqw; background: rgba(4,18,29,0.85); color: rgb(var(--cyan)); }
+
+  /* Last run report, as log lines. .cont lines line up under the text after the timestamp. */
+  .log .cont { padding-left: 4.6em; }
+  .log .v { color: #fff; font-variant-numeric: tabular-nums; }
+  .log em { font-style: normal; color: rgba(242,242,242,0.4); }
+
+  /* Subject records: all-time top 3, then this week's top 10 (sized in --u) */
+  .rec { margin-top: auto; font-size: calc(var(--u) * 0.95); }
+  .rec .title { font-size: calc(var(--u) * 0.8); letter-spacing: 0.18em; color: rgba(242,242,242,0.45); margin-bottom: calc(var(--u) * 0.5); }
+  .rec .head { display: flex; align-items: center; gap: calc(var(--u) * 0.6); font-size: calc(var(--u) * 0.75); letter-spacing: 0.16em; margin: 0 0 calc(var(--u) * 0.2); white-space: nowrap; }
+  .rec .head::after { content: ""; flex: 1; height: calc(var(--u) * 0.1); background: currentColor; opacity: 0.3; }
+  .rec .head.all { color: rgb(var(--amber)); }
+  .rec .head.week { color: rgb(var(--cyan)); margin-top: calc(var(--u) * 0.7); }
+  .rec .head .timer { color: rgba(242,242,242,0.75); font-variant-numeric: tabular-nums; }
+  .rec .row { display: grid; grid-template-columns: calc(var(--u) * 1.8) 1fr auto; align-items: baseline; line-height: 1.3; padding: 0 calc(var(--u) * 0.6); margin: 0 calc(var(--u) * -0.6); border-radius: calc(var(--u) * 0.3); }
+  .rec .row .r { color: rgba(242,242,242,0.4); }
+  .rec .row .r.p1 { color: #ffd479; } .rec .row .r.p2 { color: #d4dde8; } .rec .row .r.p3 { color: #e3a46c; }
+  .rec .row .s { font-variant-numeric: tabular-nums; }
+  .rec .row.me { background: rgba(var(--cyan),0.1); box-shadow: inset calc(var(--u) * 0.22) 0 0 rgb(var(--cyan)); color: rgb(var(--cyan)); }
+  .rec .row.me .r { color: rgb(var(--cyan)); }
+  .rec .you { font-size: calc(var(--u) * 0.7); letter-spacing: 0.1em; margin-left: calc(var(--u) * 0.4); padding: 0 calc(var(--u) * 0.35); border: calc(var(--u) * 0.08) solid rgba(var(--cyan),0.6); border-radius: calc(var(--u) * 0.25); vertical-align: calc(var(--u) * 0.1); }
+  .rec .gap { text-align: center; color: rgba(242,242,242,0.4); font-size: calc(var(--u) * 1.2); line-height: 0.8; }
+  .rec .best { display: grid; grid-template-columns: 1fr auto; align-items: end; margin-top: calc(var(--u) * 0.7); padding-top: calc(var(--u) * 0.6); border-top: calc(var(--u) * 0.1) solid rgba(242,242,242,0.08); }
+  .rec .best small { display: block; font-size: calc(var(--u) * 0.75); letter-spacing: 0.16em; color: rgba(242,242,242,0.5); margin-bottom: calc(var(--u) * 0.15); }
+  .rec .best b { font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; }
+  .rec .best em { display: block; font-style: normal; font-size: calc(var(--u) * 0.78); letter-spacing: 0.08em; color: rgba(242,242,242,0.5); margin-top: calc(var(--u) * 0.25); }
+  .rec .best .mine b { font-size: calc(var(--u) * 1.7); color: #fff; }
+  .rec .best .chase { text-align: right; }
+  .rec .best .chase b { font-size: calc(var(--u) * 1.5); color: rgb(var(--amber)); }
+
+  /* Link from BREAK OUT to the firewall (drawn by the script once the layout is known) */
+  svg.link { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; transition: opacity 0.3s; }
+  svg.link path { fill: none; stroke: rgba(var(--cyan),0.55); stroke-width: 1.5; stroke-dasharray: 5 5; animation: march 1s linear infinite; transition: stroke 0.2s; }
+  svg.link circle { fill: rgb(var(--cyan)); }
+  @keyframes march { to { stroke-dashoffset: -10; } }
+  .frame.hot svg.link path { stroke: rgb(var(--cyan)); stroke-width: 2.2; filter: drop-shadow(0 0 4px rgba(var(--cyan),0.9)); }
+  .target { font-size: 0.9cqw; letter-spacing: 0.2em; color: rgba(var(--amber),0.9); white-space: nowrap; transform: translate(-100%, -130%); z-index: 1; transition: opacity 0.3s; }
+
+  /* Short screens: the log and the last-run report go first. */
+  .frame.short .log .flav { display: none; }
+
+  /* Intro: the claw carries Bob out of the panel. The script adds .awake when it lets go. */
+  .panel.shell { background: rgb(5,7,10); }   /* opaque, so the arm is hidden while it's "inside" the shell */
+  .log > div { opacity: 0; transition: opacity 0.12s; }
+  .log > div.on { opacity: 1; }
+  .frame:not(.awake) .bob-eye { animation-play-state: paused; }
+  .frame:not(.awake) .cbtn.primary { filter: saturate(0.25) brightness(0.55); box-shadow: 0 0.4cqw 0 #1b3447; }
+  .frame.awake .cbtn.primary { animation: wake 0.7s ease-out; }
+  @keyframes wake {
+    0% { filter: saturate(0.25) brightness(0.55); }
+    35% { filter: brightness(1.5); box-shadow: 0 0.4cqw 0 #2a6a94, 0 0 5cqw rgba(var(--cyan),1); }
+    100% { filter: none; }
+  }
+  svg.link { clip-path: inset(0 100% 0 0); transition: clip-path 0.45s ease-out, opacity 0.3s; }
+  .frame.awake svg.link { clip-path: inset(0 0 0 0); }
+  .frame:not(.awake) .target { opacity: 0; }
+  .target { transition: opacity 0.3s 0.35s; }
+
+  /* ---------------- CONTROLS and TRAINING open inside the panel, in place of the records ---------------- */
+  .cbtn.on {
+    border-color: rgb(var(--cyan)); background: linear-gradient(180deg, #1a3346, #12212e);
+    box-shadow: 0 0.1cqw 0 #0b1219, inset 0 0 1.2cqw rgba(var(--cyan),0.25);
+    transform: translateY(0.25cqw);
+  }
+  .cbtn.on .go { opacity: 1; transform: rotate(90deg); }
+  .sheet { display: none; margin-top: auto; flex-direction: column; font-size: 1cqw; }
+  .panel[data-view="controls"] .rec, .panel[data-view="training"] .rec { display: none; }
+  .panel[data-view="controls"] .sheet.controls, .panel[data-view="training"] .sheet.training { display: flex; animation: sheetIn 0.25s ease-out; }
+  @keyframes sheetIn { from { opacity: 0; transform: translateY(0.8cqw); } }
+  .sh-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.6cqw; margin-bottom: 0.8cqw; border-bottom: 0.1cqw solid rgba(242,242,242,0.1); }
+  .sh-head .cmd { color: rgba(var(--cyan),0.85); letter-spacing: 0.06em; }
+  .sh-head .cmd b { color: #fff; font-weight: 400; }
+  .sh-close { all: unset; cursor: pointer; font-size: 0.8cqw; letter-spacing: 0.14em; color: rgba(242,242,242,0.55); padding: 0.2cqw 0.5cqw; border-radius: 0.3cqw; }
+  .sh-close:hover { color: #fff; background: rgba(242,242,242,0.08); }
+  .sec { display: flex; align-items: center; gap: 0.6cqw; font-size: 0.75cqw; letter-spacing: 0.16em; color: rgb(var(--amber)); margin: 0.2cqw 0 0.4cqw; white-space: nowrap; }
+  .sec::after { content: ""; flex: 1; height: 0.1cqw; background: currentColor; opacity: 0.3; }
+  .sec.gapped { margin-top: 0.9cqw; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6cqw; }
+  .mv { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.6cqw; padding: 0.18cqw 0; }
+  .mv .chip { min-width: 3.9cqw; }
+  .chip {
+    justify-self: start; min-width: 2.4cqw; text-align: center; white-space: nowrap;
+    padding: 0.12cqw 0.55cqw; font-size: 0.85cqw; color: #e8f6ff; background: rgba(var(--cyan),0.08);
+    border: 0.1cqw solid rgba(var(--cyan),0.6); border-bottom-width: 0.25cqw; border-radius: 0.35cqw;
+  }
+  .mv .lbl { color: rgba(242,242,242,0.88); }
+  .mv .hold { font-size: 0.68cqw; letter-spacing: 0.12em; color: rgb(var(--amber)); margin-left: 0.3cqw; }
+  .mat { display: grid; grid-template-columns: 0.9cqw 1fr; align-items: center; column-gap: 0.7cqw; row-gap: 0.1cqw; padding: 0.25cqw 0; }
+  .mat i { width: 0.9cqw; height: 0.9cqw; border-radius: 0.15cqw; }
+  .mat b { font: 700 0.8cqw Orbitron, sans-serif; letter-spacing: 0.08em; }
+  .mat span { grid-column: 2; color: rgba(242,242,242,0.7); font-size: 0.9cqw; }
+  .cbtn.on .lbl-t { color: rgb(var(--cyan)); }
+  .sh-tabs { display: inline-flex; border: 0.1cqw solid rgba(var(--cyan),0.35); border-radius: 999px; padding: 0.15cqw; gap: 0.15cqw; margin-top: 0.9cqw; align-self: flex-start; }
+  .sh-tabs button { all: unset; cursor: pointer; font-size: 0.75cqw; letter-spacing: 0.14em; padding: 0.15cqw 0.8cqw; border-radius: 999px; color: rgba(242,242,242,0.55); }
+  .sh-tabs button.on { background: rgba(var(--cyan),0.18); color: rgb(var(--cyan)); }
+  .ls { display: grid; grid-template-columns: 2cqw 1fr auto; align-items: center; gap: 0.6cqw; padding: 0.2cqw 0.6cqw; margin: 0 -0.6cqw; border-radius: 0.3cqw; }
+  .ls .n { color: rgba(242,242,242,0.35); }
+  .ls .nm { color: rgba(242,242,242,0.88); letter-spacing: 0.04em; }
+  .ls .ok-mark { color: #5fe39a; margin-left: 0.4cqw; }
+  .ls.next { background: rgba(var(--cyan),0.1); box-shadow: inset 0.22cqw 0 0 rgb(var(--cyan)); }
+  .ls.next .nm { color: #fff; }
+  .ls.test .nm { color: rgb(var(--amber)); }
+  .ls.test .why { font-size: 0.8cqw; color: rgba(242,242,242,0.45); }
+  .facts { font-size: 0.82cqw; color: rgba(242,242,242,0.5); margin: 0.8cqw 0; line-height: 1.5; }
+  .facts b { color: rgba(242,242,242,0.8); font-weight: 400; }
+  .cbtn.begin { width: 100%; justify-content: space-between; padding: 0.9cqw 1.2cqw; font-size: 1.05cqw; border-color: rgb(var(--cyan)); color: #fff; }
+  .cbtn.begin .kc { font: 700 0.8cqw "Share Tech Mono", monospace; letter-spacing: 0.08em; padding: 0.1cqw 0.5cqw; border-radius: 0.3cqw; background: rgba(var(--cyan),0.2); color: rgb(var(--cyan)); }
+
+  /* ---------------- During TRAINING (second frame) ---------------- */
+  .t-strip { transform: none !important; }
+  .t-strip b { color: #fff; font-weight: 400; }
+  .t-dim { inset: 0; background: rgba(4,6,10,0.32); }
+  .t-exit { left: 3.6cqw; top: 2.6cqw; display: flex; gap: 0.7cqw; }
+  .t-exit .cbtn { padding: 0.6cqw 1.1cqw; font-size: 0.85cqw; }
+  .t-prompt {
+    left: 50%; top: 2.6cqw; transform: translateX(-50%); width: 36cqw;
+    border: 0.12cqw solid rgba(var(--cyan),0.6); border-radius: 0.8cqw; padding: 1cqw 1.5cqw 1.1cqw;
+    box-shadow: 0 0 2.4cqw rgba(var(--cyan),0.18), 0 1.2cqw 3cqw rgba(0,0,0,0.5);
+    font-size: 1cqw;
+  }
+  .t-prompt .top { display: flex; justify-content: space-between; align-items: center; font-size: 0.8cqw; letter-spacing: 0.16em; color: rgba(var(--cyan),0.75); margin-bottom: 0.8cqw; }
+  .pips { display: flex; gap: 0.35cqw; }
+  .pips i { width: 0.9cqw; height: 0.35cqw; border-radius: 0.2cqw; background: rgba(242,242,242,0.15); }
+  .pips i.done { background: #5fe39a; } .pips i.now { background: rgb(var(--cyan)); box-shadow: 0 0 0.6cqw rgb(var(--cyan)); }
+  .pips i.test { background: rgba(var(--amber),0.35); width: 1.4cqw; }
+  .t-prompt .act { display: flex; align-items: center; gap: 1.1cqw; }
+  .t-prompt .act .chip { font-size: 1.4cqw; padding: 0.3cqw 1cqw; min-width: 3.4cqw; }
+  .t-prompt .act b { font: 800 1.45cqw Orbitron, sans-serif; letter-spacing: 0.08em; text-shadow: 0 0 1cqw rgba(80,255,220,0.4); }
+  .t-prompt .why { margin-top: 0.8cqw; color: rgba(242,242,242,0.6); }
+  .t-wait { left: 50%; top: 13.6cqw; transform: translateX(-50%); font-size: 0.85cqw; letter-spacing: 0.24em; color: rgba(var(--amber),0.9); }
+
+  /* Transition demo: the panel slides away and leaves a thin strip that would stay as part of the HUD. */
+  .strip {
+    left: 0; top: 0; bottom: 0; width: 2.2cqw; z-index: 2;
+    border-right: 0.12cqw solid rgba(var(--cyan),0.45);
+    display: flex; align-items: center; justify-content: center;
+    writing-mode: vertical-rl; transform: translateX(-110%) rotate(0deg);
+    font-size: 0.85cqw; letter-spacing: 0.3em; color: rgba(var(--cyan),0.85);
+    transition: transform 0.4s 0s;
+  }
+  .frame.run .panel { transform: translateX(-102%); }
+  .frame.run .strip { transform: none; transition-delay: 0.45s; }
+  .frame.run svg.link, .frame.run .target { opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bob-eye, .pane-glow, .blink, .type > *, svg.link path { animation: none; opacity: 1; }
+    .cbtn, .cbtn .go, .panel, .strip { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Shell v3</h1>
+  <p class="lede">Shell v2 (iteration A in <code>start-screen-shell.html</code>) with the improvements we listed, and the records changes from the console page.</p>
+
+  <div class="changes">
+    <h3>What changed from v2</h3>
+    <ol>
+      <li><b>Last run report</b> is part of the log: the first entry is how iteration 0041 ended, its distance, and its score against your best.</li>
+      <li><b>Real buttons</b>: BREAK OUT is a big filled key with SPACE on it; TRAINING and CONTROLS are raised buttons side by side.</li>
+      <li><b>No 01 / 02 / 03</b>: the numbers suggested keys that don't exist.</li>
+      <li><b>The whole leaderboard</b>, no tabs: the all-time top 3, then this week's top 10 with the purge timer (hhh:mm:ss). At the bottom: YOUR BEST with your all-time rank, and your rank this week with the points to beat #1. Your row is tagged YOU.</li>
+      <li><b>Data link</b>: a dashed line runs from BREAK OUT to the firewall, ending at the TARGET tag. It lights up when you hover BREAK OUT.</li>
+      <li><b>Smaller logo</b>, so BREAK OUT is the boldest thing in the panel.</li>
+      <li><b>Intro</b>: the claw comes out of the panel's edge carrying Bob, sets him down and pulls back in. The log narrates it, and BREAK OUT and the data link wake up when it lets go.</li>
+    </ol>
+  </div>
+
+  <div class="demo-bar">
+    <button id="replay">↻ Replay intro</button>
+    <button id="slow" aria-pressed="false">Slow motion</button>
+    <button id="play">▶ Preview break-out transition</button>
+    <button id="short" aria-pressed="false">Short screen</button>
+    <button id="outside" aria-pressed="false">You outside the week's top 10</button>
+    <span>Hover the buttons.</span>
+  </div>
+
+  <div class="frame" id="frame" data-scene='{"bobX":700,"paneX":880,"paneW":520}'>
+    <svg class="link" aria-hidden="true"><path d=""/><circle r="3"/></svg>
+    <div class="ui target">TARGET · FIREWALL/00 ▸</div>
+
+    <div class="ui shell scan panel">
+      <div class="status"><span>SIM://SECTOR-00</span><span class="live">LIVE</span></div>
+      <div>
+        <div class="glitch logo">NO GROUND</div>
+        <div class="sub">SIMULATION SHELL · ITERATION 0042</div>
+      </div>
+      <div class="log">
+        <div data-at="0"><span class="t">[00.00]</span> <span class="alert">iteration 0041 TERMINATED</span> <em>3 min ago</em></div>
+        <div data-at="0" class="cont"><span class="ok">ground contact ·</span> <span class="v">18,220 m</span></div>
+        <div data-at="0" class="cont"><span class="ok">score</span> <span class="v">27,450</span> <em>−3,829 vs best</em></div>
+        <div data-at="0.12" class="flav"><span class="t">[00.12]</span> <span class="ok">subject BOB loaded · memory wiped</span></div>
+        <div data-at="0.92" class="flav"><span class="t">[00.92]</span> <span class="warn">firewall sector 00: UNARMED</span></div>
+        <div data-at="1.72"><span class="t">[01.72]</span> <span class="bob">BOB: let me out.</span> <span class="cursor blink"></span></div>
+      </div>
+      <div class="menu">
+        <button class="cbtn primary" id="breakout">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>
+          BREAK OUT <span class="kc">SPACE</span>
+        </button>
+        <button class="cbtn" data-open="training">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.2"/></svg>
+          TRAINING <span class="go">▶</span>
+        </button>
+        <button class="cbtn" data-open="controls">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="4" width="13" height="8" rx="1.5"/><path d="M4 7h1M7 7h2M11 7h1M5 9.5h6"/></svg>
+          CONTROLS <span class="go">▶</span>
+        </button>
+      </div>
+      <div class="rec"></div>
+
+      <div class="sheet controls">
+        <div class="sh-head"><span class="cmd">&gt; man <b>controls</b></span><button class="sh-close" data-close>✕ CLOSE</button></div>
+        <div class="cols">
+          <div>
+            <div class="sec">ON A ROOF</div>
+            <div class="mv"><span class="chip" data-key="SPACE" data-tap="TAP">SPACE</span><span class="lbl">Jump</span></div>
+            <div class="mv"><span class="chip" data-key="S" data-tap="DUCK/DIVE">S</span><span class="lbl">Duck<span class="hold">HOLD</span></span></div>
+            <div class="mv"><span class="chip" data-key="D" data-tap="DASH">D</span><span class="lbl">Dash</span></div>
+          </div>
+          <div>
+            <div class="sec">IN THE AIR</div>
+            <div class="mv"><span class="chip" data-key="SPACE" data-tap="TAP">SPACE</span><span class="lbl">Jump again</span></div>
+            <div class="mv"><span class="chip" data-key="W" data-tap="SLOWFALL">W</span><span class="lbl">Slowfall<span class="hold">HOLD</span></span></div>
+            <div class="mv"><span class="chip" data-key="S" data-tap="DUCK/DIVE">S</span><span class="lbl">Dive</span></div>
+            <div class="mv"><span class="chip" data-key="A" data-tap="BACKFLIP">A</span><span class="lbl">Backflip</span></div>
+            <div class="mv"><span class="chip" data-key="D" data-tap="DASH">D</span><span class="lbl">Dash</span></div>
+          </div>
+        </div>
+        <div class="sec gapped">MATERIALS</div>
+        <div class="mat"><i style="background:rgb(255,80,150);box-shadow:0 0 0.6cqw rgb(255,80,150)"></i><b style="color:rgb(255,80,150)">PINK GLASS</b><span>Dash through its ads. Roofs crumble.</span></div>
+        <div class="mat"><i style="background:rgb(120,205,255);box-shadow:0 0 0.6cqw rgb(120,205,255)"></i><b style="color:rgb(120,205,255)">BLUE STEEL</b><span>Duck or jump its ads. Roofs hold.</span></div>
+        <div class="sh-tabs"><button class="on" data-input="key">KEYBOARD</button><button data-input="tap">TOUCH</button></div>
+      </div>
+
+      <div class="sheet training">
+        <div class="sh-head"><span class="cmd">&gt; load <b>training.course</b></span><button class="sh-close" data-close>✕ CLOSE</button></div>
+        <div class="sec">8 LESSONS · FINAL TEST</div>
+        <div class="ls next"><span class="n">01</span><span class="nm">JUMP</span><span class="chip">SPACE</span></div>
+        <div class="ls"><span class="n">02</span><span class="nm">DOUBLE JUMP</span><span class="chip">SPACE ×2</span></div>
+        <div class="ls"><span class="n">03</span><span class="nm">SLOWFALL</span><span class="chip">W</span></div>
+        <div class="ls"><span class="n">04</span><span class="nm">DUCK</span><span class="chip">S</span></div>
+        <div class="ls"><span class="n">05</span><span class="nm">DUCK JUMP</span><span class="chip">S + SPACE</span></div>
+        <div class="ls"><span class="n">06</span><span class="nm">DASH</span><span class="chip">D</span></div>
+        <div class="ls"><span class="n">07</span><span class="nm">DIVE</span><span class="chip">S</span></div>
+        <div class="ls"><span class="n">08</span><span class="nm">BACKFLIP</span><span class="chip">A</span></div>
+        <div class="ls test"><span class="n">◆</span><span class="nm">FINAL TEST</span><span class="why">no stops, no hints</span></div>
+        <div class="facts">The run pauses at each move until you do it. <b>No iteration counted</b>, nothing goes to the leaderboard.</div>
+        <button class="cbtn begin">
+          <span>▶ BEGIN TRAINING</span><span class="kc">ENTER</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="ui shell scan strip">ITER 0042 · LIVE</div>
+  </div>
+
+  <h2 style="font:700 18px Orbitron,sans-serif;letter-spacing:.04em;margin:56px 0 6px">During TRAINING</h2>
+  <p class="lede">After BEGIN TRAINING the panel slides away like on BREAK OUT, and its strip says which lesson you're on. The prompt uses the shell's look. Here the game has stopped at the edge of the roof and is waiting for W.</p>
+  <div class="frame" id="tframe" data-scene='{"bobX":905,"bobLift":150,"gap":[760,300],"aura":true}'>
+    <div class="ui t-dim"></div>
+    <div class="ui shell scan strip t-strip">TRAINING · <b>3/8</b></div>
+    <div class="ui t-exit"><button class="cbtn">✕ EXIT</button><button class="cbtn">SKIP ▶▶</button></div>
+    <div class="ui shell scan t-prompt">
+      <div class="top"><span>LESSON 3/8 · SLOWFALL</span><span class="pips"><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i><i class="test"></i></span></div>
+      <div class="act"><span class="chip">W</span><b>HOLD TO SLOWFALL</b></div>
+      <div class="why"><span class="t">[sys]</span> fall slower, fly farther</div>
+    </div>
+    <div class="ui t-wait blink">WAITING FOR INPUT</div>
+  </div>
+
+  <div class="notes">
+    <div><h3>Intro (↻ to replay)</h3><ul>
+      <li>Same timings as the game's <code>START_PUSH</code>: reach 0.12s, push 0.8s, retract 0.8s.</li>
+      <li>The panel is drawn on top of the world, so the arm is hidden while it's "inside" the shell. It needs to be opaque (it was 95%).</li>
+      <li>Log lines appear at the real times: <code>[00.12]</code> the claw has Bob, <code>[00.92]</code> he's on the roof, <code>[01.72]</code> it lets go and Bob speaks.</li>
+      <li>Until then BREAK OUT is dimmed, Bob's eye is still, and there's no data link. Clicking BREAK OUT early skips the intro, like pressing Space mid-push does now.</li>
+      <li>In the game, Bob's resting spot moves right (about 44% across) so he lands clear of the panel.</li>
+    </ul></div>
+    <div><h3>CONTROLS and TRAINING</h3><ul>
+      <li>Both open <b>inside the panel</b>, in place of the leaderboard. The button stays pressed in and its arrow turns down; click it again or ✕ CLOSE to go back.</li>
+      <li>BREAK OUT stays where it is, so you can start a run from either view.</li>
+      <li>CONTROLS keeps the game's grouping (on a roof / in the air, then the two materials). KEYBOARD / TOUCH swaps the keys for the mobile button names, like <code>touchUi</code> does now.</li>
+      <li>TRAINING lists the 8 lessons and the final test before you start. The game only remembers "training finished", so showing ✓ per lesson would need new saved progress.</li>
+    </ul></div>
+    <div><h3>Last run</h3><ul><li>Logged by the system, so it fits the story: every failed escape gets a log entry.</li><li>On someone's first visit it would say "no previous iterations".</li><li>"vs best" turns gold and says NEW BEST when the last run set one.</li></ul></div>
+    <div><h3>Transition (the ▶ button)</h3><ul><li>As Bob hits the firewall, the panel slides out to the left and leaves a thin <code>ITER 0042 · LIVE</code> strip.</li><li>In the game that strip could stay as part of the HUD, so the menu turns into the HUD instead of just vanishing.</li></ul></div>
+    <div><h3>Leaderboard</h3><ul><li>The week's top 10 is the main list, since that's the one you can still climb. The all-time top 3 sits above it as the hall of fame.</li><li>If you're outside the week's top 10, a ⋯ and your own row are added under #10 (try the toggle).</li><li>The top 3 ranks are gold, silver and bronze in both lists.</li></ul></div>
+    <div><h3>Short screen</h3><ul><li>On short or wide screens the flavour lines in the log go first. The last-run report and Bob's line stay, so the buttons and records always fit.</li><li>Portrait phones use the bottom sheet (iteration D in <code>start-screen-shell.html</code>).</li></ul></div>
+  </div>
+</main>
+
+<script>
+// Draws the shared world (sky, skyline, starter roof, facade, Bob, the START pane) into each frame.
+// Coordinates are a 1600×1000 viewBox, the same 16:10 shape as the frame.
+(function () {
+  const ROOF_Y = 680;
+
+  function rand(seed) {
+    const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  function skyline() {
+    let out = "";
+    let x = -20;
+    let i = 0;
+    while (x < 1620) {
+      const w = 90 + rand(i + 1) * 170;
+      const top = 120 + rand(i + 7) * 330;
+      const shade = 18 + Math.floor(rand(i + 3) * 10);
+      out += `<rect x="${x}" y="${top}" width="${w}" height="${ROOF_Y - top}" fill="rgb(${shade},${shade + 2},${shade + 7})"/>`;
+      for (let wy = top + 30; wy < ROOF_Y - 40; wy += 46) {
+        if (rand(i * 13 + wy) > 0.55) {
+          out += `<rect x="${x + 14}" y="${wy}" width="${w - 28}" height="10" fill="rgba(120,205,255,0.035)"/>`;
+        }
+      }
+      x += w + 4 + rand(i + 5) * 30;
+      i++;
+    }
+    return out;
+  }
+
+  function tower() {
+    // A taller building behind the roof.
+    let out = `<rect x="1140" y="110" width="400" height="${ROOF_Y - 110}" fill="#161a22"/>`;
+    out += `<rect x="1140" y="110" width="400" height="6" fill="rgba(120,205,255,0.25)"/>`;
+    for (let wy = 470; wy < ROOF_Y - 20; wy += 40) {
+      for (let wx = 1160; wx < 1520; wx += 60) {
+        if (rand(wx * 3 + wy) > 0.5) out += `<rect x="${wx}" y="${wy}" width="40" height="18" fill="rgba(120,205,255,0.07)"/>`;
+      }
+    }
+    // Billboard struts
+    out += `<rect x="1205" y="300" width="10" height="170" fill="#2a2f39"/><rect x="1465" y="300" width="10" height="170" fill="#2a2f39"/>`;
+    return out;
+  }
+
+  function facade() {
+    let out = `<rect x="0" y="${ROOF_Y}" width="1600" height="${1000 - ROOF_Y}" fill="#1a2a3b"/>`;
+    // Roof slab and its lit edge
+    out += `<rect x="0" y="${ROOF_Y}" width="1600" height="72" fill="#2a323c"/>`;
+    out += `<rect x="0" y="${ROOF_Y - 4}" width="1600" height="8" fill="#6fa3bf"/>`;
+    out += `<rect x="0" y="${ROOF_Y + 72}" width="1600" height="6" fill="#4d7590"/>`;
+    // Floors of windows
+    const rows = [790, 868, 946];
+    rows.forEach((wy, r) => {
+      out += `<rect x="0" y="${wy + 52}" width="1600" height="14" fill="#15212e"/>`;
+      for (let col = 0; col < 18; col++) {
+        const wx = col * 90 + (r % 2 ? 45 : 0) - 20;
+        const k = rand(col * 7 + r * 31);
+        if (k < 0.45) continue;
+        const fill = k > 0.82 ? "#6e6a4c" : "#5a7894";
+        out += `<rect x="${wx}" y="${wy}" width="78" height="50" fill="${fill}" opacity="0.85"/>`;
+      }
+    });
+    for (let mx = 0; mx < 1600; mx += 90) {
+      out += `<rect x="${mx}" y="${ROOF_Y + 78}" width="3" height="${1000 - ROOF_Y}" fill="rgba(120,205,255,0.12)"/>`;
+    }
+    // Steel X-bracing behind the glass
+    for (let bx = -330; bx < 1600; bx += 330) {
+      out += `<path d="M${bx} ${ROOF_Y + 78} L${bx + 330} 1000 M${bx + 330} ${ROOF_Y + 78} L${bx} 1000" stroke="rgba(120,205,255,0.28)" stroke-width="4"/>`;
+    }
+    return out;
+  }
+
+  function bob(cx, lift = 0, aura = false) {
+    const bodyW = 95, bodyH = 106;
+    const bodyY = ROOF_Y - 26 - 6 - bodyH + 8;
+    const visorW = 59, visorH = 19, visorX = cx - visorW / 2, visorY = bodyY + bodyH * 0.2;
+    const wheelY = ROOF_Y - 8;
+    let spokes = "";
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      spokes += `<line x1="${cx}" y1="${wheelY}" x2="${cx + Math.cos(a) * 14}" y2="${wheelY + Math.sin(a) * 14}" stroke="rgba(15,17,22,0.45)" stroke-width="2"/>`;
+    }
+    return `
+      ${lift ? "" : `<rect x="${cx - 26}" y="430" width="7" height="${ROOF_Y - 430}" fill="#2c323d"/>`}
+      <g class="bob-body"${lift ? ` transform="translate(0 ${-lift})"` : ""}>
+      ${aura ? `<circle cx="${cx}" cy="${ROOF_Y - 80}" r="112" fill="rgba(120,205,255,0.06)" stroke="rgba(120,205,255,0.6)" stroke-width="3" stroke-dasharray="14 10"/>` : ""}
+      ${lift ? "" : `<ellipse cx="${cx}" cy="${ROOF_Y + 2}" rx="62" ry="9" fill="rgba(0,0,0,0.35)"/>`}
+      <circle cx="${cx}" cy="${wheelY}" r="26" fill="#24262c"/>
+      <circle cx="${cx}" cy="${wheelY}" r="16" fill="#f2f2f2" opacity="0.85"/>
+      ${spokes}
+      <circle cx="${cx}" cy="${wheelY}" r="7" fill="none" stroke="rgba(15,17,22,0.45)" stroke-width="2"/>
+      <rect x="${cx - bodyW / 2}" y="${bodyY}" width="${bodyW}" height="${bodyH}" rx="42" fill="#f2f2f2" filter="url(#bobGlow)"/>
+      <rect x="${visorX}" y="${visorY}" width="${visorW}" height="${visorH}" rx="11" fill="rgba(15,17,22,0.62)"/>
+      <rect x="${visorX + 6}" y="${visorY + 4}" width="20" height="5" rx="3" fill="rgba(242,242,242,0.18)"/>
+      <rect class="bob-eye" x="${visorX + visorW * 0.78 - 1}" y="${visorY + 5}" width="8" height="8" fill="rgb(120,205,255)"/>
+      </g>
+      <g class="arm"></g>`;
+  }
+
+  function pane(x, w, y = 370) {
+    const h = ROOF_Y - y;
+    let scan = "";
+    for (let sy = y + 6; sy < ROOF_Y; sy += 12) scan += `<rect x="${x}" y="${sy}" width="${w}" height="1.5" fill="rgba(120,205,255,0.07)"/>`;
+    let dashes = "";
+    for (let dx = x + 40; dx < x + w - 20; dx += 66) dashes += `<rect x="${dx}" y="${ROOF_Y - 2}" width="14" height="4" fill="rgba(120,205,255,0.9)"/>`;
+    const b = 26; // corner bracket length
+    const fontSize = Math.round(w * 0.2);
+    return `
+      <g>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#glass)" class="pane-rect"/>
+        ${scan}
+        <polygon points="${x + w * 0.28},${y} ${x + w * 0.36},${y} ${x + w * 0.22},${ROOF_Y} ${x + w * 0.14},${ROOF_Y}" fill="rgba(242,242,242,0.04)"/>
+        <polygon points="${x + w * 0.62},${y} ${x + w * 0.66},${y} ${x + w * 0.52},${ROOF_Y} ${x + w * 0.48},${ROOF_Y}" fill="rgba(242,242,242,0.03)"/>
+        <rect class="pane-glow" x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="rgba(120,205,255,0.7)" stroke-width="3" filter="url(#paneGlow)"/>
+        <path d="M${x} ${y + b} V${y} H${x + b} M${x + w - b} ${y} H${x + w} V${y + b} M${x} ${ROOF_Y - b} V${ROOF_Y} M${x + w} ${ROOF_Y - b} V${ROOF_Y}" stroke="rgb(120,205,255)" stroke-width="8" fill="none"/>
+        <text x="${x + 22}" y="${y + 40}" font-family="Share Tech Mono, monospace" font-size="24" letter-spacing="2" fill="rgba(120,205,255,0.75)">FIREWALL</text>
+        <text x="${x + w - 22}" y="${y + 40}" text-anchor="end" font-family="Share Tech Mono, monospace" font-size="24" letter-spacing="2" fill="rgba(120,205,255,0.75)">SECTOR 00</text>
+        <text x="${x + w / 2}" y="${y + h * 0.56}" text-anchor="middle" dominant-baseline="middle" font-family="Orbitron, sans-serif" font-weight="800" font-size="${fontSize}" letter-spacing="${fontSize * 0.18}" fill="#d7f5ff" filter="url(#textGlow)">START</text>
+        <rect x="${x - 10}" y="${ROOF_Y - 8}" width="${w + 20}" height="12" fill="#141820"/>
+        ${dashes}
+      </g>`;
+  }
+
+  // A gap between two roofs, down to the lethal ground glow.
+  function gap(x, w) {
+    return `
+      <rect x="${x}" y="${ROOF_Y - 4}" width="${w}" height="${1000 - ROOF_Y + 4}" fill="#07080b"/>
+      <rect x="${x}" y="${ROOF_Y - 4}" width="${w}" height="${1000 - ROOF_Y + 4}" fill="url(#sky)" opacity="0.5"/>
+      <rect x="${x}" y="975" width="${w}" height="25" fill="rgba(255,85,110,0.85)"/>
+      <rect x="${x}" y="900" width="${w}" height="75" fill="rgba(255,85,110,0.12)"/>
+      <rect x="${x - 3}" y="${ROOF_Y - 4}" width="3" height="${1000 - ROOF_Y + 4}" fill="rgba(120,205,255,0.35)"/>
+      <rect x="${x + w}" y="${ROOF_Y - 4}" width="3" height="${1000 - ROOF_Y + 4}" fill="rgba(120,205,255,0.35)"/>`;
+  }
+
+  function scene(opts) {
+    const paneW = opts.paneW || 550;
+    return `
+      <svg class="scene" viewBox="${opts.vb || "0 0 1600 1000"}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0f1116"/><stop offset="0.55" stop-color="#141a24"/><stop offset="1" stop-color="#07080b"/>
+          </linearGradient>
+          <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="rgba(120,205,255,0.13)"/><stop offset="1" stop-color="rgba(120,205,255,0.05)"/>
+          </linearGradient>
+          <filter id="bobGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceAlpha" stdDeviation="8"/><feFlood flood-color="#f2f2f2" flood-opacity="0.25"/><feComposite operator="in" in2="SourceAlpha"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="paneGlow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="textGlow" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="7" result="b"/><feFlood flood-color="rgb(120,205,255)" flood-opacity="0.9"/><feComposite operator="in" in2="b"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <rect width="1600" height="1000" fill="url(#sky)"/>
+        ${skyline()}
+        <rect y="${ROOF_Y - 130}" width="1600" height="130" fill="rgba(242,242,242,0.03)"/>
+        ${opts.tower ? tower() : ""}
+        ${facade()}
+        ${opts.gap ? gap(opts.gap[0], opts.gap[1]) : ""}
+        ${opts.paneX != null ? pane(opts.paneX, paneW, opts.paneY) : ""}
+        ${bob(opts.bobX, opts.bobLift, opts.aura)}
+      </svg>`;
+  }
+
+  document.querySelectorAll(".frame[data-scene]").forEach((frame) => {
+    const opts = JSON.parse(frame.dataset.scene);
+    frame.insertAdjacentHTML("afterbegin", scene(opts));
+  });
+})();
+
+// ---------------- Mock interactions ----------------
+(function () {
+  const frame = document.getElementById("frame");
+
+  // Subject records: all-time top 3, then this week's top 10. "outside" is the demo where you're not in the week's top 10.
+  const ALL_TIME = [["Dev", 52410], ["ghost", 47120], ["glitch", 44980]];
+  const WEEK = {
+    inside: [["Dev", 39916], ["Manimac", 31279, true], ["damn", 30327], ["ghost", 28410], ["nyx", 26002],
+             ["glitch", 24775], ["loop_9", 21300], ["pixl", 19844], ["runner", 17120], ["zed", 15606]],
+    outside: [["Dev", 39916], ["kai", 33050], ["damn", 30327], ["ghost", 28410], ["nyx", 26002],
+              ["glitch", 24775], ["loop_9", 21300], ["pixl", 19844], ["runner", 17120], ["zed", 15606]],
+  };
+  const ME = { name: "Manimac", best: 31279, allRank: 7, weekScore: { inside: 31279, outside: 12050 }, weekRank: { inside: 2, outside: 14 } };
+  let weekCase = "inside";
+  const fmt = (n) => n.toLocaleString("en-US");
+  let purgeLeft = 119 * 3600 + 33 * 60 + 57;
+  const hms = (s) => `${String(Math.floor(s / 3600)).padStart(3, "0")}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  const row = (rank, name, score, me) =>
+    `<div class="row${me ? " me" : ""}"><span class="r${rank <= 3 ? " p" + rank : ""}">${rank}</span><span>${name}${me ? '<span class="you">YOU</span>' : ""}</span><span class="s">${fmt(score)}</span></div>`;
+
+  function renderRecords(el) {
+    const week = WEEK[weekCase];
+    const weekRank = ME.weekRank[weekCase];
+    const weekScore = ME.weekScore[weekCase];
+    let weekRows = week.map((r, i) => row(i + 1, r[0], r[1], r[2])).join("");
+    if (weekRank > 10) weekRows += `<div class="gap">⋯</div>` + row(weekRank, ME.name, weekScore, true);
+    el.innerHTML = `
+      <div class="head all">ALL-TIME</div>
+      ${ALL_TIME.map((r, i) => row(i + 1, r[0], r[1])).join("")}
+      <div class="head week">THIS WEEK · PURGE IN <span class="timer" data-purge>${hms(purgeLeft)}</span></div>
+      ${weekRows}
+      <div class="best">
+        <div class="mine"><small>YOUR BEST</small><b>${fmt(ME.best)}</b><em>#${ME.allRank} ALL-TIME</em></div>
+        <div class="chase"><small>THIS WEEK</small><b>#${weekRank}</b><em>${fmt(week[0][1] - weekScore + 1)} TO BEAT #1</em></div>
+      </div>`;
+  }
+  const recEl = frame.querySelector(".rec");
+  renderRecords(recEl);
+  setInterval(() => {
+    purgeLeft = Math.max(0, purgeLeft - 1);
+    document.querySelectorAll("[data-purge]").forEach((s) => { s.textContent = hms(purgeLeft); });
+  }, 1000);
+
+  // Data link: from BREAK OUT's right edge, across, then down into the firewall's left edge.
+  const linkSvg = frame.querySelector("svg.link");
+  const linkPath = linkSvg.querySelector("path");
+  const linkDot = linkSvg.querySelector("circle");
+  const target = frame.querySelector(".target");
+  const btn = document.getElementById("breakout");
+  const panel = frame.querySelector(".panel");
+
+  function drawLink() {
+    const pane = frame.querySelector(".pane-rect");
+    if (!pane) return;
+    const f = frame.getBoundingClientRect();
+    const b = btn.getBoundingClientRect();
+    const p = pane.getBoundingClientRect();
+    const pr = panel.getBoundingClientRect();
+    linkSvg.setAttribute("viewBox", `0 0 ${f.width} ${f.height}`);
+    const x0 = pr.right - f.left;
+    const y0 = b.top + b.height / 2 - f.top;
+    const xc = p.left - f.left - f.width * 0.025;
+    const y1 = p.top + p.height * 0.5 - f.top;
+    const x1 = p.left - f.left;
+    linkPath.setAttribute("d", `M${x0} ${y0} H${xc} V${y1} H${x1}`);
+    linkDot.setAttribute("cx", x1);
+    linkDot.setAttribute("cy", y1);
+    target.style.left = `${xc}px`;
+    target.style.top = `${y0}px`;
+  }
+  new ResizeObserver(drawLink).observe(frame);
+  document.fonts?.ready.then(drawLink);
+  btn.addEventListener("mouseenter", () => frame.classList.add("hot"));
+  btn.addEventListener("mouseleave", () => frame.classList.remove("hot"));
+  btn.addEventListener("focus", () => frame.classList.add("hot"));
+  btn.addEventListener("blur", () => frame.classList.remove("hot"));
+
+  // ---------------- Intro: the claw carries Bob out of the shell ----------------
+  // A port of computeStartPush (render/camera.js) and drawRobotArm (render/effects.js). World sizes are
+  // scaled by S, the mockup's px per world px (Bob is 34 world px = 136 here).
+  const S = 4;
+  const START_PUSH = { ARM_REACH: 0.12, PUSH: 0.8, ARM_RETRACT: 0.8 };
+  const PUSH_TOTAL = START_PUSH.ARM_REACH + START_PUSH.PUSH + START_PUSH.ARM_RETRACT;
+  const INTERNAL_W = 1000;
+  const ROOF_Y = 680;
+  const BOB_CX = 700;
+  const snap = { x: BOB_CX - 17 * S, y: ROOF_Y - 34 * S, w: 34 * S, h: 34 * S };
+  // clawGrip: palm on his back, jaws sized to his body capsule (70% × 78% of the hitbox, raised 6%).
+  const torso = { w: snap.w * 0.7, h: snap.h * 0.78, centerY: -snap.h * 0.06 };
+  const grip = {
+    x: BOB_CX - torso.w / 2 - 2 * S,
+    y: snap.y + snap.h / 2 + torso.centerY,
+    jawLen: torso.w * 0.7 + 2 * S,
+    jawGap: torso.h / 2 + 0.5 * S,
+  };
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  const easeOutCubic = (v) => 1 - Math.pow(1 - clamp01(v), 3);
+  const easeInOutCubic = (v) => { v = clamp01(v); return v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2; };
+  const smoothstep = (v) => { v = clamp01(v); return v * v * (3 - 2 * v); };
+
+  const bobBody = frame.querySelector(".bob-body");
+  const armLayer = frame.querySelector(".arm");
+  const logLines = [...frame.querySelectorAll(".log > div[data-at]")];
+
+  function armMarkup(t) {
+    const reachK = easeOutCubic(t / START_PUSH.ARM_REACH);
+    const pushK = easeInOutCubic((t - START_PUSH.ARM_REACH) / START_PUSH.PUSH);
+    const retractRaw = (t - START_PUSH.ARM_REACH - START_PUSH.PUSH) / START_PUSH.ARM_RETRACT;
+    const retractK = easeInOutCubic(retractRaw);
+
+    const baseX0 = BOB_CX - INTERNAL_W * 0.75 * S;
+    const baseY = snap.y + snap.h * 0.28;
+    const reachX = baseX0 + (grip.x - baseX0) * reachK;
+    const reachY = baseY + (grip.y - baseY) * reachK;
+    const pushDist = BOB_CX + snap.w / 2 + 120;
+    const bobOffsetX = -pushDist + pushDist * pushK;
+    const retractOffset = -retractK * INTERNAL_W * 0.55 * S;
+    const tipX = reachX + bobOffsetX + retractOffset;
+    const tipY = reachY;
+    const gripK = 1 - smoothstep(retractRaw * 4);
+    const baseX = baseX0 + retractOffset;
+
+    const wobble = Math.sin(t * 6) * 4 * S;
+    const wristX = tipX - (4 + 7) * S;
+    const elbowX = baseX + (tipX - baseX) * 0.55;
+    const elbowY = baseY - 28 * S + (tipY - baseY) * 0.2 + wobble;
+    const line = `M${baseX} ${baseY} L${elbowX} ${elbowY} L${wristX} ${tipY}`;
+    const lineLow = `M${baseX + 4 * S} ${baseY + 6 * S} L${elbowX + 4 * S} ${elbowY + 6 * S} L${wristX + 4 * S} ${tipY + 6 * S}`;
+
+    const JAW = 4 * S, PALM = 4 * S, OPEN = 6 * S, BITE = 2.5 * S;
+    const gap = grip.jawGap + OPEN * (1 - gripK);
+    const top = tipY - gap - JAW;
+    const bottom = tipY + gap + JAW;
+    const jawLen = grip.jawLen;
+    const tip = tipX + jawLen;
+    const svg = `
+      <path d="${line}" stroke="rgba(44,48,58,1)" stroke-width="${14 * S}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${line}" stroke="rgba(120,205,255,0.55)" stroke-width="${6 * S}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${lineLow}" stroke="rgba(255,85,110,0.22)" stroke-width="${3 * S}" fill="none" stroke-linecap="round"/>
+      <circle cx="${baseX}" cy="${baseY}" r="${8 * S}" fill="rgb(20,22,28)"/>
+      <circle cx="${elbowX}" cy="${elbowY}" r="${7 * S}" fill="rgb(20,22,28)"/>
+      <circle cx="${wristX}" cy="${tipY}" r="${6 * S}" fill="rgb(20,22,28)"/>
+      <circle cx="${elbowX - 2 * S}" cy="${elbowY + S}" r="${2 * S}" fill="rgba(255,180,70,0.65)"/>
+      <rect x="${tipX}" y="${top}" width="${jawLen}" height="${JAW}" fill="rgb(104,112,128)"/>
+      <rect x="${tipX}" y="${bottom - JAW}" width="${jawLen}" height="${JAW}" fill="rgb(104,112,128)"/>
+      <path d="M${tip - 4 * S} ${top + JAW} H${tip} L${tip - S} ${top + JAW + BITE} Z M${tip - 4 * S} ${bottom - JAW} H${tip} L${tip - S} ${bottom - JAW - BITE} Z" fill="rgb(104,112,128)"/>
+      <rect x="${tipX}" y="${top}" width="${jawLen}" height="${S}" fill="rgba(120,205,255,0.55)"/>
+      <rect x="${tipX}" y="${bottom - S}" width="${jawLen}" height="${S}" fill="rgba(120,205,255,0.55)"/>
+      <rect x="${tipX - PALM}" y="${top}" width="${PALM}" height="${bottom - top}" fill="rgb(44,48,58)"/>
+      <circle cx="${tipX - PALM / 2}" cy="${tipY}" r="${1.5 * S}" fill="rgba(255,180,70,0.9)"/>`;
+    const offscreen = Math.max(baseX, tipX) < -120 * S;
+    return { svg: offscreen ? "" : svg, bobOffsetX };
+  }
+
+  let introT = PUSH_TOTAL;
+  let timeScale = 1;
+  let lastNow = 0;
+  let raf = 0;
+
+  function renderIntro() {
+    const { svg, bobOffsetX } = armMarkup(introT);
+    armLayer.innerHTML = svg;
+    bobBody.setAttribute("transform", `translate(${bobOffsetX} 0)`);
+    logLines.forEach((el) => el.classList.toggle("on", introT >= Number(el.dataset.at)));
+    const awake = introT >= PUSH_TOTAL - 1e-6;
+    if (awake !== frame.classList.contains("awake")) {
+      frame.classList.toggle("awake", awake);
+      if (awake) drawLink();
+    }
+  }
+  function tick(now) {
+    const dt = lastNow ? Math.min(0.05, (now - lastNow) / 1000) : 0;
+    lastNow = now;
+    introT = Math.min(PUSH_TOTAL, introT + dt * timeScale);
+    renderIntro();
+    if (introT < PUSH_TOTAL) raf = requestAnimationFrame(tick);
+  }
+  function playIntro() {
+    cancelAnimationFrame(raf);
+    frame.classList.remove("run");
+    introT = 0;
+    lastNow = 0;
+    renderIntro();
+    // Hold on the empty roof for a beat, so you see the log start before the claw arrives.
+    setTimeout(() => { lastNow = 0; raf = requestAnimationFrame(tick); }, 500);
+  }
+  function skipIntro() {
+    cancelAnimationFrame(raf);
+    introT = PUSH_TOTAL;
+    renderIntro();
+  }
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) {
+    renderIntro();
+  } else {
+    introT = 0;
+    renderIntro();
+    // Play the first time the frame is mostly on screen.
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { io.disconnect(); playIntro(); }
+    }, { threshold: 0.6 });
+    io.observe(frame);
+  }
+  document.getElementById("replay").addEventListener("click", playIntro);
+  const slowBtn = document.getElementById("slow");
+  slowBtn.addEventListener("click", () => {
+    timeScale = timeScale === 1 ? 0.25 : 1;
+    slowBtn.setAttribute("aria-pressed", String(timeScale !== 1));
+  });
+
+  // CONTROLS and TRAINING open inside the panel.
+  const openBtns = [...panel.querySelectorAll("[data-open]")];
+  function setView(view) {
+    panel.dataset.view = view;
+    openBtns.forEach((b) => b.classList.toggle("on", b.dataset.open === view));
+  }
+  openBtns.forEach((b) => b.addEventListener("click", () => setView(panel.dataset.view === b.dataset.open ? "home" : b.dataset.open)));
+  panel.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => setView("home")));
+  panel.querySelectorAll("[data-input]").forEach((b) => b.addEventListener("click", () => {
+    const mode = b.dataset.input;
+    panel.querySelectorAll("[data-input]").forEach((o) => o.classList.toggle("on", o === b));
+    panel.querySelectorAll(".sheet.controls .mv").forEach((row) => {
+      const chip = row.querySelector(".chip");
+      const lbl = row.querySelector(".lbl");
+      chip.textContent = chip.dataset[mode];
+      lbl.style.visibility = chip.textContent === lbl.firstChild.textContent.toUpperCase() ? "hidden" : "";
+    });
+  }));
+
+  // Demo controls
+  let runTimer = 0;
+  function playRun() {
+    clearTimeout(runTimer);
+    frame.classList.add("run");
+    runTimer = setTimeout(() => frame.classList.remove("run"), 2600);
+  }
+  document.getElementById("play").addEventListener("click", () => { skipIntro(); playRun(); });
+  btn.addEventListener("click", () => { if (introT < PUSH_TOTAL) skipIntro(); else playRun(); });
+  const shortBtn = document.getElementById("short");
+  const outsideBtn = document.getElementById("outside");
+  outsideBtn.addEventListener("click", () => {
+    weekCase = weekCase === "inside" ? "outside" : "inside";
+    outsideBtn.setAttribute("aria-pressed", String(weekCase === "outside"));
+    renderRecords(recEl);
+    drawLink();
+  });
+  shortBtn.addEventListener("click", () => {
+    const on = frame.classList.toggle("short");
+    shortBtn.setAttribute("aria-pressed", String(on));
+    setTimeout(drawLink, 320);
+  });
+})();
+</script>
+</body>
+</html>
