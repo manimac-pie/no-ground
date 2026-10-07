@@ -74,12 +74,15 @@ export function createInitialState() {
     airFlipEndT: -1, // uiTime the latest backflip finished (clutch bonus), -1 if none
     scoreBreakdown: createBreakdown(), // banked points per source (run summary)
     airBreakdown: createBreakdown(),   // this jump's points per source, banked on landing
+    runEvents: [], // banked tricks with where they happened, { kind, m } (the end screen's black box)
+    airEvents: [], // this jump's, banked on landing
 
     // Personal best: snapshot taken as the run starts (the server value changes after submit).
     runBestTarget: 0,
     sessionBest: 0, // best finished run this session; survives resets
     passedBest: false,
     passedBestT: -1, // uiTime when this run passed the best
+    prevBestRunM: 0, // metres of the best run on this device before this one (0: none), for the black box
 
     slowfallDistance: 0,
     backflipCount: 0,
@@ -94,7 +97,8 @@ export function createInitialState() {
     tallyRow: 0,   // row counting now (tallyRows.length once done)
     tallyRowT: 0,  // seconds into that row
     restartReady: false, // RESET is showing and a press may restart
-    restartReadyT: 0,    // seconds RESET has been showing (it types itself in)
+    restartReadyT: 0,    // seconds RESET has been showing
+    summarySkipped: false, // a press skipped the end screen's animation: show it finished
     iteration: 0,        // simulation iteration: runs started on this device (persisted, not reset)
 
     // Pause: while paused or counting down, update() freezes the run.
@@ -227,9 +231,12 @@ export function resetRunState(state) {
   state.airFlipEndT = -1;
   clearBreakdown(state.scoreBreakdown);
   clearBreakdown(state.airBreakdown);
+  state.runEvents.length = 0;
+  state.airEvents.length = 0;
   state.runBestTarget = 0;
   state.passedBest = false;
   state.passedBestT = -1;
+  state.prevBestRunM = 0;
   state.slowfallDistance = 0;
   state.backflipCount = 0;
   state.billboardDashCount = 0;
@@ -244,6 +251,7 @@ export function resetRunState(state) {
   state.tallyRowT = 0;
   state.restartReady = false;
   state.restartReadyT = 0;
+  state.summarySkipped = false;
   state.paused = false;
   state.pauseT = 0;
   state.resumeCountdownT = 0;

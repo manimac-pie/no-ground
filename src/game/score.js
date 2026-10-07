@@ -12,6 +12,10 @@
 // Run summary breakdown: points per source (plus counts for some), kept the same way as the pot.
 // Airborne points collect in state.airBreakdown and move to state.scoreBreakdown on a safe landing,
 // so the breakdown only holds banked points and adds up to the score.
+//
+// Black box (the end screen's replay): every counted trick is also logged with the distance it
+// happened at, in state.airEvents while airborne and state.runEvents once banked, so the log
+// always matches the counts.
 
 import { getConst } from "./utils.js";
 
@@ -67,6 +71,14 @@ export function clearBreakdown(b) {
   for (const k in b) b[k] = 0;
 }
 
+// Log a counted trick for the black box: { kind, m } with m the metres run so far
+// (distance points, one per metre, the same unit as the summary's DISTANCE).
+function logEvent(state, kind, banked = !state.airActive) {
+  const list = banked ? state.runEvents : state.airEvents;
+  if (!list) return;
+  list.push({ kind, m: Math.floor(state.scoreBreakdown?.distance || 0) });
+}
+
 // The breakdown points go into right now: pending while airborne, banked on a roof.
 function liveBreakdown(state) {
   return state.airActive ? state.airBreakdown : state.scoreBreakdown;
@@ -76,7 +88,9 @@ function liveBreakdown(state) {
 export function countEvent(state, kind) {
   const b = liveBreakdown(state);
   const key = `${kind}N`;
-  if (b && key in b) b[key] += 1;
+  if (!b || !(key in b)) return;
+  b[key] += 1;
+  logEvent(state, kind);
 }
 
 // Seconds of running at the current speed, in points. The dash boost is left out,
@@ -137,6 +151,7 @@ export function awardBuildingsCleared(state, n) {
   const b = state.scoreBreakdown;
   if (!state.airActive || !(n > 0) || !b) return;
   b.buildingsN += n;
+  for (let i = 0; i < n; i++) logEvent(state, "buildings", true);
   const amount = Math.ceil(((state.airDistance || 0) * n) / BYPASS_POINTS_DIV);
   if (!(amount > 0)) return;
   b.buildings += amount;
@@ -207,6 +222,9 @@ export function landAir(state) {
     for (const k in pending) banked[k] += pending[k];
     banked.multiplier += extra;
   }
+  if (state.runEvents && state.airEvents) {
+    for (const ev of state.airEvents) state.runEvents.push(ev);
+  }
   loseAir(state);
   if (payout <= 0) return;
 
@@ -227,6 +245,7 @@ export function loseAir(state) {
   state.airFlips = 0;
   state.airFlipEndT = -1;
   if (state.airBreakdown) clearBreakdown(state.airBreakdown);
+  if (state.airEvents) state.airEvents.length = 0;
 }
 
 // ---------------- run summary tally ----------------

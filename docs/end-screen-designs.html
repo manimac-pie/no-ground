@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>End Screen Designs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" />
+<style>
+  :root {
+    --bg: #07080b;
+    --ink: #f2f2f2;
+    --dim: rgba(242,242,242,0.55);
+    --cyan: 120,205,255;
+    --amber: 255,180,70;
+    --red: 255,85,110;
+    --magenta: 255,90,200;
+    --gold: 255,212,121;
+    --green: 95,227,154;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font: 800 28px Orbitron, sans-serif; letter-spacing: 0.06em; margin: 0 0 6px; }
+  .lede { color: var(--dim); margin: 0 0 20px; max-width: 74ch; }
+  .demo-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 0; background: var(--bg); margin-bottom: 18px; }
+  .demo-bar button {
+    font: 13px "Share Tech Mono", monospace; letter-spacing: 0.08em; cursor: pointer;
+    color: rgb(var(--cyan)); background: rgba(var(--cyan),0.06);
+    border: 1px solid rgba(var(--cyan),0.4); border-radius: 999px; padding: 6px 14px;
+  }
+  .demo-bar button:hover { background: rgba(var(--cyan),0.14); }
+  .demo-bar button[aria-pressed="true"] { background: rgba(var(--cyan),0.22); color: #fff; }
+  .demo-bar .grp { display: flex; gap: 4px; align-items: center; }
+  .demo-bar .grp > span { font: 12px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgba(var(--amber),0.9); margin-right: 4px; }
+  .demo-bar .grp button { border-radius: 6px; }
+  .demo-bar #reset { color: rgb(var(--red)); border-color: rgba(var(--red),0.5); background: rgba(var(--red),0.06); }
+  .demo-bar #reset:hover { background: rgba(var(--red),0.16); }
+  section.design { margin-bottom: 64px; }
+  section.design > header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  section.design > header .num { font: 800 14px Orbitron, sans-serif; color: rgb(var(--cyan)); }
+  section.design > header h2 { font: 700 20px Orbitron, sans-serif; margin: 0; letter-spacing: 0.04em; }
+  section.design > header p { margin: 0; color: var(--dim); flex-basis: 100%; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 28px; margin-top: 14px; color: rgba(242,242,242,0.85); }
+  .notes h3 { font: 600 13px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgb(var(--amber)); margin: 0 0 8px; text-transform: uppercase; }
+  .notes ul { margin: 0; padding-left: 18px; }
+  .notes li { margin: 3px 0; }
+  code { font: 13px "Share Tech Mono", monospace; color: rgb(var(--cyan)); }
+
+  /* ---------------- Frame: the game's 16:9 view. --g = one internal game unit (800 across). ---------------- */
+  .frame {
+    --g: calc(100cqw / 800);
+    position: relative; aspect-ratio: 16 / 9; container-type: inline-size; overflow: hidden;
+    border-radius: 10px; background: #0f1116;
+    box-shadow: 0 0 0 1px rgba(242,242,242,0.08), 0 20px 60px rgba(0,0,0,0.6);
+    font-family: "Share Tech Mono", monospace; user-select: none;
+  }
+  .frame svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .bob-eye { animation: blink 0.9s steps(2, jump-none) infinite; }
+  .blink { animation: blink 1.1s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* RESET: the simulation glitches the screen out, then the run is rebuilt. */
+  .frame.glitch > * { animation: glitch 0.35s steps(7) forwards; }
+  @keyframes glitch {
+    0% { transform: none; clip-path: inset(0); }
+    15% { transform: translateX(-3%) skewX(10deg); clip-path: inset(10% 0 55% 0); filter: hue-rotate(120deg); }
+    30% { transform: translateX(4%); clip-path: inset(48% 0 12% 0); }
+    45% { transform: translateX(-1%) skewX(-14deg); clip-path: inset(25% 0 30% 0); filter: saturate(3) hue-rotate(-90deg); }
+    60% { transform: translateX(2%); clip-path: inset(70% 0 5% 0); }
+    80% { transform: scaleY(0.04); clip-path: inset(0); opacity: 0.9; }
+    100% { transform: scaleY(0); opacity: 0; }
+  }
+
+  /* A piece of UI over the world (positioned in mock units by the script). */
+  .piece { position: absolute; z-index: 2; color: var(--ink); font-size: calc(var(--g) * 8.5); }
+  .card-ui {
+    background: rgba(5,7,10,0.92); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.22);
+    border-radius: calc(var(--g) * 6); box-shadow: 0 calc(var(--g) * 8) calc(var(--g) * 24) rgba(0,0,0,0.55);
+  }
+  /* Text straight on the sky, as on the start screen: a dark shadow and a soft fade keep it readable. */
+  .sky { text-shadow: 0 0 calc(var(--g) * 6) rgba(0,0,0,0.95), 0 0 calc(var(--g) * 2) rgba(0,0,0,0.9); }
+  .sky::before { content: ""; position: absolute; inset: calc(var(--g) * -24); z-index: -1; background: radial-gradient(ellipse at top left, rgba(5,7,10,0.88), rgba(5,7,10,0) 72%); }
+
+  /* Things that appear on a timer, and names that swap. */
+  [data-at]:not(.on) { visibility: hidden; }
+  .sw:not(.on) { display: none; }
+
+  /* ---------------- Shared pieces (same tokens as the start screen) ---------------- */
+  .status { display: flex; justify-content: space-between; font-size: calc(var(--g) * 7); letter-spacing: 0.2em; color: rgba(242,242,242,0.4); }
+  .dead { color: rgb(var(--red)); }
+  .dead::before { content: ""; display: inline-block; width: calc(var(--g) * 4); height: calc(var(--g) * 4); border-radius: 50%; background: rgb(var(--red)); box-shadow: 0 0 calc(var(--g) * 5) rgb(var(--red)); margin-right: calc(var(--g) * 4); vertical-align: 0.1em; animation: blink 1.1s steps(2, jump-none) infinite; }
+  .logo {
+    font: 800 calc(var(--g) * 20)/1 Orbitron, sans-serif; letter-spacing: 0.05em; color: #fff;
+    text-shadow: calc(var(--g) * -0.8) 0 rgba(var(--red),0.7), calc(var(--g) * 0.8) 0 rgba(var(--cyan),0.7);
+  }
+  .logo.tm { color: rgb(255,214,220); text-shadow: calc(var(--g) * -1.2) 0 rgba(var(--red),0.85), calc(var(--g) * 1.2) 0 rgba(var(--cyan),0.6), 0 0 calc(var(--g) * 10) rgba(var(--red),0.45); }
+  .sub { font-size: calc(var(--g) * 7); letter-spacing: 0.14em; color: rgba(var(--cyan),0.72); }
+  .log > div { line-height: calc(var(--g) * 11); white-space: nowrap; }
+  .t { color: rgba(242,242,242,0.32); display: inline-block; flex: none; width: calc(var(--g) * 38); }
+  .ok { color: rgba(242,242,242,0.62); }
+  .v { color: #fff; }
+  .d { color: rgba(242,242,242,0.36); }
+  .r { color: rgb(var(--red)); }
+  .a { color: rgb(var(--amber)); }
+  .c { color: rgb(var(--cyan)); }
+  .gold { color: rgb(var(--gold)); text-shadow: 0 0 calc(var(--g) * 5) rgba(var(--gold),0.55); }
+  .b { color: rgb(var(--magenta)); text-shadow: 0 0 calc(var(--g) * 5) rgba(var(--magenta),0.6); }
+  .cursor { display: inline-block; width: calc(var(--g) * 5); height: calc(var(--g) * 8); background: rgb(var(--cyan)); vertical-align: -0.05em; margin-left: calc(var(--g) * 2); }
+  .k { font: calc(var(--g) * 7) "Share Tech Mono", monospace; letter-spacing: 0.1em; color: rgb(var(--cyan)); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.7); border-bottom-width: calc(var(--g) * 2); border-radius: calc(var(--g) * 3); padding: 0 calc(var(--g) * 5); white-space: nowrap; }
+  .dots { flex: 1; min-width: calc(var(--g) * 6); align-self: center; height: 0; border-bottom: calc(var(--g) * 1) dotted rgba(242,242,242,0.22); margin: 0 calc(var(--g) * 4); }
+  .you { font-size: calc(var(--g) * 6); letter-spacing: 0.1em; border: calc(var(--g) * 0.75) solid rgba(var(--cyan),0.65); border-radius: calc(var(--g) * 2); padding: 0 calc(var(--g) * 3); margin-left: calc(var(--g) * 4); vertical-align: 0.15em; color: rgb(var(--cyan)); }
+
+  /* Menu rows (the start screen's), RESET in place of BREAK OUT. */
+  .menu { display: flex; flex-direction: column; gap: calc(var(--g) * 2); }
+  .mi {
+    display: flex; align-items: center; gap: calc(var(--g) * 8); height: calc(var(--g) * 21); padding: 0 calc(var(--g) * 8);
+    border-radius: calc(var(--g) * 4); cursor: pointer; white-space: nowrap;
+    font: 700 calc(var(--g) * 9.5) Orbitron, sans-serif; letter-spacing: calc(var(--g) * 1); color: rgba(242,242,242,0.62);
+    transition: background 0.15s, color 0.15s, opacity 0.3s;
+  }
+  .mi i { font: normal calc(var(--g) * 7) "Share Tech Mono", monospace; color: rgba(242,242,242,0.3); width: calc(var(--g) * 10); }
+  .mi .k { margin-left: auto; }
+  .mi .go { margin-left: auto; font-size: calc(var(--g) * 8); color: rgb(var(--cyan)); opacity: 0; transform: translateX(calc(var(--g) * -4)); transition: opacity 0.15s, transform 0.15s; }
+  .mi:hover { background: rgba(242,242,242,0.05); color: #fff; }
+  .mi:hover .go { opacity: 1; transform: none; }
+  .mi.sel { background: rgba(var(--red),0.12); box-shadow: inset calc(var(--g) * 3) 0 0 rgb(var(--red)); color: #fff; }
+  .mi.sel i { color: rgb(var(--red)); }
+  .mi.sel .k { color: rgb(var(--red)); border-color: rgba(var(--red),0.7); }
+  .mi.sel:hover { background: rgba(var(--red),0.22); }
+  .frame:not(.ready) .mi.sel { opacity: 0.35; box-shadow: inset calc(var(--g) * 3) 0 0 rgba(var(--red),0.4); pointer-events: none; }
+  .frame.ready .mi.sel { animation: wake 0.7s ease-out; }
+  @keyframes wake { 0% { opacity: 0.35; } 35% { background: rgba(var(--red),0.4); box-shadow: inset calc(var(--g) * 3) 0 0 rgb(var(--red)), 0 0 calc(var(--g) * 16) rgba(var(--red),0.6); } }
+
+  /* RESET as the system's prompt (render/hud/reset.js): types in once the tally is done. */
+  .rst {
+    display: flex; align-items: center; gap: calc(var(--g) * 4); height: calc(var(--g) * 24); padding: 0 calc(var(--g) * 10);
+    border: calc(var(--g) * 1) solid rgba(var(--cyan),0.85); border-radius: calc(var(--g) * 5); background: rgba(6,10,16,0.94);
+    box-shadow: 0 0 calc(var(--g) * 8) rgba(var(--cyan),0.2); cursor: pointer; white-space: nowrap;
+    font: 700 calc(var(--g) * 11) "Share Tech Mono", monospace; color: rgb(var(--cyan)); transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .rst .rs-sub { margin-left: auto; font-size: calc(var(--g) * 6.5); font-weight: 400; letter-spacing: 0.14em; color: rgba(242,242,242,0.4); }
+  .rst:hover { color: rgb(255,110,120); border-color: rgba(255,110,120,0.85); background: rgba(26,8,12,0.94); box-shadow: 0 0 calc(var(--g) * 12) rgba(255,110,120,0.4); }
+  .rst:hover .cursor { background: rgb(255,110,120); }
+  .rst:hover .k { color: rgb(255,110,120); border-color: rgba(255,110,120,0.7); }
+  .frame:not(.ready) .rst { visibility: hidden; }
+  .frame.ready .rst { animation: pop 0.3s ease-out; }
+  @keyframes pop { 0% { opacity: 0; transform: scaleX(0.6); } 100% { opacity: 1; transform: none; } }
+
+  /* Naming yourself (first time in the top 10): an inline field instead of the pop-up. */
+  .claim { display: flex; align-items: center; gap: calc(var(--g) * 6); height: calc(var(--g) * 20); padding: 0 calc(var(--g) * 8); border-radius: calc(var(--g) * 4); border: calc(var(--g) * 1) dashed rgba(var(--cyan),0.6); background: rgba(var(--cyan),0.07); white-space: nowrap; }
+  .claim .cl-l { font-size: calc(var(--g) * 6.5); letter-spacing: 0.16em; color: rgba(var(--cyan),0.8); }
+  .claim .cl-f { flex: 1; font-size: calc(var(--g) * 10); color: #fff; border-bottom: calc(var(--g) * 1) solid rgba(var(--cyan),0.5); }
+  .claim-ok { font-size: calc(var(--g) * 7); letter-spacing: 0.08em; color: rgb(var(--green)); }
+  .claimwrap { display: grid; }
+  .claimwrap > * { grid-area: 1 / 1; }
+  .claim-done { display: flex; align-items: center; height: calc(var(--g) * 20); padding: 0 calc(var(--g) * 8); border-radius: calc(var(--g) * 4); border: calc(var(--g) * 1) solid rgba(var(--green),0.5); background: rgba(var(--green),0.08); color: rgb(var(--green)); font-size: calc(var(--g) * 7); letter-spacing: 0.12em; white-space: nowrap; }
+
+  /* The weekly board: rows of a fixed height so a row can climb past the others. */
+  .board { --rowh: calc(var(--g) * 15); }
+  .brow {
+    position: relative; isolation: isolate; height: var(--rowh); display: grid; grid-template-columns: calc(var(--g) * 14) 1fr auto; align-items: center;
+    column-gap: calc(var(--g) * 6); padding: 0 calc(var(--g) * 6); white-space: nowrap; font-size: calc(var(--g) * 8.5);
+  }
+  .brow::before { content: ""; position: absolute; inset: calc(var(--g) * 0.75) 0; border-radius: calc(var(--g) * 3); background: rgba(242,242,242,0.035); z-index: -1; }
+  .brow .n { text-align: center; font-size: calc(var(--g) * 7); color: rgba(242,242,242,0.45); border-radius: calc(var(--g) * 2); }
+  .brow.p1 .n, .brow.p2 .n, .brow.p3 .n { color: #0b0d11; font-weight: 700; }
+  .brow.p1 .n { background: rgb(255,212,121); } .brow.p2 .n { background: rgb(212,221,232); } .brow.p3 .n { background: rgb(227,164,108); }
+  .brow .nm { overflow: hidden; text-overflow: ellipsis; color: rgba(242,242,242,0.85); }
+  .brow .s { color: #fff; }
+  .brow .x { font-size: calc(var(--g) * 6.5); color: rgb(var(--amber)); letter-spacing: 0.06em; }
+  .brow.me { z-index: 3; }
+  .brow.me::before { background: linear-gradient(90deg, rgba(var(--cyan),0.16), rgba(var(--cyan),0.32)); box-shadow: inset 0 0 0 calc(var(--g) * 1) rgba(var(--cyan),0.85), 0 0 calc(var(--g) * 10) rgba(var(--cyan),0.3); }
+  .brow.me .nm, .brow.me .s { color: rgb(var(--cyan)); }
+  .head { display: flex; align-items: center; gap: calc(var(--g) * 6); font-size: calc(var(--g) * 7); letter-spacing: 0.17em; white-space: nowrap; height: calc(var(--g) * 13); }
+  .head::after { content: ""; flex: 1; height: calc(var(--g) * 1); background: currentColor; opacity: 0.3; order: 1; }
+  .head.all { color: rgb(var(--amber)); }
+  .head.week { color: rgb(var(--cyan)); }
+  .head .pill { margin-left: auto; order: 2; font-size: calc(var(--g) * 6.5); letter-spacing: 0.12em; color: rgba(var(--amber),0.95); border: calc(var(--g) * 1) solid rgba(var(--amber),0.45); border-radius: 999px; padding: 0 calc(var(--g) * 6); }
+  .fame { font-size: calc(var(--g) * 7.5); color: rgba(242,242,242,0.75); white-space: nowrap; }
+  .fame i { font-style: normal; color: rgb(var(--gold)); }
+
+  /* Stamps: slam in when the tally finishes. */
+  .stamp { position: absolute; transform: rotate(-9deg); font: 800 calc(var(--g) * 9) Orbitron, sans-serif; letter-spacing: 0.1em; padding: calc(var(--g) * 2) calc(var(--g) * 8); border: calc(var(--g) * 1.5) solid; border-radius: calc(var(--g) * 4); background: rgba(10,10,12,0.9); white-space: nowrap; }
+  .stamp.gold { color: rgb(255,222,140); border-color: rgba(255,210,110,0.95); box-shadow: 0 0 calc(var(--g) * 10) rgba(255,190,90,0.55); }
+  .stamp.red { color: rgb(255,130,145); border-color: rgba(var(--red),0.9); box-shadow: 0 0 calc(var(--g) * 10) rgba(var(--red),0.45); }
+  .stamp.cyan { color: rgb(190,235,255); border-color: rgba(var(--cyan),0.9); box-shadow: 0 0 calc(var(--g) * 10) rgba(var(--cyan),0.45); }
+  .stamp.on { animation: slam 0.25s ease-out; }
+  @keyframes slam { 0% { opacity: 0; transform: rotate(-9deg) scale(1.9); } 100% { opacity: 1; transform: rotate(-9deg) scale(1); } }
+
+  /* ---------------- 1: Shell printout ---------------- */
+  .sh { display: flex; flex-direction: column; gap: calc(var(--g) * 4); padding: calc(var(--g) * 4) 0 0 calc(var(--g) * 4); }
+  .sh > * { flex-shrink: 0; }
+  .sh .logo { font-size: calc(var(--g) * 24); }
+  .sh .log { margin-top: calc(var(--g) * 3); }
+  .sh .lrow { display: flex; align-items: baseline; }
+  .sh .lrow .val { min-width: calc(var(--g) * 40); text-align: right; color: #fff; }
+  .sh .lrow .chip { margin-left: calc(var(--g) * 5); color: rgba(242,242,242,0.45); }
+  .sh .lrow.zero { opacity: 0.45; }
+  .sh .cmd b { font-weight: 400; color: rgb(var(--cyan)); }
+  .sh .totl { display: flex; align-items: baseline; line-height: calc(var(--g) * 16) !important; }
+  .sh .totl b { font-weight: 400; font-size: calc(var(--g) * 15); color: #fff; }
+  .sh .near { display: flex; align-items: baseline; }
+  .sh .near.me .nm, .sh .near.me .val { color: rgb(var(--cyan)); }
+  .sh .near .nm { width: calc(var(--g) * 70); }
+  .sh .near .val { min-width: calc(var(--g) * 40); text-align: right; }
+  .sh .menu { margin-top: auto; width: calc(var(--g) * 210); }
+  .sh .mi { height: calc(var(--g) * 23); font-size: calc(var(--g) * 11.5); }
+  .sh .mi i { font-size: calc(var(--g) * 8); width: calc(var(--g) * 12); }
+
+  /* ---------------- 2: The hanging panel, rebuilt ---------------- */
+  .hang { display: flex; flex-direction: column; gap: calc(var(--g) * 4); padding: calc(var(--g) * 12) calc(var(--g) * 14); border-radius: calc(var(--g) * 8); background: linear-gradient(180deg, rgba(26,32,44,0.97), rgba(8,10,15,0.97)); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.3); box-shadow: 0 calc(var(--g) * 10) calc(var(--g) * 30) rgba(0,0,0,0.6); }
+  .hang::before, .hang::after { content: ""; position: absolute; bottom: calc(100% - var(--g) * 4); width: calc(var(--g) * 4); height: calc(var(--g) * 300); background: linear-gradient(90deg, #39414f, #7d8ea2, #39414f); }
+  .hang::before { left: 26%; } .hang::after { right: 26%; }
+  .hh { display: flex; justify-content: space-between; align-items: center; height: calc(var(--g) * 18); padding: 0 calc(var(--g) * 8); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.35); border-radius: calc(var(--g) * 5); background: rgba(8,12,20,0.7); font: 700 calc(var(--g) * 9) Orbitron, sans-serif; letter-spacing: 0.12em; color: rgb(160,245,255); }
+  .hh small { font: calc(var(--g) * 7) "Share Tech Mono", monospace; letter-spacing: 0.14em; }
+  .cause { text-align: center; font-size: calc(var(--g) * 7); letter-spacing: 0.16em; color: rgba(242,242,242,0.5); margin-bottom: calc(var(--g) * 1); }
+  .trow {
+    --c: 120,205,255;
+    display: flex; align-items: center; height: calc(var(--g) * 19); padding: 0 calc(var(--g) * 8); border-radius: calc(var(--g) * 5);
+    background: rgba(8,12,18,0.78); box-shadow: inset calc(var(--g) * 2) 0 0 rgba(var(--c),0.85);
+    font: 700 calc(var(--g) * 7.5) Orbitron, sans-serif; letter-spacing: 0.06em; color: rgb(var(--c)); white-space: nowrap;
+  }
+  .trow .chip { margin-left: calc(var(--g) * 6); font: calc(var(--g) * 7.5) "Share Tech Mono", monospace; border: calc(var(--g) * 1) solid rgba(var(--c),0.55); background: rgba(var(--c),0.16); border-radius: calc(var(--g) * 3); padding: 0 calc(var(--g) * 4); }
+  .trow .dots { border-color: rgba(var(--c),0.3); }
+  .trow .val { min-width: calc(var(--g) * 52); text-align: right; font: calc(var(--g) * 10) "Share Tech Mono", monospace; color: #fff; }
+  .trow.zero { filter: grayscale(1); opacity: 0.55; }
+  .trow.on { animation: rowlit 0.45s ease-out; }
+  @keyframes rowlit { 0% { box-shadow: inset calc(var(--g) * 2) 0 0 rgb(var(--c)), 0 0 0 calc(var(--g) * 1) rgba(var(--c),0.9), 0 0 calc(var(--g) * 10) rgba(var(--c),0.6); } }
+  .cap { position: relative; margin-top: calc(var(--g) * 4); padding: calc(var(--g) * 5) calc(var(--g) * 12) calc(var(--g) * 6); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.45); border-radius: calc(var(--g) * 10); background: rgba(8,12,18,0.8); text-align: center; }
+  .cap small { display: block; text-align: left; font: 700 calc(var(--g) * 7) Orbitron, sans-serif; color: rgba(150,245,255,0.75); letter-spacing: 0.12em; }
+  .cap b { display: block; font: 400 calc(var(--g) * 30)/1.1 "Share Tech Mono", monospace; color: #f0ffff; text-shadow: 0 0 calc(var(--g) * 10) rgba(80,255,220,0.6); }
+  .cap .vd { font-size: calc(var(--g) * 7.5); letter-spacing: 0.08em; }
+  .cap .stamp { right: calc(var(--g) * 8); bottom: calc(var(--g) * 6); font-size: calc(var(--g) * 7.5); }
+  .brd { display: flex; flex-direction: column; padding: calc(var(--g) * 12) calc(var(--g) * 14); }
+  .brd .ttl { font: 700 calc(var(--g) * 10) Orbitron, sans-serif; letter-spacing: 0.16em; margin-bottom: calc(var(--g) * 4); display: flex; justify-content: space-between; align-items: baseline; }
+  .brd .ttl span { font: calc(var(--g) * 6.5) "Share Tech Mono", monospace; color: rgba(242,242,242,0.45); letter-spacing: 0.12em; }
+  .brd .board { --rowh: calc(var(--g) * 16); }
+  .brd .foot { margin-top: auto; border-top: calc(var(--g) * 1) solid rgba(242,242,242,0.08); padding-top: calc(var(--g) * 6); font-size: calc(var(--g) * 7); color: rgba(242,242,242,0.62); letter-spacing: 0.06em; }
+  .brd .foot i { font-style: normal; color: rgb(var(--amber)); }
+
+  /* ---------------- 3: Incident report ---------------- */
+  .dimmer { background: radial-gradient(ellipse at center, rgba(5,7,10,0.55), rgba(5,7,10,0.85)); }
+  .rep { display: flex; flex-direction: column; gap: calc(var(--g) * 7); padding: calc(var(--g) * 18) calc(var(--g) * 22) calc(var(--g) * 14); background: linear-gradient(180deg, #14181f, #0b0d12); border: calc(var(--g) * 1) solid #2c323d; border-radius: calc(var(--g) * 4); box-shadow: 0 calc(var(--g) * 12) calc(var(--g) * 40) rgba(0,0,0,0.7); }
+  .rep::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--g) * 5); border-radius: calc(var(--g) * 4) calc(var(--g) * 4) 0 0; background: repeating-linear-gradient(135deg, rgba(var(--red),0.85) 0 calc(var(--g) * 5), #111 calc(var(--g) * 5) calc(var(--g) * 10)); }
+  .rep .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .rep h3 { margin: 0; font: 800 calc(var(--g) * 17) Orbitron, sans-serif; letter-spacing: 0.08em; }
+  .rep .no { font: 700 calc(var(--g) * 12) Orbitron, sans-serif; color: rgb(var(--red)); letter-spacing: 0.08em; }
+  .rep .meta { font-size: calc(var(--g) * 6.5); letter-spacing: 0.18em; color: rgba(242,242,242,0.4); margin-top: calc(var(--g) * -5); }
+  .fields { display: grid; grid-template-columns: repeat(4, 1fr); border: calc(var(--g) * 1) solid rgba(242,242,242,0.1); border-radius: calc(var(--g) * 3); }
+  .fields > div { padding: calc(var(--g) * 5) calc(var(--g) * 8); border-right: calc(var(--g) * 1) solid rgba(242,242,242,0.1); }
+  .fields > div:last-child { border-right: none; }
+  .fields small { display: block; font-size: calc(var(--g) * 6); letter-spacing: 0.18em; color: rgba(242,242,242,0.42); }
+  .fields b { font-weight: 400; font-size: calc(var(--g) * 10); color: #fff; white-space: nowrap; }
+  .rep .sec { font-size: calc(var(--g) * 6.5); letter-spacing: 0.2em; color: rgb(var(--amber)); display: flex; align-items: center; gap: calc(var(--g) * 6); }
+  .rep .sec::after { content: ""; flex: 1; height: calc(var(--g) * 1); background: currentColor; opacity: 0.3; }
+  .bd2 { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(var(--g) * 22); row-gap: calc(var(--g) * 1); }
+  .bd2 .ln { display: flex; align-items: baseline; height: calc(var(--g) * 13); white-space: nowrap; font-size: calc(var(--g) * 8.5); }
+  .bd2 .ln .lb { color: rgb(var(--c)); }
+  .bd2 .ln .chip { margin-left: calc(var(--g) * 5); color: rgba(242,242,242,0.45); }
+  .bd2 .ln .val { min-width: calc(var(--g) * 42); text-align: right; color: #fff; }
+  .bd2 .ln.zero { opacity: 0.45; }
+  .rep .tot { display: flex; align-items: baseline; border-top: calc(var(--g) * 1.5) solid rgba(242,242,242,0.25); padding-top: calc(var(--g) * 4); }
+  .rep .tot > span:first-child { font: 700 calc(var(--g) * 10) Orbitron, sans-serif; letter-spacing: 0.14em; }
+  .rep .tot b { margin-left: auto; font: 400 calc(var(--g) * 32)/1 "Share Tech Mono", monospace; color: #fff; }
+  .rep .stamp { position: relative; flex: none; font-size: calc(var(--g) * 14); padding: calc(var(--g) * 3) calc(var(--g) * 12); }
+  .rep .stand { display: flex; justify-content: space-between; font-size: calc(var(--g) * 8); color: rgba(242,242,242,0.7); }
+  .rep .stand i { font-style: normal; color: rgb(var(--amber)); }
+  .rep .bot { margin-top: auto; display: flex; align-items: center; gap: calc(var(--g) * 12); }
+  .rep .bot .sig { white-space: nowrap; font-size: calc(var(--g) * 6.5); letter-spacing: 0.16em; color: rgba(242,242,242,0.35); }
+  .rep .bot .rst { margin-left: auto; width: calc(var(--g) * 190); }
+
+  /* ---------------- 4: Rank climb ---------------- */
+  .sc4 { display: flex; flex-direction: column; gap: calc(var(--g) * 5); padding: calc(var(--g) * 12) calc(var(--g) * 14); }
+  .sc4 .lbl { font-size: calc(var(--g) * 6.5); letter-spacing: 0.2em; color: rgba(242,242,242,0.45); }
+  .sc4 .big { font: 400 calc(var(--g) * 38)/1 "Share Tech Mono", monospace; color: #fff; text-shadow: 0 0 calc(var(--g) * 12) rgba(80,255,220,0.45); }
+  .sc4 .vd { font-size: calc(var(--g) * 8); letter-spacing: 0.06em; }
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--g) * 3) calc(var(--g) * 6); margin-top: calc(var(--g) * 3); }
+  .chips .cp { display: flex; align-items: baseline; gap: calc(var(--g) * 4); height: calc(var(--g) * 15); padding: 0 calc(var(--g) * 6); border-radius: calc(var(--g) * 3); background: rgba(var(--c),0.08); border-left: calc(var(--g) * 2) solid rgba(var(--c),0.8); font-size: calc(var(--g) * 7); color: rgb(var(--c)); white-space: nowrap; line-height: calc(var(--g) * 15); }
+  .chips .cp span:last-child { margin-left: auto; color: #fff; font-size: calc(var(--g) * 8); }
+  .chips .cp.zero { opacity: 0.45; filter: grayscale(1); }
+  .bd4 { display: flex; flex-direction: column; padding: calc(var(--g) * 12) calc(var(--g) * 16); }
+  .bd4 .ttl { display: flex; align-items: center; gap: calc(var(--g) * 10); margin-bottom: calc(var(--g) * 6); }
+  .bd4 .ttl b { font: 700 calc(var(--g) * 13) Orbitron, sans-serif; letter-spacing: 0.14em; }
+  .bd4 .ttl .pill { font-size: calc(var(--g) * 6.5); letter-spacing: 0.12em; color: rgba(var(--amber),0.95); border: calc(var(--g) * 1) solid rgba(var(--amber),0.45); border-radius: 999px; padding: 0 calc(var(--g) * 6); }
+  .bd4 .badge { margin-left: auto; font: 700 calc(var(--g) * 8) Orbitron, sans-serif; letter-spacing: 0.1em; padding: calc(var(--g) * 2) calc(var(--g) * 8); border-radius: calc(var(--g) * 3); }
+  .badge.up { color: #0b0d11; background: rgb(var(--green)); box-shadow: 0 0 calc(var(--g) * 10) rgba(var(--green),0.5); }
+  .badge.new { color: #0b0d11; background: rgb(var(--cyan)); box-shadow: 0 0 calc(var(--g) * 10) rgba(var(--cyan),0.5); }
+  .badge.hold { color: rgba(242,242,242,0.7); border: calc(var(--g) * 1) solid rgba(242,242,242,0.3); }
+  .badge.on { animation: slam2 0.25s ease-out; }
+  @keyframes slam2 { 0% { opacity: 0; transform: scale(1.6); } }
+  .bd4 .board { --rowh: calc(var(--g) * 22.5); }
+  .bd4 .brow { font-size: calc(var(--g) * 11); grid-template-columns: calc(var(--g) * 18) 1fr auto auto; }
+  .bd4 .brow .n { font-size: calc(var(--g) * 9); }
+  .bd4 .brow .x { margin-right: calc(var(--g) * 6); }
+  .bd4 .ghost { margin-top: calc(var(--g) * 5); font-size: calc(var(--g) * 7.5); color: rgba(242,242,242,0.6); letter-spacing: 0.04em; display: flex; justify-content: space-between; }
+  .bd4 .ghost i { font-style: normal; color: rgb(var(--amber)); }
+
+  /* ---------------- 5: Black box ---------------- */
+  .bb { display: flex; flex-direction: column; padding: calc(var(--g) * 9) calc(var(--g) * 14) calc(var(--g) * 6); }
+  .bb .ttl { display: flex; justify-content: space-between; font-size: calc(var(--g) * 7); letter-spacing: 0.18em; color: rgba(242,242,242,0.45); margin-bottom: calc(var(--g) * 5); }
+  .bb .ttl b { font: 700 calc(var(--g) * 9) Orbitron, sans-serif; color: #fff; letter-spacing: 0.14em; }
+  .bb .ttl b .rec { color: rgb(var(--red)); }
+  .lanes { position: relative; margin-left: calc(var(--g) * 92); }
+  .lane { position: relative; height: calc(var(--g) * 13); border-bottom: calc(var(--g) * 1) solid rgba(242,242,242,0.05); }
+  .lane .ll { position: absolute; right: calc(100% + var(--g) * 8); top: 0; line-height: calc(var(--g) * 13); white-space: nowrap; font-size: calc(var(--g) * 6.5); letter-spacing: 0.1em; color: rgb(var(--c)); }
+  .lane .ll b { font-weight: 400; color: #fff; margin-left: calc(var(--g) * 4); }
+  .ev { position: absolute; top: 50%; translate: -50% -50%; font-size: calc(var(--g) * 8); line-height: 1; color: rgb(var(--c)); text-shadow: 0 0 calc(var(--g) * 4) rgba(var(--c),0.8); }
+  .ev.on { animation: evpop 0.3s ease-out; }
+  @keyframes evpop { 0% { scale: 2.2; } }
+  .axis { position: relative; height: calc(var(--g) * 18); }
+  .axis .line { position: absolute; left: 0; right: 0; top: calc(var(--g) * 3); height: calc(var(--g) * 2); background: rgba(242,242,242,0.12); }
+  .axis .fill { position: absolute; left: 0; top: calc(var(--g) * 3); height: calc(var(--g) * 2); background: linear-gradient(90deg, rgba(var(--cyan),0.3), rgb(var(--cyan))); box-shadow: 0 0 calc(var(--g) * 6) rgba(var(--cyan),0.6); }
+  .axis .tk { position: absolute; white-space: nowrap; top: calc(var(--g) * 7); translate: -50% 0; font-size: calc(var(--g) * 6); color: rgba(242,242,242,0.35); }
+  .vline { position: absolute; top: calc(var(--g) * -66); height: calc(var(--g) * 72); width: 0; }
+  .vline.ph { border-left: calc(var(--g) * 1) solid rgba(var(--cyan),0.8); }
+  .vline.end { border-left: calc(var(--g) * 1.5) solid rgb(var(--red)); box-shadow: 0 0 calc(var(--g) * 6) rgba(var(--red),0.8); }
+  .vline.end span { position: absolute; left: calc(var(--g) * 4); top: calc(var(--g) * -1); font-size: calc(var(--g) * 6.5); letter-spacing: 0.1em; color: rgb(var(--red)); white-space: nowrap; background: rgba(5,7,10,0.9); padding: 0 calc(var(--g) * 3); }
+  .vline.ghostl { border-left: calc(var(--g) * 1) dashed rgba(var(--amber),0.75); }
+  .vline.ghostl span { position: absolute; right: calc(var(--g) * 4); top: calc(var(--g) * 12); font-size: calc(var(--g) * 6.5); letter-spacing: 0.1em; color: rgb(var(--amber)); white-space: nowrap; background: rgba(5,7,10,0.9); padding: 0 calc(var(--g) * 3); }
+  .vline.end.flip span { left: auto; right: calc(var(--g) * 4); }
+  .sc5 { text-align: center; display: flex; flex-direction: column; align-items: center; gap: calc(var(--g) * 3); }
+  .sc5::before { background: radial-gradient(ellipse at center, rgba(5,7,10,0.85), rgba(5,7,10,0) 70%); }
+  .sc5 .lbl { font-size: calc(var(--g) * 7); letter-spacing: 0.3em; color: rgba(var(--cyan),0.8); }
+  .sc5 .big { font: 400 calc(var(--g) * 48)/1 "Share Tech Mono", monospace; color: #fff; text-shadow: 0 0 calc(var(--g) * 14) rgba(80,255,220,0.55), 0 0 calc(var(--g) * 4) rgba(0,0,0,0.9); }
+  .sc5 .vd { font-size: calc(var(--g) * 9); letter-spacing: 0.08em; }
+  .sc5 .rk { font-size: calc(var(--g) * 8); color: rgba(242,242,242,0.7); }
+  .sc5 .rk i { font-style: normal; color: rgb(var(--amber)); }
+
+  /* ---------------- 6: Billboard verdict ---------------- */
+  .term { display: flex; flex-direction: column; border-radius: calc(var(--g) * 5); overflow: hidden; border: calc(var(--g) * 1) solid rgba(var(--cyan),0.32); background: rgba(6,9,13,0.94); box-shadow: 0 calc(var(--g) * 8) calc(var(--g) * 24) rgba(0,0,0,0.6); }
+  .term .tbar { display: flex; align-items: center; gap: calc(var(--g) * 4); height: calc(var(--g) * 13); padding: 0 calc(var(--g) * 8); background: rgba(var(--cyan),0.07); border-bottom: calc(var(--g) * 1) solid rgba(var(--cyan),0.18); font-size: calc(var(--g) * 6.5); color: rgba(242,242,242,0.5); flex: none; }
+  .term .tbar b { width: calc(var(--g) * 4.5); height: calc(var(--g) * 4.5); border-radius: calc(var(--g) * 1); display: inline-block; }
+  .term .tbar span { margin-left: calc(var(--g) * 4); }
+  .term .body { flex: 1; padding: calc(var(--g) * 8) calc(var(--g) * 12) calc(var(--g) * 10); display: flex; flex-direction: column; }
+  .term .log > div { display: flex; align-items: baseline; }
+  .term .t { width: calc(var(--g) * 34); }
+  .term .val { min-width: calc(var(--g) * 40); text-align: right; color: #fff; }
+  .term .chip { margin-left: calc(var(--g) * 5); color: rgba(242,242,242,0.45); }
+  .term .zero { opacity: 0.45; }
+  .term .cmd b { font-weight: 400; color: rgb(var(--cyan)); }
+  .term .rst { margin-top: auto; }
+  .term .claimwrap { margin-top: calc(var(--g) * 6); }
+  .billboard { padding: calc(var(--g) * 5); background: linear-gradient(180deg, #2c313b, #1b1f27); border-radius: calc(var(--g) * 3); box-shadow: 0 0 0 calc(var(--g) * 1) #0b0d11, 0 0 calc(var(--g) * 30) rgba(var(--red),0.22); }
+  .billboard .screen { height: 100%; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--g) * 3); text-align: center; border: calc(var(--g) * 1) solid rgba(var(--red),0.55); background: linear-gradient(180deg, rgba(var(--red),0.14), rgba(var(--red),0.03)), #10080b; }
+  .billboard .screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.25) 0 1px, transparent 1px calc(var(--g) * 3)); }
+  .billboard.best { box-shadow: 0 0 0 calc(var(--g) * 1) #0b0d11, 0 0 calc(var(--g) * 30) rgba(var(--gold),0.25); }
+  .billboard.best .screen { border-color: rgba(var(--gold),0.6); background: linear-gradient(180deg, rgba(var(--gold),0.14), rgba(var(--gold),0.03)), #100d07; }
+  .billboard.first .screen { border-color: rgba(var(--cyan),0.6); background: linear-gradient(180deg, rgba(var(--cyan),0.14), rgba(var(--cyan),0.03)), #08101c; }
+  .billboard .tag { font-size: calc(var(--g) * 6.5); letter-spacing: 0.24em; color: rgba(242,242,242,0.5); }
+  .billboard .hl { font: 800 calc(var(--g) * 20)/1 Orbitron, sans-serif; letter-spacing: 0.08em; color: rgb(255,200,208); text-shadow: 0 0 calc(var(--g) * 10) rgba(var(--red),0.8); }
+  .billboard.best .hl { color: rgb(255,232,170); text-shadow: 0 0 calc(var(--g) * 10) rgba(var(--gold),0.8); }
+  .billboard.first .hl { color: rgb(215,245,255); text-shadow: 0 0 calc(var(--g) * 10) rgba(var(--cyan),0.8); }
+  .billboard .num { font-size: calc(var(--g) * 26); line-height: 1; color: #fff; }
+  .billboard .rk { font-size: calc(var(--g) * 7.5); letter-spacing: 0.12em; color: rgba(242,242,242,0.75); }
+  .billboard.on { animation: poweron 0.6s steps(6); }
+  @keyframes poweron { 0% { opacity: 0; } 20% { opacity: 0.9; } 30% { opacity: 0.1; } 50% { opacity: 1; } 60% { opacity: 0.3; } 100% { opacity: 1; } }
+
+  /* ---------------- 7: SIM NEWS ---------------- */
+  .bug { display: flex; align-items: center; gap: calc(var(--g) * 6); font-size: calc(var(--g) * 7); letter-spacing: 0.16em; color: rgba(242,242,242,0.75); }
+  .bug b { font: 800 calc(var(--g) * 9) Orbitron, sans-serif; letter-spacing: 0.1em; color: #fff; background: rgb(var(--red)); padding: calc(var(--g) * 2) calc(var(--g) * 6); border-radius: calc(var(--g) * 2); }
+  .bug .dead { color: rgba(242,242,242,0.75); }
+  .lower7 { display: grid; grid-template-columns: 1fr calc(var(--g) * 230); grid-template-rows: 1fr calc(var(--g) * 18); background: linear-gradient(180deg, rgba(5,7,10,0.7), rgba(5,7,10,0.96) 30%); border-top: calc(var(--g) * 1.5) solid rgb(var(--red)); }
+  .lower7 .hlb { padding: calc(var(--g) * 12) calc(var(--g) * 20); display: flex; flex-direction: column; justify-content: center; gap: calc(var(--g) * 4); }
+  .lower7 .brk { align-self: flex-start; font: 800 calc(var(--g) * 7.5) Orbitron, sans-serif; letter-spacing: 0.16em; color: rgb(var(--red)); border: calc(var(--g) * 1) solid rgba(var(--red),0.7); padding: 0 calc(var(--g) * 5); border-radius: calc(var(--g) * 2); }
+  .lower7 h3 { margin: 0; font: 800 calc(var(--g) * 17)/1.1 Orbitron, sans-serif; letter-spacing: 0.04em; }
+  .lower7 .hs { font-size: calc(var(--g) * 8); color: rgba(242,242,242,0.6); }
+  .lower7 .box { padding: calc(var(--g) * 10) calc(var(--g) * 14); border-left: calc(var(--g) * 1) solid rgba(242,242,242,0.12); background: rgba(var(--cyan),0.05); display: flex; flex-direction: column; justify-content: center; gap: calc(var(--g) * 2); }
+  .lower7 .box small { font-size: calc(var(--g) * 6.5); letter-spacing: 0.22em; color: rgba(var(--cyan),0.8); }
+  .lower7 .box b { font-weight: 400; font-size: calc(var(--g) * 28); line-height: 1; color: #fff; }
+  .lower7 .box .vd { font-size: calc(var(--g) * 7.5); }
+  .lower7 .box .rk { font-size: calc(var(--g) * 7); color: rgba(242,242,242,0.6); }
+  .lower7 .box .press { margin-top: calc(var(--g) * 4); display: flex; align-items: center; gap: calc(var(--g) * 5); font-size: calc(var(--g) * 7); letter-spacing: 0.14em; color: rgb(255,140,150); cursor: pointer; }
+  .lower7 .box .press .k { color: rgb(255,140,150); border-color: rgba(var(--red),0.7); }
+  .frame:not(.ready) .lower7 .press { visibility: hidden; }
+  .lower7 .box .claim, .lower7 .box .claim-done { height: calc(var(--g) * 18); padding: 0 calc(var(--g) * 5); font-size: calc(var(--g) * 6); }
+  .lower7 .box .claim .cl-l { display: none; }
+  .tick7 { grid-column: 1 / -1; overflow: hidden; display: flex; align-items: center; background: rgba(var(--red),0.12); border-top: calc(var(--g) * 1) solid rgba(var(--red),0.3); font-size: calc(var(--g) * 7.5); white-space: nowrap; }
+  .tick7 .crawl { display: inline-block; padding-left: 100%; animation: crawl 16s linear -6s infinite; }
+  .tick7 .crawl span { margin-right: calc(var(--g) * 16); }
+  .tick7 .crawl em { font-style: normal; color: #fff; }
+  @keyframes crawl { to { transform: translateX(-100%); } }
+
+  /* ---------------- 8: Quick retry ---------------- */
+  .q8 { display: flex; flex-direction: column; gap: calc(var(--g) * 6); padding: calc(var(--g) * 10) calc(var(--g) * 14) calc(var(--g) * 12); }
+  .q8 .top { display: flex; align-items: center; font-size: calc(var(--g) * 6.5); letter-spacing: 0.16em; color: rgba(242,242,242,0.45); white-space: nowrap; }
+  .q8 .top .r { margin-right: calc(var(--g) * 6); }
+  .q8 .det { margin-left: auto; cursor: pointer; color: rgb(var(--cyan)); display: flex; gap: calc(var(--g) * 4); align-items: center; }
+  .q8 .det:hover { color: #fff; }
+  .q8 .mid { display: flex; align-items: flex-end; gap: calc(var(--g) * 14); }
+  .q8 .mid .big { font: 400 calc(var(--g) * 36)/0.9 "Share Tech Mono", monospace; color: #fff; text-shadow: 0 0 calc(var(--g) * 10) rgba(80,255,220,0.45); }
+  .q8 .mid .vd { font-size: calc(var(--g) * 8); margin-top: calc(var(--g) * 4); }
+  .q8 .mid .rank { margin-left: auto; text-align: right; }
+  .q8 .mid .rank b { display: block; font: 800 calc(var(--g) * 22)/1 Orbitron, sans-serif; color: rgb(var(--amber)); }
+  .q8 .mid .rank small { font-size: calc(var(--g) * 6.5); letter-spacing: 0.14em; color: rgba(242,242,242,0.55); }
+  .bigbtn { display: flex; align-items: center; justify-content: center; gap: calc(var(--g) * 10); height: calc(var(--g) * 26); border-radius: calc(var(--g) * 5); background: rgb(var(--red)); color: #12060a; font: 800 calc(var(--g) * 12) Orbitron, sans-serif; letter-spacing: 0.2em; cursor: pointer; box-shadow: 0 calc(var(--g) * 3) 0 rgb(150,40,60), 0 0 calc(var(--g) * 14) rgba(var(--red),0.45); transition: transform 0.1s, filter 0.15s; }
+  .bigbtn .k { color: #12060a; border-color: rgba(18,6,10,0.6); }
+  .bigbtn:hover { filter: brightness(1.12); transform: translateY(calc(var(--g) * -1)); }
+  .frame:not(.ready) .bigbtn { filter: grayscale(1) brightness(0.45); pointer-events: none; }
+  .q8d { padding: calc(var(--g) * 9) calc(var(--g) * 14); display: flex; flex-direction: column; gap: calc(var(--g) * 2); transition: transform 0.35s cubic-bezier(0.6, 0, 0.2, 1), opacity 0.3s; }
+  .q8d.closed { transform: translateY(calc(var(--g) * 20)); opacity: 0; pointer-events: none; }
+  .q8d .ln { display: flex; align-items: baseline; height: calc(var(--g) * 12.5); font-size: calc(var(--g) * 8); white-space: nowrap; }
+  .q8d .ln .lb { color: rgb(var(--c)); }
+  .q8d .ln .chip { margin-left: calc(var(--g) * 5); color: rgba(242,242,242,0.45); }
+  .q8d .ln .val { min-width: calc(var(--g) * 40); text-align: right; }
+  .q8d .ln.zero { opacity: 0.45; }
+  .q8d .hd { font-size: calc(var(--g) * 6.5); letter-spacing: 0.2em; color: rgb(var(--amber)); margin-bottom: calc(var(--g) * 2); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bob-eye, .blink, .dead::before, .tick7 .crawl, .stamp.on, .billboard.on, .ev.on, .trow.on, .badge.on { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>End screen: design set</h1>
+  <p class="lede">Same setup as the start screen sets: the game's 16:9 view, the start shell's type and colours, and the world as it is when a run ends. Bob hits the red ground, the claw reaches in from the left and drags him out, and the summary arrives as it grabs him. The wheel and the loose screws stay behind. Each version tallies the run, shows where it leaves you on the board, and ends on RESET.</p>
+  <p class="lede">Switch the outcome to see each version for an ordinary run, a new best that climbs the board, and a first run that makes the top 10 (naming yourself happens inline instead of in the pop-up). Click RESET in any frame to see the glitch.</p>
+
+  <div class="demo-bar">
+    <button id="replay">↻ Replay</button>
+    <button id="slow" aria-pressed="false">Slow motion</button>
+    <div class="grp" role="group" aria-label="Outcome"><span>OUTCOME</span>
+      <button data-outcome="short" aria-pressed="true">Short run</button>
+      <button data-outcome="best" aria-pressed="false">New best</button>
+      <button data-outcome="first" aria-pressed="false">First run · top 10</button>
+    </div>
+    <button id="reset">▶ RESET (glitch out)</button>
+  </div>
+
+  <section class="design">
+    <header><span class="num">1</span><h2>Shell printout</h2>
+      <p>The start screen's shell, run in reverse. The same column on the sky now reads TERMINATED. The log says what happened, the shell runs <code>tally</code> and prints the run line by line, then <code>records --week</code> prints you with the players just above and below. The menu has the same spot and style: 01 RESET wakes up the way BREAK OUT does.</p></header>
+    <div class="frame" data-design="E1"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>The start and end screens become one system: the same column, the same voice, and the menu where you left it.</li><li>The world stays open on the right, so you watch the claw drag Bob off.</li><li>The board shows only your neighbours, which is the part that matters after a run.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>Plain text is quiet: a NEW BEST needs more than a gold line (a flash on the column, or the logo switching to NEW BEST).</li><li>The column is full once the claim line is in; the flavour lines would go first, as they do on the start screen.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Low–Medium.</b> Most of it is <code>shell.js</code> with different lines. 02 EXIT TO SHELL is new (it goes back to the start screen without a run).</li></ul></div>
+    </div>
+  </section>
+
+  <section class="design">
+    <header><span class="num">2</span><h2>The hanging panel, rebuilt</h2>
+      <p>Today's layout in the start screen's style. The panel still drops in on its rods with the rows tallying, the total capsule and the RESET prompt. The board still slides in beside it, and your row now climbs to its new rank. This is the "keep it, tidy it" baseline.</p></header>
+    <div class="frame" data-design="E2"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>Nothing new to learn for players, and most of the timing code (drop, tally, slide) already exists.</li><li>The climbing row turns a new best into something you see happen.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>Two big boxes cover most of the world; the claw scene plays behind them.</li><li>The rig is the only piece that doesn't match the shell's flat terminal look.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Low.</b> Restyle <code>summary.js</code> and <code>leaderboardPanel.js</code>; the climb is a row offset that eases to 0.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="design">
+    <header><span class="num">3</span><h2>Incident report</h2>
+      <p>The system files the run. A document in the middle of a dimmed screen: subject, cause, distance and status in fields, the score breakdown in two columns, and a stamp that slams on once the tally is done: CONTAINED, NEW BEST or FIRST RECORD.</p></header>
+    <div class="frame" data-design="E3"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>Strong story: Bob is a case file and the score is the evidence. The stamp gives the end a clear beat.</li><li>One block to read, top to bottom, ending on the RESET button.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>The full board isn't here, only your standing line; it would need a "records" link.</li><li>Dims the world, so the claw drag is mostly hidden.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium.</b> A new panel layout; the stamp is the existing NEW BEST stamp, bigger.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="design">
+    <header><span class="num">4</span><h2>Rank climb</h2>
+      <p>The board is the main event. The score card on the left tallies fast as chips. On the right, this week's board fills the screen and your row climbs past the players you beat, with a +2 PLACES badge and what it takes to pass the next one. On a short run your best holds, and a line says where this run would have placed.</p></header>
+    <div class="frame" data-design="E4"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>Makes the next goal obvious: the name above you and the points to pass them.</li><li>A short run still says something useful ("would place #11") instead of only "−17,074".</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>The run's own breakdown is small; players who care about tricks get less.</li><li>Covers the world almost completely.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium.</b> A larger board with the climb animation, and the "would place" lookup from the board data.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="design">
+    <header><span class="num">5</span><h2>Black box</h2>
+      <p>A flight recorder of the run along the top: one lane per kind of trick, with a mark wherever it happened. A playhead sweeps the run from 0 m to the red line where Bob hit the ground, and your best run's distance is a dashed amber line. The score sits in the middle of the sky with the RESET prompt under it.</p></header>
+    <div class="frame" data-design="E5"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>Shows <i>where</i> the run went right and where it ended, which a list of totals can't.</li><li>The sweep is the tally: the marks appear as the playhead passes them.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>Needs the game to record each trick's distance during the run (it only keeps counts today).</li><li>Busy runs (14 ads avoided) crowd a lane; marks would need to merge.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium–High.</b> Event logging in <code>score.js</code>, plus the lanes panel.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="design">
+    <header><span class="num">6</span><h2>Billboard verdict</h2>
+      <p>The result goes up on a billboard on the next building, like the game's own ads: TERMINATED in red, NEW BEST in gold, FIRST RECORD in blue. The tally prints in a terminal window on the left, which ends on the RESET prompt.</p></header>
+    <div class="frame" data-design="E6"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>Uses the world's own language (billboards); the verdict reads from across the screen.</li><li>The colour of the billboard alone tells you how the run went.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>The billboard has to sit on whatever building is there at death; a fixed screen position is easier but less "in the world".</li><li>The board is reduced to a rank line.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium.</b> A billboard drawn in screen space plus the terminal panel.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="design">
+    <header><span class="num">7</span><h2>SIM NEWS</h2>
+      <p>The system reports it on TV. The UI waits until the claw has dragged Bob out, so the death scene plays in full. Then a lower third comes up: BREAKING, a headline with how far he got, the score box with RESET, and a ticker crawling through the tally and the leaders.</p></header>
+    <div class="frame" data-design="E7"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>The death cinematic gets the whole screen first; the UI never blocks it.</li><li>Light: one strip along the bottom, the sky left empty.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>A ticker is slow to read: the breakdown takes a full crawl to see.</li><li>About a second more before RESET is ready than the other versions.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Low–Medium.</b> One bottom panel and a scrolling text line.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="design">
+    <header><span class="num">8</span><h2>Quick retry</h2>
+      <p>For back-to-back runs: one small card at the bottom with the score, how it compares, your rank and a big RESET that's ready in about a second. The breakdown is one click away (DETAILS, or Tab).</p></header>
+    <div class="frame" data-design="E8"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>The fastest way back into a run; most players hammer Space anyway.</li><li>The world stays visible above it, wheel and screws included.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>No tally animation by default, so the trick bonuses are easy to miss.</li><li>It could be an option instead: the full screen the first few runs, the card after that.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Low.</b> One card and a toggle for the breakdown.</li></ul></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const VW = 1600, VH = 900;
+  const S = 3.2;                 // world px → mock px at the death zoom
+  const GROUND = 790;            // the lethal ground's line
+  const BOB_X = 820;
+
+  // Death cinematic (game/constants.js DEATH_CINEMATIC).
+  const DC = { DELAY: 0.28, REACH: 0.7, DRAG: 0.9, RETRACT: 0.45 };
+  const T_GRAB = DC.DELAY + DC.REACH;  // DEATH_SUMMARY_START_SEC: the summary arrives as the claw grabs him
+  // The mock's UI timings (seconds after death).
+  const T_IN = 1.0;
+  const ROW0 = 1.35, ROW_SEC = 0.3, ROW_COUNT = 0.24;
+  const CLIMB = 0.7;
+  const NAME = "Manimac";
+
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  const easeOutCubic = (v) => 1 - Math.pow(1 - clamp01(v), 3);
+  const easeInOutCubic = (v) => { v = clamp01(v); return v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2; };
+  const smoothstep = (v) => { v = clamp01(v); return v * v * (3 - 2 * v); };
+  function rand(seed) { const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+  const fmt = (n) => Math.round(n).toLocaleString("en-US");
+
+  // ---------------- data ----------------
+  const LOOK = {
+    distance:   ["DISTANCE",           "120,220,255"],
+    multiplier: ["TRICK MULTIPLIER",   "255,215,110"],
+    backflip:   ["BACKFLIPS",          "255,165,80",  "↺"],
+    smash:      ["BILLBOARDS BROKEN",  "255,110,180", "◆"],
+    dodge:      ["ADS AVOIDED",        "200,240,100", "▲"],
+    closeCall:  ["CLOSE CALLS",        "120,255,170", "!"],
+    buildings:  ["BUILDINGS BYPASSED", "150,170,255", "▮"],
+  };
+  const OTHERS = [["Dev", 39916], ["damn", 30327], ["ghost", 28410], ["nyx", 26002], ["glitch", 24775],
+                  ["loop_9", 21300], ["pixl", 19844], ["runner", 17120], ["zed", 15606], ["kite", 14980]];
+  const ALL_TIME = [["Dev", 52410], ["ghost", 47120], ["glitch", 44980]];
+  const PURGE = "116:56:35";
+  // [count, points] per row; the three outcomes the demo bar switches between.
+  const RAW = {
+    short: { iter: "0042", cause: "ground", dist: 9840, prevBest: 31279, prevDist: 20400, seed: 3,
+      rows: { distance: [9840, 9840], multiplier: [null, 1215], backflip: [3, 900], smash: [2, 800], dodge: [5, 750], closeCall: [1, 300], buildings: [4, 400] } },
+    best: { iter: "0042", cause: "ad", dist: 21330, prevBest: 26540, prevDist: 16900, seed: 11,
+      rows: { distance: [21330, 21330], multiplier: [null, 4678], backflip: [8, 2400], smash: [6, 2400], dodge: [14, 2100], closeCall: [2, 600], buildings: [6, 600] } },
+    first: { iter: "0001", cause: "ground", dist: 13420, prevBest: null, prevDist: null, seed: 7,
+      rows: { distance: [13420, 13420], multiplier: [null, 2130], backflip: [4, 1200], smash: [3, 1200], dodge: [6, 900], closeCall: [0, 0], buildings: [1, 100] } },
+  };
+
+  // Everything a design needs about one outcome. delay pushes the UI's timings back (the claw keeps its own).
+  function scenario(key, delay = 0) {
+    const R = RAW[key];
+    const T = (x) => +(x + delay).toFixed(3);
+    const rows = Object.keys(LOOK).map((k, i) => {
+      const [count, points] = R.rows[k];
+      return { key: k, label: LOOK[k][0], rgb: LOOK[k][1], glyph: LOOK[k][2], count, points,
+        chip: k === "distance" ? `${fmt(count)} m` : count === null ? "" : `×${count}`, at: T(ROW0 + i * ROW_SEC) };
+    });
+    const score = rows.reduce((s, r) => s + r.points, 0);
+    const first = R.prevBest === null;
+    const isBest = !first && score > R.prevBest;
+    const best = first ? score : Math.max(score, R.prevBest);
+    const order = (mine) => [...OTHERS.map(([name, s]) => ({ name, score: s })), ...(mine === null ? [] : [{ name: NAME, score: mine, me: true }])]
+      .sort((a, b) => b.score - a.score);
+    const board = order(best).slice(0, 10);
+    const rank = board.findIndex((r) => r.me) + 1;
+    const prevRank = first ? 11 : order(R.prevBest).findIndex((r) => r.me) + 1;
+    board.forEach((r, i) => {
+      r.rank = i + 1;
+      r.shift = r.me ? prevRank - rank : r.rank > rank && r.rank <= prevRank ? -1 : 0;
+    });
+    const above = rank > 1 ? board[rank - 2] : null;
+    const runRank = OTHERS.filter(([, s]) => s > score).length + 1 + (!first && R.prevBest > score ? 1 : 0);
+    const tDone = T(ROW0 + rows.length * ROW_SEC + 0.05);
+    const tBoard = T(ROW0 + rows.length * ROW_SEC + 0.3);
+    const tClaim = T(ROW0 + rows.length * ROW_SEC + 0.6);
+    const tNamed = +(tClaim + 0.4 + NAME.length / 14 + 0.25).toFixed(3);
+    return {
+      key, ...R, rows, score, first, isBest, best, board, rank, prevRank, places: prevRank - rank, above, runRank,
+      toNext: above ? above.score - best + 1 : 0,
+      causeText: R.cause === "ad" ? "ad impact" : "ground contact",
+      tIn: T(T_IN), tDone, tBoard, tClaim, tNamed, tReset: first ? +(tNamed + 0.2).toFixed(3) : T(ROW0 + rows.length * ROW_SEC + 0.95),
+      end: (first ? tNamed : tBoard) + 1.6,
+    };
+  }
+
+  // ---------------- small builders ----------------
+  const cnt = (to, at, dur, o = {}) => `<span data-to="${to}" data-c0="${at}" data-cd="${dur}" data-from="${o.from || 0}" data-pre="${o.pre || ""}" data-suf="${o.suf || ""}">${o.pre || ""}${fmt(o.from || 0)}${o.suf || ""}</span>`;
+  const typ = (text, at, cps = 14) => `<span data-type="${text}" data-t0="${at}" data-cps="${cps}"></span>`;
+  const val = (r) => r.points > 0 ? cnt(r.points, r.at, ROW_COUNT, { pre: "+" }) : "0";
+  const total = () => `<span data-total></span>`;
+  const verdict = (O) => O.isBest ? `<span class="gold">NEW BEST</span> <span class="d">+${fmt(O.score - O.prevBest)}</span>`
+    : O.first ? `<span class="c">FIRST RECORD</span>`
+    : `<span class="d">−${fmt(O.prevBest - O.score)} vs best ${fmt(O.prevBest)}</span>`;
+  const goal = (O) => O.above ? `${fmt(O.toNext)} to beat #${O.rank - 1} ${O.above.name}` : "top of the week";
+  const meName = (O) => O.first
+    ? `<span class="sw" data-until="${O.tNamed}">— — —</span><span class="sw" data-at="${O.tNamed}">${NAME}</span>`
+    : NAME;
+  const stamp = (O) => O.isBest ? `<span class="stamp gold" data-at="${O.tDone}">NEW BEST</span>`
+    : O.first ? `<span class="stamp cyan" data-at="${O.tDone}">FIRST RECORD</span>` : "";
+  const resetPrompt = (O, sub = true) => `<div class="rst" data-reset><span>&gt; RESET</span><span class="cursor blink"></span>${sub ? `<span class="rs-sub">ITERATION ${O.iter} TERMINATED</span>` : `<span style="margin-left:auto"></span>`}<span class="k">SPACE</span></div>`;
+  const claim = (O, label = "NAME THE SUBJECT") => O.first
+    ? `<div class="claimwrap"><div class="claim" data-at="${O.tClaim}" data-until="${O.tNamed}"><span class="cl-l">${label}</span><span class="cl-f">${typ(NAME, O.tClaim + 0.4)}<span class="cursor blink"></span></span><span class="k">ENTER</span></div><div class="claim-done" data-at="${O.tNamed}">✓ SUBJECT REGISTERED · ${NAME} · #${O.rank} THIS WEEK</div></div>`
+    : "";
+  function boardRows(O, at, opts = {}) {
+    return O.board.map((r) => {
+      const sh = r.shift ? ` data-shift="${r.shift}" data-s0="${at}" data-sd="${CLIMB}"${r.me && O.first ? " data-sfade" : ""}` : "";
+      const score = r.me && !O.first && O.best !== O.prevBest ? cnt(O.best, at, CLIMB, { from: O.prevBest }) : fmt(r.score);
+      const extra = opts.extra ? opts.extra(r) : "";
+      return `<div class="brow${r.me ? " me" : ""}${r.rank <= 3 ? " p" + r.rank : ""}"${sh}><span class="n">${r.rank}</span><span class="nm">${r.me ? meName(O) : r.name}${r.me ? '<span class="you">YOU</span>' : ""}</span>${extra}<span class="s">${score}</span></div>`;
+    }).join("");
+  }
+  const fameLine = `<i>1</i> Dev 52,410 · <i>2</i> ghost 47,120 · <i>3</i> glitch 44,980`;
+  const stamp2 = (s) => `[${s.toFixed(2).padStart(5, "0")}]`;
+
+  // ---------------- the designs ----------------
+  const DESIGNS = {
+    // 1: the start shell's column, run in reverse.
+    E1: { build: (O) => {
+      const near = O.board.filter((r) => Math.abs(r.rank - O.rank) <= 1);
+      const nearAt = (i) => +(O.tBoard + 0.05 + i * 0.06).toFixed(3);
+      return [{ cls: "sh sky", rect: { x: 28, y: 14, w: 640, h: 664 }, slide: [-1, 0], inAt: O.tIn, html: `
+        <div class="status"><span>SIM://SECTOR-00</span><span class="dead">CONTAINED</span></div>
+        <div class="logo tm">TERMINATED</div>
+        <div class="sub">SIMULATION SHELL · ITERATION ${O.iter}</div>
+        <div class="log">
+          <div data-at="${O.tIn}"><span class="t">[00.00]</span><span class="r">${O.causeText}</span><span class="d"> · </span><span class="v">${fmt(O.dist)} m</span></div>
+          <div data-at="${O.tIn + 0.06}"><span class="t">${stamp2(T_GRAB)}</span><span class="ok">subject BOB retrieved</span></div>
+          <div class="cmd" data-at="${O.rows[0].at - 0.12}"><span class="t">${stamp2(O.rows[0].at)}</span>&gt; tally <b>--iteration ${O.iter}</b></div>
+          ${O.rows.map((r) => `<div class="lrow${r.points ? "" : " zero"}" data-at="${r.at}"><span class="t"></span><span style="color:rgb(${r.rgb})">${r.label.toLowerCase()}</span>${r.chip && r.key !== "distance" ? `<span class="chip">${r.chip}</span>` : ""}<span class="dots"></span><span class="val">${val(r)}</span></div>`).join("")}
+          <div class="totl" data-at="${O.rows[0].at}"><span class="t"></span><span class="ok">score</span><span class="dots"></span><b>${total()}</b></div>
+          <div data-at="${O.tDone}"><span class="t"></span>${verdict(O)}</div>
+          <div class="cmd" data-at="${O.tBoard - 0.05}"><span class="t">${stamp2(O.tBoard)}</span>&gt; records <b>--week</b> <span class="d">· purge in ${PURGE}</span></div>
+          ${near.map((r, i) => `<div class="near${r.me ? " me" : ""}" data-at="${nearAt(i)}"><span class="t"></span><span class="d" style="width:calc(var(--g)*16)">${String(r.rank).padStart(2, "0")}</span><span class="nm">${r.me ? meName(O) + " ◂ you" : r.name}</span><span class="dots"></span><span class="val">${fmt(r.score)}</span>${r.me && O.places > 0 && !O.first ? `<span class="gold" style="margin-left:calc(var(--g)*6)">▲${O.places}</span>` : ""}${r.me && O.first ? `<span class="c" style="margin-left:calc(var(--g)*6)">NEW</span>` : ""}</div>`).join("")}
+          <div data-at="${nearAt(near.length)}"><span class="t"></span><span class="a">▲ ${goal(O)}</span></div>
+          ${O.first ? `<div class="cmd" data-at="${O.tClaim}"><span class="t">${stamp2(O.tClaim)}</span>&gt; register <b>--subject</b> <span class="v">${typ(NAME, O.tClaim + 0.4)}</span><span class="cursor blink"></span> <span class="k">ENTER</span></div>
+          <div data-at="${O.tNamed}"><span class="t"></span><span class="claim-ok">subject registered · ${NAME} · #${O.rank} this week</span></div>` : ""}
+        </div>
+        <div class="menu">
+          <div class="mi sel" data-reset><i>01</i>RESET<span class="k">SPACE</span></div>
+          <div class="mi"><i>02</i>EXIT TO SHELL<span class="go">▶</span></div>
+        </div>` }];
+    } },
+
+    // 2: today's hanging panel and board, in the shell's style.
+    E2: { build: (O) => [
+      { cls: "hang", rect: { x: 230, y: 92, w: 660, h: 720 }, slide: [0, -1.4], inAt: O.tIn, html: `
+        <div class="hh"><span>ITERATION ${O.iter}</span><small class="r">TERMINATED</small></div>
+        <div class="cause">${O.causeText.toUpperCase()} · ${fmt(O.dist)} m</div>
+        ${O.rows.map((r) => `<div class="trow${r.points ? "" : " zero"}" data-at="${r.at}" style="--c:${r.rgb}">${r.label}${r.chip ? `<span class="chip">${r.chip}</span>` : ""}<span class="dots"></span><span class="val">${val(r)}</span></div>`).join("")}
+        <div class="cap"><small>TOTAL SCORE</small><b>${total()}</b><div class="vd" data-at="${O.tDone}">${verdict(O)}</div>${stamp(O)}</div>
+        ${O.first ? claim(O) : ""}
+        <div style="margin-top:auto">${resetPrompt(O)}</div>` },
+      { cls: "card-ui brd", rect: { x: 930, y: 92, w: 440, h: 720 }, slide: [1.3, 0], inAt: O.tIn + 0.25, html: `
+        <div class="ttl">RECORDS<span>RECORDS://WEEK-41</span></div>
+        <div class="head week">THIS WEEK<span class="pill">PURGE IN ${PURGE}</span></div>
+        <div class="board">${boardRows(O, O.tBoard)}</div>
+        <div class="head all" style="margin-top:calc(var(--g)*6)">ALL-TIME</div>
+        <div class="fame">${fameLine}</div>
+        <div class="foot">YOUR BEST <span class="v">${fmt(O.best)}</span> · <i>#${O.rank}</i> · ${goal(O)}</div>` },
+    ] },
+
+    // 3: the system files a report.
+    E3: { build: (O) => [
+      { cls: "dimmer", rect: { x: 0, y: 0, w: VW, h: VH }, slide: [0, 0], inAt: O.tIn, fade: true, html: "" },
+      { cls: "rep", rect: { x: 360, y: 90, w: 880, h: 720 }, slide: [0, 0.25], inAt: O.tIn, fade: true, html: `
+        <div class="top"><h3>INCIDENT REPORT</h3><span class="no">№ ${O.iter}</span></div>
+        <div class="meta">SIMULATION SHELL · SECTOR 00 · FILED AUTOMATICALLY</div>
+        <div class="fields">
+          <div><small>SUBJECT</small><b>BOB${O.first ? "" : ` · ${NAME.toUpperCase()}`}</b></div>
+          <div><small>CAUSE</small><b class="r">${O.causeText.toUpperCase()}</b></div>
+          <div><small>DISTANCE</small><b>${fmt(O.dist)} m</b></div>
+          <div><small>STATUS</small><b>RETRIEVED</b></div>
+        </div>
+        <div class="sec">SCORE BREAKDOWN</div>
+        <div class="bd2">
+          ${O.rows.map((r) => `<div class="ln${r.points ? "" : " zero"}" data-at="${r.at}" style="--c:${r.rgb}"><span class="lb">${r.label}</span>${r.chip && r.key !== "distance" ? `<span class="chip">${r.chip}</span>` : ""}<span class="dots"></span><span class="val">${val(r)}</span></div>`).join("")}
+        </div>
+        <div class="tot"><span>TOTAL</span><span class="d" style="font:calc(var(--g)*8) 'Share Tech Mono',monospace;margin-left:calc(var(--g)*10)" data-at="${O.tDone}">${verdict(O)}</span><b>${total()}</b></div>
+        <div class="sec">STANDING</div>
+        <div class="stand" data-at="${O.tBoard}"><span>WEEKLY RANK <i>#${O.rank}</i> · ${goal(O)}</span><span class="d">ALL-TIME RECORD 52,410 · Dev</span></div>
+        ${claim(O, "SUBJECT NAME")}
+        <div class="bot">${O.isBest ? `<span class="stamp gold" data-at="${O.tDone}">NEW BEST</span>` : O.first ? `<span class="stamp cyan" data-at="${O.tDone}">FIRST RECORD</span>` : `<span class="stamp red" data-at="${O.tDone}">CONTAINED</span>`}<span class="sig">DISPOSITION: RESET PENDING</span>${resetPrompt(O, false)}</div>` },
+    ] },
+
+    // 4: the board is the main event.
+    E4: { build: (O) => [
+      { cls: "card-ui sc4", rect: { x: 36, y: 40, w: 560, h: 400 }, slide: [-1.2, 0], inAt: O.tIn, html: `
+        <div class="status"><span>ITERATION ${O.iter}</span><span class="dead">${O.causeText.toUpperCase()}</span></div>
+        <div class="lbl" style="margin-top:calc(var(--g)*4)">THIS RUN · ${fmt(O.dist)} m</div>
+        <div class="big">${total()}</div>
+        <div class="vd" data-at="${O.tDone}">${verdict(O)}</div>
+        <div class="chips">${O.rows.map((r) => `<div class="cp${r.points ? "" : " zero"}" data-at="${r.at}" style="--c:${r.rgb}"><span>${r.label}</span><span class="d">${r.chip && r.key !== "distance" ? r.chip : ""}</span><span>${val(r)}</span></div>`).join("")}</div>` },
+      { cls: "", rect: { x: 36, y: 470, w: 560, h: 110 }, slide: [-1.2, 0], inAt: O.tIn, html: `${claim(O)}<div style="margin-top:calc(var(--g)*6)">${resetPrompt(O)}</div>` },
+      { cls: "card-ui bd4", rect: { x: 636, y: 40, w: 930, h: 610 }, slide: [1.2, 0], inAt: O.tIn + 0.15, html: `
+        <div class="ttl"><b>THIS WEEK</b><span class="pill">PURGE IN ${PURGE}</span>
+          ${O.first ? `<span class="badge new" data-at="${O.tBoard + CLIMB}">NEW ENTRY · #${O.rank}</span>`
+            : O.places > 0 ? `<span class="badge up" data-at="${O.tBoard + CLIMB}">▲ ${O.places} PLACES</span>`
+            : `<span class="badge hold" data-at="${O.tBoard}">BEST HOLDS · #${O.rank}</span>`}</div>
+        <div class="board">${boardRows(O, O.tBoard, { extra: (r) => r.me && O.above ? `<span class="x" data-at="${O.tBoard + CLIMB}">▲ ${fmt(O.toNext)} to pass ${O.above.name}</span>` : "<span></span>" })}</div>
+        ${O.isBest || O.first ? `<div class="ghost"><span>ALL-TIME <span class="fame">${fameLine}</span></span></div>`
+          : `<div class="ghost" data-at="${O.tBoard}"><span>on its own, this run <span class="v">${fmt(O.score)}</span> would place <i>#${O.runRank}</i></span><span>your best <span class="c">${fmt(O.best)}</span> holds #${O.rank}</span></div>`}` },
+    ] },
+
+    // 5: a flight recorder of the run.
+    E5: { build: (O) => {
+      const span = Math.max(O.dist, O.prevDist || 0) * 1.06;
+      const pct = (m) => (m / span * 100).toFixed(2);
+      const t0 = O.rows[0].at, t1 = O.tDone - 0.05;
+      const when = (m) => +(t0 + (t1 - t0) * (m / O.dist)).toFixed(3);
+      const step = span > 15000 ? 5000 : 2000;
+      const ticks = []; for (let m = 0; m <= span; m += step) ticks.push(`<span class="tk" style="left:${pct(m)}%">${m ? m / 1000 + " km" : "0"}</span>`);
+      const lanes = O.rows.filter((r) => r.glyph).map((r, li) => {
+        const marks = [];
+        for (let i = 0; i < r.count; i++) {
+          const m = O.dist * (0.04 + 0.92 * rand(O.seed * 13 + li * 31 + i * 7.3));
+          marks.push(`<span class="ev" data-at="${when(m)}" style="left:${pct(m)}%">${r.glyph}</span>`);
+        }
+        return `<div class="lane" style="--c:${r.rgb}"><span class="ll">${r.label}<b>${r.count}</b></span>${marks.join("")}</div>`;
+      }).join("");
+      const ghost = O.prevDist ? `<div class="vline ghostl" style="left:${pct(O.prevDist)}%"><span>YOUR BEST RUN · ${fmt(O.prevDist)} m</span></div>` : "";
+      return [
+        { cls: "card-ui bb", rect: { x: 36, y: 28, w: 1528, h: 262 }, slide: [0, -1.3], inAt: O.tIn, html: `
+          <div class="ttl"><b><span class="rec">●</span> BLACK BOX · ITERATION ${O.iter}</b><span>FLIGHT RECORD · ${fmt(O.dist)} m · ${O.causeText.toUpperCase()}</span></div>
+          <div class="lanes">${lanes}
+            <div class="axis"><div class="line"></div><div class="fill" data-sweep data-w0="${t0}" data-w1="${t1}" data-to="${pct(O.dist)}"></div>${ticks.join("")}
+              <div class="vline ph" data-sweep data-w0="${t0}" data-w1="${t1}" data-to="${pct(O.dist)}" data-left></div>
+              ${ghost}
+              <div class="vline end${O.dist / span > 0.7 ? " flip" : ""}" data-at="${O.tDone - 0.05}" style="left:${pct(O.dist)}%"><span>✕ ${O.causeText.toUpperCase()} · ${fmt(O.dist)} m</span></div>
+            </div>
+          </div>` },
+        { cls: "sc5 sky", rect: { x: 400, y: 330, w: 800, h: 250 }, slide: [0, 0], fade: true, inAt: O.tIn + 0.1, html: `
+          <div class="lbl">SCORE</div>
+          <div class="big">${total()}</div>
+          <div class="vd" data-at="${O.tDone}">${verdict(O)}</div>
+          <div class="rk" data-at="${O.tBoard}"><i>#${O.rank}</i> this week · ${goal(O)}</div>` },
+        { cls: "", rect: { x: 560, y: 600, w: 480, h: 110 }, slide: [0, 0], inAt: O.tIn, html: `${claim(O)}<div style="margin-top:calc(var(--g)*5)">${resetPrompt(O)}</div>` },
+      ];
+    } },
+
+    // 6: a billboard on the next building carries the verdict.
+    E6: {
+      extras: `<rect x="1196" y="350" width="16" height="32" fill="#2a2f39"/><rect x="1508" y="350" width="16" height="32" fill="#2a2f39"/>
+        <rect x="1176" y="344" width="368" height="8" fill="#20252e"/>`,
+      build: (O) => {
+        const tone = O.isBest ? "best" : O.first ? "first" : "";
+        const hl = O.isBest ? "NEW BEST" : O.first ? "FIRST RECORD" : "TERMINATED";
+        return [
+          { cls: `billboard ${tone}`, rect: { x: 1140, y: 70, w: 440, h: 280 }, slide: [0, 0], inAt: O.tDone, html: `
+            <div class="screen"><div class="tag">SIM://BROADCAST · ITERATION ${O.iter}</div><div class="hl">${hl}</div>
+              <div class="num">${fmt(O.score)}</div><div class="rk">#${O.rank} THIS WEEK · ${O.causeText.toUpperCase()}</div></div>` },
+          { cls: "term", rect: { x: 40, y: 50, w: 620, h: 560 }, slide: [-1.2, 0], inAt: O.tIn, html: `
+            <div class="tbar"><b style="background:#ff556e"></b><b style="background:#ffb446"></b><b style="background:#5fe39a"></b><span>system://tally · iteration ${O.iter}</span></div>
+            <div class="body"><div class="log">
+              <div data-at="${O.tIn}"><span class="t">${stamp2(0)}</span><span class="r">${O.causeText}</span><span class="d">&nbsp;·&nbsp;</span><span class="v">${fmt(O.dist)} m</span></div>
+              <div data-at="${O.tIn + 0.06}"><span class="t">${stamp2(T_GRAB)}</span><span class="ok">subject BOB retrieved</span></div>
+              <div class="cmd" data-at="${O.rows[0].at - 0.12}"><span class="t">&gt;</span>tally&nbsp;<b>--iteration ${O.iter}</b></div>
+              ${O.rows.map((r) => `<div class="${r.points ? "" : "zero"}" data-at="${r.at}"><span class="t"></span><span style="color:rgb(${r.rgb})">${r.label.toLowerCase()}</span>${r.chip && r.key !== "distance" ? `<span class="chip">${r.chip}</span>` : ""}<span class="dots"></span><span class="val">${val(r)}</span></div>`).join("")}
+              <div data-at="${O.rows[0].at}" style="margin-top:calc(var(--g)*3)"><span class="t"></span><span class="ok">score</span><span class="dots"></span><span class="val" style="font-size:calc(var(--g)*14)">${total()}</span></div>
+              <div data-at="${O.tDone}"><span class="t"></span><span>${verdict(O)}</span></div>
+              <div data-at="${O.tBoard}"><span class="t"></span><span class="a">#${O.rank} this week · ${goal(O)}</span></div>
+            </div>
+            ${claim(O)}
+            ${resetPrompt(O)}</div>` },
+        ];
+      },
+    },
+
+    // 7: the system reports it on TV, once the claw is done.
+    E7: { delay: 0.95, build: (O) => [
+      { cls: "bug sky", rect: { x: 36, y: 30, w: 520, h: 50 }, slide: [-1.2, 0], inAt: O.tIn, html: `<b>SIM NEWS</b><span class="dead">LIVE · SECTOR 00</span>` },
+      { cls: "lower7", rect: { x: 0, y: 610, w: VW, h: 290 }, slide: [0, 1.1], inAt: O.tIn, html: `
+        <div class="hlb"><span class="brk">${O.isBest ? "RECORD" : "BREAKING"}</span>
+          <h3>SUBJECT BOB ${O.isBest ? "SETS NEW BEST" : "CONTAINED"} AFTER ${fmt(O.dist)} m</h3>
+          <div class="hs">Iteration ${O.iter} · ${O.causeText} · retrieved by the system at ${stamp2(T_GRAB)}</div></div>
+        <div class="box"><small>SCORE</small><b>${total()}</b><div class="vd" data-at="${O.tDone}">${verdict(O)}</div><div class="rk" data-at="${O.tBoard}">#${O.rank} this week · ${goal(O)}</div>
+          ${claim(O)}<div class="press" data-reset>PRESS <span class="k">SPACE</span> TO RESET</div></div>
+        <div class="tick7"><div class="crawl">${O.rows.map((r) => `<span style="color:rgb(${r.rgb})">${r.chip && r.key !== "distance" ? r.chip.replace("×", "") + " " : ""}${r.label} <em>${r.points ? "+" + fmt(r.points) : "0"}</em></span>`).join("")}<span class="a">WEEKLY LEADER Dev <em>39,916</em></span><span class="a">ALL-TIME RECORD Dev <em>52,410</em></span><span class="d">PURGE IN ${PURGE}</span></div></div>` },
+    ] },
+
+    // 8: one small card, RESET ready almost at once.
+    E8: { fast: true, build: (O) => {
+      const c0 = O.tIn + 0.25;
+      return [
+        { cls: "card-ui q8d closed", rect: { x: 520, y: 222, w: 560, h: 310 }, slide: [0, 0], inAt: O.tIn, drawer: true, html: `
+          <div class="hd">BREAKDOWN · ITERATION ${O.iter}</div>
+          ${O.rows.map((r) => `<div class="ln${r.points ? "" : " zero"}" style="--c:${r.rgb}"><span class="lb">${r.label}</span>${r.chip && r.key !== "distance" ? `<span class="chip">${r.chip}</span>` : ""}<span class="dots"></span><span class="val">${r.points ? "+" + fmt(r.points) : "0"}</span></div>`).join("")}` },
+        { cls: "card-ui q8", rect: { x: 520, y: 548, w: 560, h: O.first ? 300 : 250 }, slide: [0, 1.6], inAt: O.tIn, html: `
+          <div class="top"><span class="r">■</span>${O.iter} · ${O.causeText.toUpperCase()} · ${fmt(O.dist)} m<span class="det" data-details><span class="k">TAB</span>DETAILS ▴</span></div>
+          <div class="mid"><div><div class="big">${cnt(O.score, c0, 0.6)}</div><div class="vd" data-at="${c0 + 0.6}">${verdict(O)}</div></div>
+            <div class="rank" data-at="${c0 + 0.6}"><b>#${O.rank}</b><small>THIS WEEK</small><br><small class="a">${O.above ? fmt(O.toNext) + " TO #" + (O.rank - 1) : "TOP"}</small></div></div>
+          ${claim(O)}
+          <div class="bigbtn" data-reset>RESET <span class="k">SPACE</span></div>` },
+      ];
+    } },
+  };
+
+  // ---------------- world ----------------
+  function building(x, top, w, seed, roof) {
+    let out = `<rect x="${x}" y="${top}" width="${w}" height="${GROUND - top}" fill="#161b24"/>
+      <rect x="${x}" y="${top}" width="${w}" height="34" fill="#2a323c"/><rect x="${x}" y="${top - 4}" width="${w}" height="8" fill="${roof}"/>`;
+    for (let r = 0, wy = top + 56; wy < GROUND - 50; wy += 64, r++) {
+      for (let col = 0, wx = x + 22; wx < x + w - 70; wx += 84, col++) {
+        const k = rand(seed + r * 17 + col * 5);
+        if (k < 0.4) continue;
+        out += `<rect x="${wx}" y="${wy}" width="62" height="36" fill="${k > 0.85 ? "#6e6a4c" : "#3e5469"}" opacity="0.8"/>`;
+      }
+    }
+    return out;
+  }
+
+  function scene(D) {
+    let out = `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f1116"/><stop offset="0.6" stop-color="#141a24"/><stop offset="1" stop-color="#0a0b0f"/></linearGradient>
+      <linearGradient id="lethal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(255,85,110,0)"/><stop offset="0.75" stop-color="rgba(255,85,110,0.24)"/><stop offset="1" stop-color="rgba(255,85,110,0)"/></linearGradient>
+      <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <rect width="${VW}" height="${VH}" fill="url(#sky)"/>`;
+    // Far skyline
+    let x = -20, i = 0;
+    while (x < VW + 20) {
+      const w = 90 + rand(i + 1) * 170;
+      const top = 120 + rand(i + 7) * 340;
+      const shade = 17 + Math.floor(rand(i + 3) * 8);
+      out += `<rect x="${x}" y="${top}" width="${w}" height="${GROUND - top}" fill="rgb(${shade},${shade + 2},${shade + 7})"/>`;
+      for (let wy = top + 30; wy < GROUND - 40; wy += 46) if (rand(i * 13 + wy) > 0.6) out += `<rect x="${x + 14}" y="${wy}" width="${w - 28}" height="9" fill="rgba(120,205,255,0.035)"/>`;
+      x += w + 4 + rand(i + 5) * 30; i++;
+    }
+    // The two buildings either side of the gap Bob fell into: pink glass on the left, blue steel on the right.
+    out += building(-40, 560, 600, 11, "#d77fa8") + building(1120, 380, 520, 29, "#6fa3bf");
+    out += D.extras || "";
+    // Lethal ground (render/world/ground.js): the glow, the line, the hazard stripes.
+    out += `<rect x="0" y="${GROUND - 150}" width="${VW}" height="200" fill="url(#lethal)"/>
+      <rect x="0" y="${GROUND}" width="${VW}" height="${VH - GROUND}" fill="#0c0709"/>
+      <rect x="0" y="${GROUND}" width="${VW}" height="4" fill="rgba(255,85,110,0.9)" filter="url(#glow)"/>`;
+    for (let sx = -20; sx < VW; sx += 80) out += `<rect x="${sx}" y="${GROUND + 20}" width="40" height="20" fill="rgba(255,85,110,0.34)"/><rect x="${sx + 20}" y="${GROUND + 52}" width="40" height="20" fill="rgba(255,85,110,0.34)"/>`;
+    // What the crash shook loose: the wheel rolled off forward, screws and nuts on the ground.
+    const wr = 6 * S, wx = BOB_X + 190, wy = GROUND - wr;
+    let spokes = "";
+    for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2 + 0.4; spokes += `<line x1="${wx}" y1="${wy}" x2="${wx + Math.cos(a) * wr * 0.55}" y2="${wy + Math.sin(a) * wr * 0.55}" stroke="rgba(15,17,22,0.45)" stroke-width="2"/>`; }
+    out += `<ellipse cx="${wx}" cy="${GROUND + 2}" rx="${wr}" ry="4" fill="rgba(0,0,0,0.4)"/><circle cx="${wx}" cy="${wy}" r="${wr}" fill="#24262c"/><circle cx="${wx}" cy="${wy}" r="${wr * 0.62}" fill="#f2f2f2" opacity="0.85"/>${spokes}`;
+    [[-130, 20], [-70, -30], [110, 40], [260, 10], [330, -20], [-200, 60]].forEach(([dx, rot], k) => {
+      out += k % 2
+        ? `<rect x="${BOB_X + dx}" y="${GROUND - 6}" width="12" height="6" rx="1" fill="#8b95a5" transform="rotate(${rot} ${BOB_X + dx + 6} ${GROUND - 3})"/>`
+        : `<polygon points="${BOB_X + dx},${GROUND - 1} ${BOB_X + dx + 4},${GROUND - 8} ${BOB_X + dx + 11},${GROUND - 8} ${BOB_X + dx + 15},${GROUND - 1}" fill="#6c7584"/>`;
+    });
+    out += `<g class="bob-body">${bobLying()}</g><g class="arm"></g>`;
+    return out;
+  }
+
+  // Bob toppled onto his side (computeDeathCinematic: tilt +90°), the wheel gone.
+  const HB = 34 * S, BW = HB * 0.7, BH = HB * 0.78, BOB_CY = GROUND - BW / 2 - 1;
+  function bobLying() {
+    const cx = BOB_X, cy = BOB_CY;
+    const by = cy - BH / 2;
+    const vw = BW * 0.62, vh = BH * 0.18, vx = cx - vw / 2, vy = by + BH * 0.2;
+    return `<ellipse cx="${cx}" cy="${GROUND + 2}" rx="${BH * 0.56}" ry="6" fill="rgba(0,0,0,0.4)"/>
+      <g transform="rotate(90 ${cx} ${cy})">
+        <rect x="${cx - 5 * S}" y="${cy + BH / 2 - 2}" width="${10 * S}" height="${4 * S}" rx="${S}" fill="#3a3d45"/>
+        <rect x="${cx - BW / 2}" y="${by}" width="${BW}" height="${BH}" rx="${Math.min(BW, BH) * 0.45}" fill="#f2f2f2"/>
+        <path d="M${cx + BW * 0.18} ${by + BH * 0.55} l${-BW * 0.12} ${BH * 0.1} l${BW * 0.08} ${BH * 0.06} l${-BW * 0.1} ${BH * 0.12}" stroke="rgba(15,17,22,0.4)" stroke-width="2" fill="none"/>
+        <rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="${vh * 0.6}" fill="rgba(15,17,22,0.62)"/>
+        <rect class="bob-eye" x="${vx + vw * 0.72}" y="${vy + vh * 0.32}" width="${2 * S}" height="${2 * S}" fill="rgb(255,85,110)"/>
+      </g>`;
+  }
+
+  // The claw (computeDeathCinematic + drawRobotArm): reaches in from the left, grips, drags Bob off.
+  function arm(t) {
+    const grip = { x: BOB_X - BH / 2 - 2 * S, y: BOB_CY, jawLen: BH * 0.42, jawGap: BW / 2 + 0.5 * S };
+    const reachRaw = (t - DC.DELAY) / DC.REACH;
+    const reachK = easeOutCubic(reachRaw);
+    const dragK = easeInOutCubic((t - DC.DELAY - DC.REACH) / DC.DRAG);
+    const retractK = easeOutCubic((t - DC.DELAY - DC.REACH - DC.DRAG) / DC.RETRACT);
+    const baseX0 = BOB_X - 1150;
+    const baseY = grip.y - HB * 0.5;
+    const hold = -(BOB_X + BH + 360) * dragK - retractK * 160;
+    const tipX = baseX0 + (grip.x - baseX0) * reachK + hold;
+    const tipY = baseY + (grip.y - baseY) * reachK;
+    const baseX = baseX0 + hold;
+    const gripK = smoothstep((reachRaw - 0.7) / 0.3);
+    const wobble = Math.sin(t * 6) * 3 * S;
+    const wristX = tipX - 11 * S;
+    const elbowX = baseX + (tipX - baseX) * 0.55;
+    const elbowY = baseY - 30 * S + (tipY - baseY) * 0.2 + wobble;
+    const line = `M${baseX} ${baseY} L${elbowX} ${elbowY} L${wristX} ${tipY}`;
+    const low = `M${baseX + 4 * S} ${baseY + 6 * S} L${elbowX + 4 * S} ${elbowY + 6 * S} L${wristX + 4 * S} ${tipY + 6 * S}`;
+    const JAW = 4 * S, PALM = 4 * S, OPEN = 7 * S, BITE = 2.5 * S;
+    const gap = grip.jawGap + OPEN * (1 - gripK);
+    const top = tipY - gap - JAW, bottom = tipY + gap + JAW, tip = tipX + grip.jawLen;
+    const alpha = 1 - 0.7 * retractK;
+    const svg = `<g opacity="${alpha.toFixed(3)}">
+      <path d="${line}" stroke="rgb(44,48,58)" stroke-width="${14 * S}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${line}" stroke="rgba(120,205,255,0.55)" stroke-width="${6 * S}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${low}" stroke="rgba(255,85,110,0.22)" stroke-width="${3 * S}" fill="none" stroke-linecap="round"/>
+      <circle cx="${elbowX}" cy="${elbowY}" r="${7 * S}" fill="rgb(20,22,28)"/>
+      <circle cx="${wristX}" cy="${tipY}" r="${6 * S}" fill="rgb(20,22,28)"/>
+      <rect x="${tipX}" y="${top}" width="${grip.jawLen}" height="${JAW}" fill="rgb(104,112,128)"/>
+      <rect x="${tipX}" y="${bottom - JAW}" width="${grip.jawLen}" height="${JAW}" fill="rgb(104,112,128)"/>
+      <path d="M${tip - 4 * S} ${top + JAW} H${tip} L${tip - S} ${top + JAW + BITE} Z M${tip - 4 * S} ${bottom - JAW} H${tip} L${tip - S} ${bottom - JAW - BITE} Z" fill="rgb(104,112,128)"/>
+      <rect x="${tipX}" y="${top}" width="${grip.jawLen}" height="${S}" fill="rgba(120,205,255,0.55)"/>
+      <rect x="${tipX}" y="${bottom - S}" width="${grip.jawLen}" height="${S}" fill="rgba(120,205,255,0.55)"/>
+      <rect x="${tipX - PALM}" y="${top}" width="${PALM}" height="${bottom - top}" fill="rgb(44,48,58)"/>
+      <circle cx="${tipX - PALM / 2}" cy="${tipY}" r="${1.5 * S}" fill="rgba(255,180,70,0.9)"/></g>`;
+    return { svg: t < DC.DELAY || Math.max(baseX, tipX + grip.jawLen) < -50 ? "" : svg, bobOffsetX: hold, bobAlpha: 1 - 0.65 * retractK };
+  }
+
+  // ---------------- frames ----------------
+  const variants = [];
+  let timeScale = 1;
+  let outcome = new URLSearchParams(location.search).get("o") || "short";
+  if (!RAW[outcome]) outcome = "short";
+
+  function build(v) {
+    const D = DESIGNS[v.frame.dataset.design];
+    const O = scenario(outcome, D.delay || 0);
+    if (D.fast) { O.tReset = O.tIn + 1.0; O.rows.forEach((r) => { r.at = O.tIn; }); if (O.first) { O.tClaim = O.tIn + 0.9; O.tNamed = +(O.tClaim + 0.4 + NAME.length / 14 + 0.25).toFixed(3); O.tReset = O.tNamed + 0.2; } O.end = O.tReset + 1; }
+    const P = D.build(O);
+    const pct = (r) => `left:${r.x / VW * 100}%;top:${r.y / VH * 100}%;width:${r.w / VW * 100}%;height:${r.h / VH * 100}%`;
+    v.frame.innerHTML = `
+      <svg class="scene" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${scene(D)}</svg>
+      ${P.map((p) => `<div class="piece ${p.cls}" style="${pct(p.rect)}">${p.html}</div>`).join("")}`;
+    const q = (sel) => [...v.frame.querySelectorAll(sel)];
+    Object.assign(v, {
+      O, pieces: q(".piece").map((el, i) => ({ el, ...P[i] })),
+      bobBody: v.frame.querySelector(".bob-body"), armLayer: v.frame.querySelector(".arm"),
+      timed: q("[data-at], [data-until]"), counts: q("[data-to][data-c0]"), totals: q("[data-total]"),
+      types: q("[data-type]"), shifts: q("[data-shift]"), sweeps: q("[data-sweep]"),
+    });
+    q("[data-reset]").forEach((el) => el.addEventListener("click", () => resetFrame(v)));
+    const drawer = v.pieces.find((p) => p.drawer);
+    q("[data-details]").forEach((el) => el.addEventListener("click", () => drawer && drawer.el.classList.toggle("closed")));
+  }
+
+  function totalAt(O, t) {
+    return O.rows.reduce((s, r) => s + r.points * easeOutCubic((t - r.at) / ROW_COUNT), 0);
+  }
+
+  function renderVariant(v) {
+    const t = v.t, O = v.O;
+    const { svg, bobOffsetX, bobAlpha } = arm(t);
+    v.armLayer.innerHTML = svg;
+    v.bobBody.setAttribute("transform", `translate(${bobOffsetX} 0)`);
+    v.bobBody.setAttribute("opacity", bobAlpha.toFixed(3));
+    for (const p of v.pieces) {
+      const k = easeOutCubic((t - p.inAt) / 0.4);
+      p.el.style.visibility = t < p.inAt ? "hidden" : "";
+      p.el.style.translate = `${p.slide[0] * (1 - k) * 104}% ${p.slide[1] * (1 - k) * 104}%`;
+      if (p.fade) p.el.style.opacity = k.toFixed(3);
+    }
+    for (const el of v.timed) {
+      const at = el.dataset.at === undefined ? -Infinity : Number(el.dataset.at);
+      const until = el.dataset.until === undefined ? Infinity : Number(el.dataset.until);
+      el.classList.toggle("on", t >= at - 1e-6 && t < until);
+    }
+    for (const el of v.counts) {
+      const from = Number(el.dataset.from), to = Number(el.dataset.to);
+      const k = easeOutCubic((t - Number(el.dataset.c0)) / Number(el.dataset.cd));
+      el.textContent = `${el.dataset.pre}${fmt(from + (to - from) * k)}${el.dataset.suf}`;
+    }
+    const tot = fmt(totalAt(O, t));
+    for (const el of v.totals) el.textContent = tot;
+    for (const el of v.types) {
+      const n = Math.floor(Math.max(0, t - Number(el.dataset.t0)) * Number(el.dataset.cps));
+      el.textContent = el.dataset.type.slice(0, n);
+    }
+    for (const el of v.shifts) {
+      const k = easeInOutCubic((t - Number(el.dataset.s0)) / Number(el.dataset.sd));
+      el.style.translate = `0 calc(${(Number(el.dataset.shift) * (1 - k)).toFixed(3)} * var(--rowh))`;
+      if ("sfade" in el.dataset) el.style.opacity = k.toFixed(3);
+    }
+    for (const el of v.sweeps) {
+      const k = clamp01((t - Number(el.dataset.w0)) / (Number(el.dataset.w1) - Number(el.dataset.w0)));
+      const p = (Number(el.dataset.to) * k).toFixed(2) + "%";
+      if ("left" in el.dataset) { el.style.left = p; el.style.opacity = k > 0 && k < 1 ? 1 : 0; } else el.style.width = p;
+    }
+    v.frame.classList.toggle("ready", t >= O.tReset);
+  }
+
+  function play(v) { v.t = -0.2; v.playing = true; }
+
+  function resetFrame(v) {
+    if (v.glitching) return;
+    v.glitching = true;
+    v.frame.classList.add("glitch");
+    setTimeout(() => {
+      v.frame.classList.remove("glitch");
+      v.glitching = false;
+      build(v);
+      play(v);
+    }, 350 / timeScale);
+  }
+
+  document.querySelectorAll(".frame[data-design]").forEach((frame) => {
+    const v = { frame, t: 0, playing: false };
+    build(v);
+    variants.push(v);
+  });
+
+  let last = 0;
+  function tick(now) {
+    const dt = last ? Math.min(0.05, (now - last) / 1000) * timeScale : 0;
+    last = now;
+    for (const v of variants) {
+      if (v.playing) {
+        v.t += dt;
+        if (v.t >= v.O.end) v.playing = false;
+      }
+      renderVariant(v);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  const fixed = parseFloat(new URLSearchParams(location.search).get("t"));
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (Number.isFinite(fixed) || reduce) {
+    // For screenshots: ?t=2.4 freezes every frame at that time (?o=best|first picks the outcome).
+    variants.forEach((v) => { v.t = Number.isFinite(fixed) ? fixed : v.O.end; renderVariant(v); });
+  } else {
+    variants.forEach((v) => { v.t = -0.2; renderVariant(v); });
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        const v = variants.find((x) => x.frame === e.target);
+        if (e.isIntersecting && v && !v.seen) { v.seen = true; play(v); }
+      });
+    }, { threshold: 0.5 });
+    variants.forEach((v) => io.observe(v.frame));
+    requestAnimationFrame(tick);
+  }
+
+  document.getElementById("replay").addEventListener("click", () => variants.forEach((v) => { build(v); play(v); }));
+  const slowBtn = document.getElementById("slow");
+  slowBtn.addEventListener("click", () => {
+    timeScale = timeScale === 1 ? 0.25 : 1;
+    slowBtn.setAttribute("aria-pressed", String(timeScale !== 1));
+  });
+  document.querySelectorAll("[data-outcome]").forEach((btn) => {
+    btn.setAttribute("aria-pressed", String(btn.dataset.outcome === outcome));
+    btn.addEventListener("click", () => {
+      outcome = btn.dataset.outcome;
+      document.querySelectorAll("[data-outcome]").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+      variants.forEach((v) => { build(v); if (Number.isFinite(fixed) || reduce) { renderVariant(v); } else play(v); });
+    });
+  });
+  document.getElementById("reset").addEventListener("click", () => variants.forEach(resetFrame));
+})();
+</script>
+</body>
+</html>

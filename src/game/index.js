@@ -10,6 +10,7 @@ import {
   SPEED_RAMP_PER_SEC,
   SPEED_SMOOTH,
   JUMP_BUFFER_SEC,
+  DEATH_CINEMATIC,
   DEATH_CINEMATIC_TOTAL,
   RESTART_FLYBY_SEC,
   RESTART_FLYBY_HOLD_SEC,
@@ -18,8 +19,6 @@ import {
   HUD_SLIDE_SEC,
   RUN_SUMMARY_DROP_SEC,
   RESET_GLITCH_SEC,
-  LEADERBOARD_SLIDE_DELAY_SEC,
-  LEADERBOARD_SLIDE_SEC,
 } from "./constants.js";
 
 import { clamp } from "../shared/math.js";
@@ -43,6 +42,7 @@ import { onGameFinished } from "../leaderboard/view.js";
 import { getMyBest } from "../leaderboard/state.js";
 import { loadIteration, saveIteration } from "../ui/iteration.js";
 import { saveLastRun } from "../ui/lastRun.js";
+import { getBestRun, saveBestRunIfBetter } from "../ui/bestRun.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
@@ -100,7 +100,6 @@ export function createGame() {
       return;
     }
 
-    // After a skipped cinematic the whole summary plays faster (drop-in, count-up, RESET wait).
     state.scoreBoardT = (state.scoreBoardT || 0) + dt;
     if ((state.scoreBoardT || 0) < RUN_SUMMARY_DROP_SEC) return;
 
@@ -136,19 +135,17 @@ export function createGame() {
     state.scoreTallyDoneT = state.scoreTallyDone ? t : 0;
   }
 
-  // A press during the run summary: land the panels and finish the tally at once.
+  // A press during the end screen skips its animation: the console lands with the tally, the
+  // black box and the records finished, and RESET ready for the next press.
   function finishSummary() {
-    state.scoreBoardT = Math.max(
-      state.scoreBoardT || 0,
-      RUN_SUMMARY_DROP_SEC,
-      LEADERBOARD_SLIDE_DELAY_SEC + LEADERBOARD_SLIDE_SEC
-    );
+    state.summarySkipped = true;
+    state.scoreBoardT = Math.max(state.scoreBoardT || 0, RUN_SUMMARY_DROP_SEC);
     if (!state.scoreTallyActive) {
       state.scoreTallyActive = true;
       state.tallyRows = buildSummaryRows(state);
     }
-    // A hair past the end, so float rounding in advanceTally can't leave the last row unfinished.
-    const total = state.tallyRows.reduce((sum, row) => sum + tallyRowSec(row), 0) + 1e-6;
+    // Past the RESET wait too; a hair more, so float rounding in advanceTally can't leave the last row unfinished.
+    const total = state.tallyRows.reduce((sum, row) => sum + tallyRowSec(row), 0) + RESTART_READY_DELAY_SEC + 1e-6;
     state.scoreTallyT = Math.max(state.scoreTallyT, total);
     advanceTally();
   }
@@ -194,15 +191,19 @@ export function createGame() {
     }
 
     if (!state.gameOver) {
+      const distance = buildSummaryRows(state)[0].count;
       // The start screen's log reports it: "iteration 0041 TERMINATED", how, how far, and the score.
       saveLastRun({
         iteration: state.iteration,
         cause: state.player?.billboardDeath === true ? "ad" : "ground",
-        distance: buildSummaryRows(state)[0].count,
+        distance,
         score: Math.floor(finalScore),
         best: state.runBestTarget || 0,
         endedAt: Date.now(),
       });
+      // The black box marks how far the best run before this one got.
+      state.prevBestRunM = getBestRun()?.distance || 0;
+      saveBestRunIfBetter(Math.floor(finalScore), distance);
     }
 
     state.running = false;
@@ -508,8 +509,13 @@ export function createGame() {
     }
 
     if (!state.running) {
-      // Freeze input while the death cinematic plays.
+      // The death cinematic: a press (once the claw sets off, so a press made as Bob died doesn't
+      // count) skips it and the end screen's animation.
       if (state.deathCinematicActive) {
+        if (jumpPressed && state.deathCinematicT >= DEATH_CINEMATIC.ARM_DELAY) {
+          finishDeathCinematic();
+          finishSummary();
+        }
         return state;
       }
 

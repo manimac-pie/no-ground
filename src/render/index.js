@@ -31,7 +31,7 @@ import { computeHudDanger, drawDangerVignette, drawHUD, drawScorePopups } from "
 import { drawPauseOverlay } from "./hud/pause.js";
 import { drawResetGlitch } from "./hud/reset.js";
 import { drawShell, shellBobX, shellSlideK } from "./hud/shell.js";
-import { drawCenterScore } from "./hud/summary.js";
+import { drawEndConsole } from "./hud/console.js";
 import {
   drawTrainingButtons, drawTrainingPrompt, drawTrainingRetryGlitch, drawTrainingWaitDim,
 } from "./hud/training.js";
@@ -413,7 +413,7 @@ export function render(ctx, state) {
   // Remove zoom for overlay/UI layers.
   ctx.restore();
 
-  // The summary drops in while the arm is still dragging Bob away.
+  // The end screen's console drops in while the arm is still dragging Bob away.
   const onRestartScreen = isSummaryShowing(state);
   // Suppress HUD during start zoom; allow slide-out on death.
   const showHUD =
@@ -445,7 +445,7 @@ export function render(ctx, state) {
       state.pointerInViewport === true
         ? { x: state.pointerUiX, y: state.pointerUiY }
         : null;
-    drawCenterScore(ctx, state, W, H, pointerUi, restartPromptReady, touchUi);
+    drawEndConsole(ctx, state, W, pointerUi, restartPromptReady, touchUi);
   } else {
     hitAreas.resetHovered = false;
   }

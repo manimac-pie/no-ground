@@ -6,6 +6,8 @@ const NAME_PROMPT_MAX = 10;
 const NAME_VALIDATION = /^[A-Za-z0-9 _\-.]{1,10}$/;
 
 let promptActive = false;
+// The last name claimed this session and its score (the end screen says "subject registered").
+const lastClaim = { name: "", score: -1 };
 let promptResolver = null;
 let promptElements = null;
 const promptStateListeners = new Set();
@@ -91,6 +93,10 @@ function finalizePrompt(value) {
   document.getElementById("game")?.focus({ preventScroll: true });
   emitPromptState(false);
   resolve(value);
+}
+
+export function getLastClaim() {
+  return lastClaim;
 }
 
 export function onLeaderboardPromptStateChange(listener) {
@@ -188,6 +194,8 @@ export async function maybePromptForPendingClaim({ allowPrompt = true } = {}) {
       return;
     }
 
+    lastClaim.name = name;
+    lastClaim.score = pendingClaim.score;
     if (Number.isFinite(claimed.my_best)) {
       const updates = {
         myBest: claimed.my_best,

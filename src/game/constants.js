@@ -242,11 +242,9 @@ export const RESTART_FLYBY_SEC = 0.9;
 export const RESTART_FLYBY_HOLD_SEC = 0.18;
 export const RESTART_FLYBY_FADE_SEC = 0.22;
 
-// Game-over screen intro: the run summary drops in from the top, then the
-// leaderboard slides in from the right. The score count-up starts once the summary lands.
+// End screen intro: the console (render/hud/console.js) slides down from the top; the score
+// count-up and the black box replay start once it lands.
 export const RUN_SUMMARY_DROP_SEC = 0.45;
-export const LEADERBOARD_SLIDE_DELAY_SEC = 0.15;
-export const LEADERBOARD_SLIDE_SEC = 0.4;
 
 // Start screen push-in (arm nudges Bob into place)
 export const START_PUSH = {

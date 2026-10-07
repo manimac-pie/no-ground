@@ -65,6 +65,11 @@ export function getBoards() {
   return boards;
 }
 
+// A score waiting for a name ({ deviceId, score, prompted }), or null. Allocation-free.
+export function getPendingClaim() {
+  return pendingClaim;
+}
+
 export function setLeaderboardState(state = {}) {
   if (Array.isArray(state.entries)) {
     cachedEntries = cleanEntries(state.entries);
