@@ -94,14 +94,17 @@ const JUMP_STEP = {
   done: (state) => airborne(state) && state.player.jumpsRemaining < 2,
 };
 
+// name, chip, tapChip: how the start screen's TRAINING sheet lists the lesson (keyboard, touch).
 // roofs: after the runway, in order; the last one is the goal. ad: "steel" | "glass" on the goal.
 export const LESSONS = [
   {
+    name: "JUMP", chip: "SPACE", tapChip: "TAP",
     why: "THE GROUND IS LETHAL",
     steps: [{ ...JUMP_STEP, action: "JUMP THE GAP", tapAction: "JUMP THE GAP" }],
     roofs: [{ gap: 120, y: 300, w: GOAL_W }],
   },
   {
+    name: "DOUBLE JUMP", chip: "SPACE ×2", tapChip: "TAP ×2",
     why: "TOO FAR FOR ONE JUMP",
     steps: [JUMP_STEP, {
       key: "SPACE", action: "AGAIN IN THE AIR: DOUBLE JUMP", tap: "TAP", tapAction: "AGAIN: DOUBLE JUMP", need: "jump",
@@ -111,6 +114,7 @@ export const LESSONS = [
     roofs: [{ gap: 280, y: 285, w: GOAL_W }],
   },
   {
+    name: "SLOWFALL", chip: "W", tapChip: "SLOWFALL",
     why: "FALL SLOWER, FLY FARTHER",
     steps: [JUMP_STEP, {
       key: "W", action: "HOLD TO SLOWFALL", tap: "SLOWFALL", tapAction: "HOLD", need: "slowfall",
@@ -120,6 +124,7 @@ export const LESSONS = [
     roofs: [{ gap: 280, y: 290, w: GOAL_W }],
   },
   {
+    name: "DUCK", chip: "S", tapChip: "DUCK/DIVE",
     why: "STEEL ADS DON'T BREAK",
     steps: [{
       key: "S", action: "HOLD TO DUCK UNDER THE AD", tap: "DUCK/DIVE", tapAction: "HOLD TO DUCK", need: "duck",
@@ -129,6 +134,7 @@ export const LESSONS = [
     roofs: [{ gap: 100, y: 330, w: AD_X + 110 + AD_RUNOUT, ad: "steel" }],
   },
   {
+    name: "DUCK JUMP", chip: "S + SPACE", tapChip: "DUCK + TAP",
     why: "A PLAIN JUMP WON'T REACH",
     steps: [{
       key: "S", action: "HOLD TO DUCK AT THE EDGE", tap: "DUCK/DIVE", tapAction: "HOLD TO DUCK", need: "duck",
@@ -142,6 +148,7 @@ export const LESSONS = [
     roofs: [{ gap: 40, y: 210, w: GOAL_W }],
   },
   {
+    name: "DASH", chip: "D", tapChip: "DASH",
     why: "GLASS ADS SHATTER",
     steps: [{
       key: "D", action: "DASH THROUGH THE GLASS", tap: "DASH", tapAction: "THROUGH THE GLASS", need: "dash",
@@ -151,6 +158,7 @@ export const LESSONS = [
     roofs: [{ gap: 100, y: 250, w: AD_X + 110 + DASH_RUNOUT, ad: "glass" }],
   },
   {
+    name: "DIVE", chip: "S", tapChip: "DUCK/DIVE",
     why: "DROP FAST ONTO LOW ROOFS",
     steps: [JUMP_STEP, {
       key: "S", action: "IN THE AIR TO DIVE", tap: "DUCK/DIVE", tapAction: "IN THE AIR: DIVE", need: "dive",
@@ -160,6 +168,7 @@ export const LESSONS = [
     roofs: [{ gap: 80, y: 345, w: GOAL_W }],
   },
   {
+    name: "BACKFLIP", chip: "A", tapChip: "BACKFLIP",
     why: "FLIPS MULTIPLY A JUMP'S POINTS",
     steps: [JUMP_STEP, {
       key: "A", action: "IN THE AIR TO BACKFLIP", tap: "BACKFLIP", tapAction: "IN THE AIR", need: "trick",
@@ -171,6 +180,7 @@ export const LESSONS = [
   {
     // No steps: nothing stops and no key is shown. Reaching the goal is the test.
     test: true,
+    name: "FINAL TEST",
     why: "NO STOPS, NO HINTS",
     steps: [],
     roofs: [

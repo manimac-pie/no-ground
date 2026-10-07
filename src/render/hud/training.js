@@ -1,13 +1,12 @@
 // src/render/hud/training.js
-// TRAINING on screen (game/tutorial.js): the start screen's TRAINING button, the lesson prompt
-// under the HUD, EXIT and SKIP, CLEAR between lessons, TRAINING COMPLETE at the end, and the glitch
-// on a retry.
+// TRAINING on screen (game/tutorial.js): the lesson prompt under the HUD, EXIT and SKIP, CLEAR between
+// lessons, TRAINING COMPLETE at the end, and the glitch on a retry. (The start screen's TRAINING
+// button and lesson list are in hud/shell.js.)
 
 import { CLEAR_FLASH_SEC, LESSONS, TAUGHT_LESSONS, currentStep, trainingButtonsLive } from "../../game/tutorial.js";
 import { roundedRectPath } from "../../shared/canvas.js";
 import { clamp, easeOutCubic } from "../../shared/math.js";
 import { getTrainingExitRect, getTrainingSkipRect, pointInRect } from "../../ui/layout.js";
-import { isTrainingDone } from "../../ui/training.js";
 import { drawMenuButton } from "./controls.js";
 import { drawCachedPanel } from "./panelCache.js";
 import { drawGlow, easeOutBack, roundRect } from "./primitives.js";
@@ -21,27 +20,16 @@ const RETRY_GLITCH_SEC = 0.3;
 const MONO = "Share Tech Mono, Orbitron, Menlo, monospace";
 const ORBITRON = "Orbitron, Share Tech Mono, Menlo, monospace";
 const DONE_RGB = "90,255,170";
+const HEADER_FONT = `700 10px ${ORBITRON}`;
+const AGAIN_TEXT = " · AGAIN";
+const PIP_W = 8;
+const PIP_GAP = 3;
+const PIPS_W = LESSONS.length * (PIP_W + PIP_GAP) - PIP_GAP + 4; // the final test's pip is 4 wider
 const WAIT_DIM_ALPHA = 0.3; // the world dims while TRAINING is stopped for a move
 const AD_BEHIND_ALPHA = 0.12; // the prompt fades to this while an ad passes under it...
 const AD_FADE_RATE = 10;      // ...easing at this rate (per second)
 let _adBehindK = 0;
 let _adBehindT = -1;
-
-// Start screen, top left. Pulses until TRAINING has been finished on this device.
-export function drawTrainingButton(ctx, rect, hot, uiTime) {
-  drawMenuButton(ctx, "trainingButton", rect, "TRAINING", false, hot);
-  if (isTrainingDone()) return;
-  const k = 0.5 + 0.5 * Math.sin((uiTime || 0) * 3);
-  ctx.save();
-  ctx.globalAlpha = 0.25 + 0.6 * k;
-  ctx.lineWidth = 2;
-  ctx.shadowColor = "rgba(0,255,225,0.9)";
-  ctx.shadowBlur = 8 + 10 * k;
-  ctx.strokeStyle = "rgba(0,255,225,0.9)";
-  roundedRectPath(ctx, rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2, 12);
-  ctx.stroke();
-  ctx.restore();
-}
 
 // EXIT and SKIP, top left, sliding in with the HUD. Hidden once TRAINING is ending.
 export function drawTrainingButtons(ctx, state, introK = 1) {
@@ -93,15 +81,17 @@ export function drawTrainingPrompt(ctx, state, W, H, touchUi, introK = 1, camShi
   const action = step ? (touchUi ? step.tapAction : step.action) : "GET TO THE LAST ROOF";
   const done = tut.moveDone === true && !lesson.test;
   const again = tut.retries > 0;
-  const header = lesson.test ? "FINAL TEST" : `LESSON ${tut.lesson + 1}/${TAUGHT_LESSONS}`;
+  const header = lesson.test ? "FINAL TEST" : `LESSON ${tut.lesson + 1}/${TAUGHT_LESSONS} · ${lesson.name}`;
 
   ctx.save();
   ctx.font = `700 14px ${MONO}`;
   const chipW = chip ? Math.ceil(ctx.measureText(chip).width) + 18 : -12; // -12: no chip, no gap
   ctx.font = `800 13px ${ORBITRON}`;
   const actionW = Math.ceil(ctx.measureText(action).width) + (done ? 22 : 0);
+  ctx.font = HEADER_FONT;
+  const headerW = Math.ceil(ctx.measureText(again ? `${header}${AGAIN_TEXT}` : header).width);
   ctx.restore();
-  const w = Math.max(PROMPT_MIN_W, 20 + chipW + 12 + actionW + 20);
+  const w = Math.max(PROMPT_MIN_W, 20 + chipW + 12 + actionW + 20, 20 + headerW + 16 + PIPS_W + 20);
   const rect = { x: Math.round((W - w) / 2), y: PROMPT_Y, w, h: PROMPT_H };
 
   // Fade while an ad passes under the prompt, so the ad stays in view (on the game clock).
@@ -118,9 +108,9 @@ export function drawTrainingPrompt(ctx, state, W, H, touchUi, introK = 1, camShi
     * (1 - (1 - AD_BEHIND_ALPHA) * _adBehindK);
   if (ctx.globalAlpha > 0.999) ctx.globalAlpha = 1; // exactly 1 lets the cached panel be used
   if (ctx.globalAlpha > 0) {
-    const key = `${header}|${chip}|${action}|${done}|${again}|${rect.x}|${w}`;
+    const key = `${header}|${chip}|${action}|${done}|${again}|${rect.x}|${w}|${tut.lesson}`;
     drawCachedPanel(ctx, "trainingPrompt", key, rect, (pctx) =>
-      drawPromptDirect(pctx, rect, header, chip, chipW, action, lesson.why, done, again)
+      drawPromptDirect(pctx, rect, header, chip, chipW, action, lesson.why, done, again, tut.lesson)
     );
   }
   ctx.restore();
@@ -150,7 +140,25 @@ export function drawTrainingWaitDim(ctx, state, W, H) {
   ctx.restore();
 }
 
-function drawPromptDirect(ctx, rect, header, chip, chipW, action, why, done, again) {
+// Progress pips, top right: lessons done, this one, the rest, and the final test (amber).
+function drawPips(ctx, right, cy, lessonIdx) {
+  for (let i = 0; i < LESSONS.length; i++) {
+    const test = LESSONS[i].test === true;
+    const pw = test ? PIP_W + 4 : PIP_W;
+    const x = right - PIPS_W + i * (PIP_W + PIP_GAP);
+    ctx.save();
+    if (i < lessonIdx) ctx.fillStyle = `rgba(${DONE_RGB},0.9)`;
+    else if (i === lessonIdx) {
+      ctx.fillStyle = "rgba(120,205,255,1)";
+      ctx.shadowColor = "rgba(120,205,255,0.9)";
+      ctx.shadowBlur = 5;
+    } else ctx.fillStyle = test ? "rgba(255,180,70,0.4)" : "rgba(242,242,242,0.15)";
+    roundRect(ctx, x, cy - 1.5, pw, 3, 1.5);
+    ctx.restore();
+  }
+}
+
+function drawPromptDirect(ctx, rect, header, chip, chipW, action, why, done, again, lessonIdx) {
   const { x, y, w, h } = rect;
   const edge = done ? `rgba(${DONE_RGB},0.8)` : "rgba(120,205,255,0.6)";
   ctx.save();
@@ -166,18 +174,17 @@ function drawPromptDirect(ctx, rect, header, chip, chipW, action, why, done, aga
   roundedRectPath(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, 12);
   ctx.stroke();
 
-  // Header: lesson count (or FINAL TEST), and AGAIN after a retry.
+  // Header: lesson count and name (or FINAL TEST), AGAIN after a retry, and the progress pips.
   ctx.textBaseline = "alphabetic";
-  ctx.font = `700 10px ${ORBITRON}`;
+  ctx.font = HEADER_FONT;
   ctx.textAlign = "left";
   ctx.fillStyle = "rgba(150,245,255,0.7)";
   ctx.fillText(header, x + 20, y + 17);
   if (again) {
-    ctx.textAlign = "right";
     ctx.fillStyle = "rgba(255,200,110,0.95)";
-    ctx.fillText("AGAIN", x + w - 20, y + 17);
-    ctx.textAlign = "left";
+    ctx.fillText(AGAIN_TEXT, x + 20 + ctx.measureText(header).width, y + 17);
   }
+  drawPips(ctx, x + w - 20, y + 13.5, lessonIdx);
 
   // Key (or button) chip, then what to do with it.
   const chipX = x + 20;
@@ -205,9 +212,12 @@ function drawPromptDirect(ctx, rect, header, chip, chipW, action, why, done, aga
   if (done) ctx.fillText("✓", textX + ctx.measureText(action).width + 8, chipY + 16);
   ctx.shadowBlur = 0;
 
+  // Why, as a line from the system.
   ctx.font = `400 11px ${MONO}`;
+  ctx.fillStyle = "rgba(242,242,242,0.32)";
+  ctx.fillText("[sys]", textX, y + 59);
   ctx.fillStyle = "rgba(170,210,230,0.85)";
-  ctx.fillText(why, textX, y + 59);
+  ctx.fillText(why, textX + ctx.measureText("[sys] ").width, y + 59);
   ctx.restore();
 }
 

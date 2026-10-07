@@ -15,7 +15,6 @@ import {
   RESTART_FLYBY_HOLD_SEC,
   RESTART_FLYBY_FADE_SEC,
   START_PUSH_TOTAL,
-  MENU_START_ZOOM,
   HUD_SLIDE_SEC,
   RUN_SUMMARY_DROP_SEC,
   RESET_GLITCH_SEC,
@@ -39,13 +38,11 @@ import { START_PANE_H, START_PANE_W, START_PANE_Y, checkStartSmash, startPaneX }
 import {
   exitTraining, retryTraining, skipLesson, startTraining, trainingButtonsLive, updateTraining, waitForMove,
 } from "./tutorial.js";
-import {
-  getControlsButtonRect, getControlsPanelRect, getTrainingButtonRect, getTrainingExitRect, getTrainingSkipRect,
-  hitAreas, pointInRect,
-} from "../ui/layout.js";
+import { getShellLayout, getTrainingExitRect, getTrainingSkipRect, hitAreas, pointInRect } from "../ui/layout.js";
 import { onGameFinished } from "../leaderboard/view.js";
-import { getBoards, getMyBest } from "../leaderboard/state.js";
+import { getMyBest } from "../leaderboard/state.js";
 import { loadIteration, saveIteration } from "../ui/iteration.js";
+import { saveLastRun } from "../ui/lastRun.js";
 
 const MENU_ZOOM_DURATION = 0.85; // seconds for zoom-out transition
 const START_DELAY = 0;          // no movement hold; Bob rolls immediately
@@ -194,6 +191,18 @@ export function createGame() {
       state.restartSmashBroken = false;
       state.restartSmashRed = false;
       state.restartSmashT = 0;
+    }
+
+    if (!state.gameOver) {
+      // The start screen's log reports it: "iteration 0041 TERMINATED", how, how far, and the score.
+      saveLastRun({
+        iteration: state.iteration,
+        cause: state.player?.billboardDeath === true ? "ad" : "ground",
+        distance: buildSummaryRows(state)[0].count,
+        score: Math.floor(finalScore),
+        best: state.runBestTarget || 0,
+        endedAt: Date.now(),
+      });
     }
 
     state.running = false;
@@ -454,72 +463,46 @@ export function createGame() {
     const onRestartScreen =
       state.gameOver && state.deathCinematicDone && !state.restartFlybyActive;
 
-    if (!onStartScreen && state.controlsPanelOpen) {
-      state.controlsPanelOpen = false;
-    }
-
-    // The start-screen board only stays expanded while THIS WEEK has ranks to show
-    // (it empties when a new week starts).
-    if (state.leaderboardExpanded && getBoards().weekly.length === 0) {
-      state.leaderboardExpanded = false;
-    }
-
     let startPromptPressed = false;
     let trainingPressed = false;
     if (pointerPressed && onStartScreen && state.pointerInViewport) {
-      const toggleRect = hitAreas.leaderboardToggle;
-      const trainingRect = getTrainingButtonRect();
-      if (pointInRect(state.pointerUiX, state.pointerUiY, trainingRect)) {
-        trainingPressed = true;
+      const x = state.pointerUiX;
+      const y = state.pointerUiY;
+      const shell = getShellLayout(INTERNAL_WIDTH, INTERNAL_HEIGHT);
+      const view = state.shellView;
+      if (pointInRect(x, y, shell.panel)) {
+        // The shell is all UI: a press on it is never a jump.
         jumpPressed = false;
         state.jumpBuffer = 0;
         input?.suppressPointerJump?.();
-      } else if (
-        toggleRect &&
-        pointInRect(state.pointerUiX, state.pointerUiY, toggleRect)
-      ) {
-        state.leaderboardExpanded = !state.leaderboardExpanded;
-        jumpPressed = false;
-        state.jumpBuffer = 0;
-        input?.suppressPointerJump?.();
-      } else {
-        const btnRect = getControlsButtonRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
-        const panelRect = getControlsPanelRect(INTERNAL_WIDTH, INTERNAL_HEIGHT);
-        const hitButton = pointInRect(state.pointerUiX, state.pointerUiY, btnRect);
-        const hitPanel = state.controlsPanelOpen
-          && pointInRect(state.pointerUiX, state.pointerUiY, panelRect);
-
-        if (hitButton) {
-          state.controlsPanelOpen = !state.controlsPanelOpen;
+        if (pointInRect(x, y, shell.breakOut)) {
+          startPromptPressed = true;
+        } else if (pointInRect(x, y, shell.training)) {
+          state.shellView = view === "training" ? "home" : "training";
+        } else if (pointInRect(x, y, shell.controls)) {
+          state.shellView = view === "controls" ? "home" : "controls";
+        } else if (view !== "home" && pointInRect(x, y, shell.close)) {
+          state.shellView = "home";
+        } else if (view === "training" && pointInRect(x, y, shell.begin)) {
+          trainingPressed = true;
+        }
+      } else if (hitAreas.startView) {
+        // The START firewall, in world px (the renderer reports the start screen's camera).
+        const v = hitAreas.startView;
+        const invZoom = 1 / Math.max(0.001, v.zoom);
+        const worldX = v.focusX + (x - v.focusX) * invZoom + v.camShift;
+        const worldY = v.focusY + (y - v.focusY) * invZoom;
+        const paneX = startPaneX(state);
+        if (
+          worldX >= paneX &&
+          worldX <= paneX + START_PANE_W &&
+          worldY >= START_PANE_Y &&
+          worldY <= START_PANE_Y + START_PANE_H
+        ) {
+          startPromptPressed = true;
           jumpPressed = false;
           state.jumpBuffer = 0;
           input?.suppressPointerJump?.();
-        } else if (hitPanel) {
-          jumpPressed = false;
-          state.jumpBuffer = 0;
-          input?.suppressPointerJump?.();
-        } else {
-          const player = state.player || {};
-          const focusX = (player.x ?? 0) + (player.w ?? 0) / 2;
-          const focusY = (player.y ?? 0) + (player.h ?? 0) / 2;
-          const zoomK = clamp(state.menuZoomK ?? 0, 0, 1);
-          const zoom = MENU_START_ZOOM - (MENU_START_ZOOM - 1) * zoomK;
-          const invZoom = 1 / Math.max(0.001, zoom);
-          const pointerWorldX = focusX + (state.pointerUiX - focusX) * invZoom;
-          const pointerWorldY = focusY + (state.pointerUiY - focusY) * invZoom;
-          const paneX = startPaneX(state);
-          const hitStart =
-            pointerWorldX >= paneX &&
-            pointerWorldX <= paneX + START_PANE_W &&
-            pointerWorldY >= START_PANE_Y &&
-            pointerWorldY <= START_PANE_Y + START_PANE_H;
-
-          if (hitStart) {
-            startPromptPressed = true;
-            jumpPressed = false;
-            state.jumpBuffer = 0;
-            input?.suppressPointerJump?.();
-          }
         }
       }
     }

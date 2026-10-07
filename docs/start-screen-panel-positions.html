@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shell Panel Positions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" />
+<style>
+  :root {
+    --bg: #07080b;
+    --ink: #f2f2f2;
+    --dim: rgba(242,242,242,0.55);
+    --cyan: 120,205,255;
+    --amber: 255,180,70;
+    --red: 255,85,110;
+    --magenta: 255,90,200;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font: 800 28px Orbitron, sans-serif; letter-spacing: 0.06em; margin: 0 0 6px; }
+  .lede { color: var(--dim); margin: 0 0 20px; max-width: 74ch; }
+  .why {
+    border: 1px solid rgba(var(--cyan),0.18); background: rgba(var(--cyan),0.04);
+    border-radius: 10px; padding: 16px 20px; margin-bottom: 22px;
+  }
+  .why h2, .notes h3 { font: 600 13px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgb(var(--amber)); margin: 0 0 8px; text-transform: uppercase; }
+  .why p { margin: 0 0 6px; }
+  .why p:last-child { margin: 0; }
+  .demo-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 0; background: var(--bg); margin-bottom: 18px; }
+  .demo-bar button {
+    font: 13px "Share Tech Mono", monospace; letter-spacing: 0.08em; cursor: pointer;
+    color: rgb(var(--cyan)); background: rgba(var(--cyan),0.06);
+    border: 1px solid rgba(var(--cyan),0.4); border-radius: 999px; padding: 6px 14px;
+  }
+  .demo-bar button:hover { background: rgba(var(--cyan),0.14); }
+  .demo-bar button[aria-pressed="true"] { background: rgba(var(--cyan),0.22); color: #fff; }
+  section.variant { margin-bottom: 64px; }
+  section.variant > header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  section.variant > header .num { font: 800 14px Orbitron, sans-serif; color: rgb(var(--cyan)); }
+  section.variant > header h2 { font: 700 20px Orbitron, sans-serif; margin: 0; letter-spacing: 0.04em; }
+  section.variant > header .arm { font: 13px "Share Tech Mono", monospace; color: rgb(var(--amber)); }
+  section.variant > header p { margin: 0; color: var(--dim); flex-basis: 100%; }
+  section.variant.ref { opacity: 0.85; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 28px; margin-top: 14px; color: rgba(242,242,242,0.85); }
+  .notes ul { margin: 0; padding-left: 18px; }
+  .notes li { margin: 3px 0; }
+
+  /* ---------------- Frame: the game's 16:9 view. --g = one internal game unit (800 across). ---------------- */
+  .frame {
+    --g: calc(100cqw / 800);
+    position: relative; aspect-ratio: 16 / 9; container-type: inline-size; overflow: hidden;
+    border-radius: 10px; background: #0f1116;
+    box-shadow: 0 0 0 1px rgba(242,242,242,0.08), 0 20px 60px rgba(0,0,0,0.6);
+    font-family: "Share Tech Mono", monospace; user-select: none;
+  }
+  .frame svg.scene, .frame svg.link { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .frame svg.link { pointer-events: none; z-index: 1; }
+  .frame svg.link path { fill: none; stroke: rgba(var(--cyan),0.6); stroke-width: 1.4; stroke-dasharray: 5 5; animation: march 1s linear infinite; }
+  .frame svg.link circle { fill: rgb(var(--cyan)); }
+  .frame svg.link text { font: 11px "Share Tech Mono", monospace; letter-spacing: 1.5px; fill: rgba(var(--amber),0.92); }
+  @keyframes march { to { stroke-dashoffset: -10; } }
+  .bob-eye { animation: glance 3s steps(1) infinite; animation-play-state: paused; }
+  .frame.awake .bob-eye { animation-play-state: running; }
+  @keyframes glance { 0% { transform: translate(0,0); } 25% { transform: translate(-8px,3px); } 50% { transform: translate(4px,-3px); } 75% { transform: translate(-3px,4px); } }
+  .blink { animation: blink 1.1s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---------------- The shell panel (sizes in --g, the same numbers as the game) ---------------- */
+  .panel {
+    position: absolute; z-index: 2; background: rgb(5,7,10); color: var(--ink);
+    font-size: calc(var(--g) * 8.5);
+  }
+  .panel::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(242,242,242,0.022) 0 1px, transparent 1px calc(var(--g) * 4));
+  }
+  .panel.edge-l { border-left: calc(var(--g) * 1) solid rgba(var(--cyan),0.4); }
+  .panel.edge-r { border-right: calc(var(--g) * 1) solid rgba(var(--cyan),0.4); }
+  .panel.edge-t { border-top: calc(var(--g) * 1) solid rgba(var(--cyan),0.4); }
+  .panel.edge-b { border-bottom: calc(var(--g) * 1) solid rgba(var(--cyan),0.4); }
+  .status { display: flex; justify-content: space-between; font-size: calc(var(--g) * 7); letter-spacing: 0.2em; color: rgba(242,242,242,0.4); }
+  .live::before { content: ""; display: inline-block; width: calc(var(--g) * 4); height: calc(var(--g) * 4); border-radius: 50%; background: rgb(var(--cyan)); box-shadow: 0 0 calc(var(--g) * 5) rgb(var(--cyan)); margin-right: calc(var(--g) * 4); vertical-align: 0.1em; }
+  .logo {
+    font: 800 calc(var(--g) * 20)/1 Orbitron, sans-serif; letter-spacing: 0.05em;
+    text-shadow: calc(var(--g) * -0.8) 0 rgba(var(--red),0.7), calc(var(--g) * 0.8) 0 rgba(var(--cyan),0.7);
+  }
+  .sub { font-size: calc(var(--g) * 7); letter-spacing: 0.14em; color: rgba(var(--cyan),0.72); }
+  .log { line-height: calc(var(--g) * 11); white-space: nowrap; overflow: hidden; }
+  .log > div { visibility: hidden; }
+  .log > div.on { visibility: visible; }
+  .log .t { color: rgba(242,242,242,0.32); display: inline-block; width: calc(var(--g) * 38); }
+  .log .ok { color: rgba(242,242,242,0.62); }
+  .log .v { color: #fff; }
+  .log .d { color: rgba(242,242,242,0.32); }
+  .log .r { color: rgb(var(--red)); }
+  .log .a { color: rgb(var(--amber)); }
+  .log .b { color: rgb(var(--magenta)); text-shadow: 0 0 calc(var(--g) * 5) rgba(var(--magenta),0.6); }
+  .cursor { display: inline-block; width: calc(var(--g) * 5); height: calc(var(--g) * 8); background: rgb(var(--cyan)); vertical-align: -0.05em; margin-left: calc(var(--g) * 4); }
+
+  .btn-break {
+    position: relative; display: flex; align-items: center; gap: calc(var(--g) * 8);
+    height: calc(var(--g) * 32); padding: 0 calc(var(--g) * 8) 0 calc(var(--g) * 12); border-radius: calc(var(--g) * 6);
+    font: 800 calc(var(--g) * 12) Orbitron, sans-serif; letter-spacing: calc(var(--g) * 2);
+    color: rgba(200,215,225,0.55); background: linear-gradient(rgb(62,80,94), rgb(42,56,68));
+    border: calc(var(--g) * 1) solid rgba(150,180,200,0.35); box-shadow: 0 calc(var(--g) * 3) 0 #1b2a36;
+    transition: background 0.2s, color 0.2s, box-shadow 0.3s;
+  }
+  .frame.awake .btn-break {
+    color: #04121d; background: linear-gradient(rgb(150,220,255), rgb(92,182,240)); border-color: #c8edff;
+    box-shadow: 0 calc(var(--g) * 3) 0 #2a6a94, 0 0 calc(var(--g) * 14) rgba(var(--cyan),0.45);
+  }
+  .btn-break .kc { margin-left: auto; font: 700 calc(var(--g) * 7.5) "Share Tech Mono", monospace; letter-spacing: 0.1em; padding: calc(var(--g) * 1) calc(var(--g) * 5); border-radius: calc(var(--g) * 3); background: rgba(0,0,0,0.3); }
+  .frame.awake .btn-break .kc { background: rgba(4,18,29,0.85); color: rgb(var(--cyan)); }
+  .btn-break .play { width: 0; height: 0; border-left: calc(var(--g) * 8) solid currentColor; border-top: calc(var(--g) * 5) solid transparent; border-bottom: calc(var(--g) * 5) solid transparent; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--g) * 6); }
+  .btn-side {
+    display: flex; align-items: center; gap: calc(var(--g) * 6); height: calc(var(--g) * 24); padding: 0 calc(var(--g) * 8);
+    font: 700 calc(var(--g) * 7.5) Orbitron, sans-serif; letter-spacing: calc(var(--g) * 1); color: #e6f5ff;
+    background: linear-gradient(#1f2b39, #131b25); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.5);
+    border-radius: calc(var(--g) * 5); box-shadow: 0 calc(var(--g) * 2.5) 0 #0b1219;
+  }
+  .btn-side i { font-style: normal; font-size: calc(var(--g) * 9); }
+  .btn-side .go { margin-left: auto; opacity: 0.6; font-size: calc(var(--g) * 7); }
+
+  .rec { font-size: calc(var(--g) * 9.5); }
+  .head { display: flex; align-items: center; gap: calc(var(--g) * 6); font-size: calc(var(--g) * 7); letter-spacing: 0.17em; white-space: nowrap; height: calc(var(--g) * 14); }
+  .head::after { content: ""; flex: 1; height: calc(var(--g) * 1); background: currentColor; opacity: 0.3; }
+  .head.all { color: rgb(var(--amber)); }
+  .head.week { color: rgb(var(--cyan)); }
+  .head .tm { color: rgba(242,242,242,0.78); }
+  .row { display: grid; grid-template-columns: calc(var(--g) * 14) 1fr auto; align-items: center; height: calc(var(--g) * 13); padding: 0 calc(var(--g) * 6); margin: 0 calc(var(--g) * -6); border-radius: calc(var(--g) * 3); white-space: nowrap; }
+  .row .n { text-align: right; padding-right: calc(var(--g) * 4); color: rgba(242,242,242,0.4); }
+  .row .n.p1 { color: rgb(255,212,121); } .row .n.p2 { color: rgb(212,221,232); } .row .n.p3 { color: rgb(227,164,108); }
+  .row .s { color: rgba(242,242,242,0.9); }
+  .row.me { background: rgba(var(--cyan),0.1); box-shadow: inset calc(var(--g) * 2) 0 0 rgb(var(--cyan)); color: rgb(var(--cyan)); }
+  .row.me .n, .row.me .s { color: rgb(var(--cyan)); }
+  .you { font-size: calc(var(--g) * 6); letter-spacing: 0.1em; border: calc(var(--g) * 0.75) solid rgba(var(--cyan),0.65); border-radius: calc(var(--g) * 2); padding: 0 calc(var(--g) * 3); margin-left: calc(var(--g) * 4); vertical-align: 0.15em; }
+  .foot { display: grid; grid-template-columns: 1fr auto; border-top: calc(var(--g) * 1) solid rgba(242,242,242,0.08); padding-top: calc(var(--g) * 5); }
+  .foot small { display: block; font-size: calc(var(--g) * 7); letter-spacing: 0.17em; color: rgba(242,242,242,0.5); }
+  .foot b { font-weight: 400; font-size: calc(var(--g) * 16); line-height: 1.15; }
+  .foot .r { text-align: right; }
+  .foot .r b { font-size: calc(var(--g) * 14); color: rgb(var(--amber)); }
+  .foot em { display: block; font-style: normal; font-size: calc(var(--g) * 8); color: rgba(242,242,242,0.62); }
+
+  /* Side panel (left / right): the game's v3 column. */
+  .panel.side { display: flex; flex-direction: column; gap: calc(var(--g) * 5); padding: calc(var(--g) * 10) calc(var(--g) * 16) calc(var(--g) * 8); }
+  .panel.side > * { flex-shrink: 0; }
+  .panel.side .mi { height: calc(var(--g) * 19); }
+  .panel.side .log { height: calc(var(--g) * 64); line-height: calc(var(--g) * 10.6); }
+  .panel.side .tbest { padding: calc(var(--g) * 5) 0 0; }
+  .panel.side .tbest em { margin-top: 0; }
+  .panel.side .rec .head { height: calc(var(--g) * 13); }
+  .panel.side .podium { gap: calc(var(--g) * 5); margin: calc(var(--g) * 1) 0 calc(var(--g) * 4); }
+  .panel.side .card { height: calc(var(--g) * 26); padding: 0 calc(var(--g) * 5); column-gap: calc(var(--g) * 5); }
+  .panel.side .card .medal { width: calc(var(--g) * 12); height: calc(var(--g) * 12); font-size: calc(var(--g) * 7); }
+  .panel.side .card .who span { font-size: calc(var(--g) * 7.5); }
+  .panel.side .card .who b { font-size: calc(var(--g) * 9.5); }
+  .panel.side .wrow { height: calc(var(--g) * 12); }
+  .panel.side .status { border-bottom: calc(var(--g) * 1) solid rgba(242,242,242,0.08); padding-bottom: calc(var(--g) * 6); }
+  .panel.side .rec { margin-top: auto; }
+  .panel.side .log { height: calc(var(--g) * 66); flex-shrink: 0; }
+  .panel.side .row { height: calc(var(--g) * 10.5); font-size: calc(var(--g) * 9); }
+
+  /* Bar (top / bottom): the same pieces side by side. */
+  .panel.bar { display: grid; grid-template-columns: calc(var(--g) * 206) calc(var(--g) * 184) 1fr; gap: calc(var(--g) * 18); padding: calc(var(--g) * 9) calc(var(--g) * 16); }
+  .panel.bar .colA { display: flex; flex-direction: column; gap: calc(var(--g) * 3); min-width: 0; }
+  .panel.bar .logo { font-size: calc(var(--g) * 17); margin-top: calc(var(--g) * 2); }
+  .panel.bar .log { line-height: calc(var(--g) * 10); font-size: calc(var(--g) * 8); margin-top: calc(var(--g) * 2); }
+  .panel.bar .log .t { width: calc(var(--g) * 36); }
+  .panel.bar .colB { display: flex; flex-direction: column; justify-content: center; gap: calc(var(--g) * 8); }
+  .panel.bar .colC { display: grid; grid-template-columns: 1fr 1fr 1fr; column-gap: calc(var(--g) * 12); align-content: start; min-width: 0; }
+  .panel.bar .colC .row { height: calc(var(--g) * 11.5); font-size: calc(var(--g) * 8.5); column-gap: calc(var(--g) * 4); }
+  .row > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; }
+  .panel.bar .you { display: none; } /* too tight in the bar's columns: the highlight marks your row */
+  .panel.bar .colC .weekhead { grid-column: 2 / 4; }
+  .panel.bar .colC .stack { display: flex; flex-direction: column; }
+  .bfoot { margin-top: calc(var(--g) * 5); padding-top: calc(var(--g) * 4); border-top: calc(var(--g) * 1) solid rgba(242,242,242,0.08); white-space: nowrap; }
+  .bfoot small { font-size: calc(var(--g) * 7); letter-spacing: 0.17em; color: rgba(242,242,242,0.5); margin-right: calc(var(--g) * 5); }
+  .bfoot b { font-weight: 400; font-size: calc(var(--g) * 13); }
+  .bfoot em { display: block; font-style: normal; font-size: calc(var(--g) * 7.5); color: rgba(242,242,242,0.62); }
+  .bfoot em i { font-style: normal; color: rgb(var(--amber)); }
+
+  /* Top bar, roomier: three zones split by thin rules. Logo and log | menu and your best |
+     the leaderboard (all-time top 3 on one line, this week in two columns). 170 units tall at 16:9. */
+  .panel.hbar { display: grid; grid-template-columns: calc(var(--g) * 226) calc(var(--g) * 190) 1fr; padding: calc(var(--g) * 16) calc(var(--g) * 24) calc(var(--g) * 14); }
+  .panel.hbar > .zone { min-width: 0; padding: 0 calc(var(--g) * 18); border-left: calc(var(--g) * 1) solid rgba(242,242,242,0.07); }
+  .panel.hbar > .zone:first-child { padding-left: 0; border-left: none; }
+  .panel.hbar > .zone:last-child { padding-right: 0; }
+  .panel.hbar .zA { display: flex; flex-direction: column; gap: calc(var(--g) * 5); }
+  .panel.hbar .zA .logo { margin-top: calc(var(--g) * 4); }
+  .panel.hbar .zA .log { line-height: calc(var(--g) * 11.5); margin-top: calc(var(--g) * 4); }
+  .panel.hbar .zB { display: flex; flex-direction: column; justify-content: center; gap: calc(var(--g) * 10); }
+  /* Menu list (like Shell v2): numbered rows, the selected one marked with a cyan bar and its key. */
+  .menu { display: flex; flex-direction: column; gap: calc(var(--g) * 2); }
+  .mi {
+    display: flex; align-items: center; gap: calc(var(--g) * 8); height: calc(var(--g) * 22); padding: 0 calc(var(--g) * 8);
+    border-radius: calc(var(--g) * 4); cursor: pointer; white-space: nowrap;
+    font: 700 calc(var(--g) * 9.5) Orbitron, sans-serif; letter-spacing: calc(var(--g) * 1); color: rgba(242,242,242,0.62);
+    transition: background 0.15s, color 0.15s, opacity 0.3s;
+  }
+  .mi i { font: normal calc(var(--g) * 7) "Share Tech Mono", monospace; letter-spacing: 0.05em; color: rgba(242,242,242,0.3); width: calc(var(--g) * 10); }
+  .mi .k { margin-left: auto; display: inline-flex; align-items: center; gap: calc(var(--g) * 5); font: calc(var(--g) * 7) "Share Tech Mono", monospace; letter-spacing: 0.1em; color: rgba(242,242,242,0.85); }
+  .mi .k .key { color: rgb(var(--cyan)); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.7); border-bottom-width: calc(var(--g) * 2); border-radius: calc(var(--g) * 3); padding: 0 calc(var(--g) * 5); }
+  .mi .go { margin-left: auto; font-size: calc(var(--g) * 8); color: rgb(var(--cyan)); opacity: 0; transform: translateX(calc(var(--g) * -4)); transition: opacity 0.15s, transform 0.15s; }
+  .mi:hover { background: rgba(242,242,242,0.05); color: #fff; }
+  .mi:hover i { color: rgba(var(--cyan),0.8); }
+  .mi:hover .go { opacity: 1; transform: none; }
+  .mi.on { background: rgba(var(--cyan),0.12); box-shadow: inset calc(var(--g) * 3) 0 0 rgb(var(--cyan)); color: #fff; }
+  .mi.on i { color: rgb(var(--cyan)); }
+  .mi.on:hover { background: rgba(var(--cyan),0.2); }
+  /* Until the claw lets go, BREAK OUT waits dimmed; then it flashes awake. */
+  .frame:not(.awake) .mi.on { opacity: 0.45; box-shadow: inset calc(var(--g) * 3) 0 0 rgba(var(--cyan),0.4); }
+  .frame.awake .mi.on { animation: wake 0.7s ease-out; }
+  @keyframes wake { 0% { opacity: 0.45; } 35% { background: rgba(var(--cyan),0.35); box-shadow: inset calc(var(--g) * 3) 0 0 rgb(var(--cyan)), 0 0 calc(var(--g) * 16) rgba(var(--cyan),0.6); } }
+  .tbest { border-top: calc(var(--g) * 1) solid rgba(242,242,242,0.08); padding: calc(var(--g) * 7) calc(var(--g) * 8) 0; white-space: nowrap; }
+  .tbest small { font-size: calc(var(--g) * 6.5); letter-spacing: 0.17em; color: rgba(242,242,242,0.5); margin-right: calc(var(--g) * 6); }
+  .tbest b { font-weight: 400; font-size: calc(var(--g) * 13); }
+  .tbest em { display: block; margin-top: calc(var(--g) * 2); font-style: normal; font-size: calc(var(--g) * 7); color: rgba(242,242,242,0.62); }
+  .tbest em i { font-style: normal; color: rgb(var(--amber)); }
+  /* Leaderboard: the all-time top 3 as podium cards, then this week as two columns of bars. */
+  .panel.hbar .zC { display: flex; flex-direction: column; }
+  .panel.hbar .zC .head { height: calc(var(--g) * 13); }
+  .podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: calc(var(--g) * 8); margin: calc(var(--g) * 1) 0 calc(var(--g) * 9); }
+  .card {
+    --m: 255,212,121;
+    display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: calc(var(--g) * 7);
+    height: calc(var(--g) * 30); padding: 0 calc(var(--g) * 8); border-radius: calc(var(--g) * 4);
+    background: linear-gradient(180deg, rgba(var(--m),0.10), rgba(var(--m),0.02));
+    border: calc(var(--g) * 1) solid rgba(var(--m),0.22); border-top: calc(var(--g) * 2) solid rgba(var(--m),0.85);
+  }
+  .card.c2 { --m: 212,221,232; }
+  .card.c3 { --m: 227,164,108; }
+  .card .medal {
+    display: grid; place-items: center; width: calc(var(--g) * 14); height: calc(var(--g) * 14); border-radius: 50%;
+    font: 700 calc(var(--g) * 8) Orbitron, sans-serif; color: #0b0d11; background: rgb(var(--m));
+    box-shadow: 0 0 calc(var(--g) * 6) rgba(var(--m),0.5);
+  }
+  .card .who { min-width: 0; line-height: 1.15; }
+  .card .who span { display: block; font-size: calc(var(--g) * 8); color: rgba(242,242,242,0.75); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .who b { display: block; font-weight: 400; font-size: calc(var(--g) * 10.5); color: #fff; letter-spacing: 0.03em; }
+  .head .pill { margin-left: auto; order: 2; font-size: calc(var(--g) * 6.5); letter-spacing: 0.12em; color: rgba(var(--amber),0.95); border: calc(var(--g) * 1) solid rgba(var(--amber),0.45); border-radius: 999px; padding: 0 calc(var(--g) * 6); }
+  .head.week::after { order: 1; margin-right: calc(var(--g) * 2); }
+  .weekcols { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(var(--g) * 14); }
+  .wrow {
+    position: relative; display: grid; grid-template-columns: calc(var(--g) * 14) 1fr auto; align-items: center; column-gap: calc(var(--g) * 6);
+    height: calc(var(--g) * 13); padding: 0 calc(var(--g) * 6); margin-bottom: calc(var(--g) * 1); border-radius: calc(var(--g) * 3);
+    font-size: calc(var(--g) * 8.5); white-space: nowrap; overflow: hidden;
+  }
+  .wrow .bar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--w); background: linear-gradient(90deg, rgba(var(--cyan),0.05), rgba(var(--cyan),0.13)); border-radius: inherit; }
+  .wrow > span:not(.bar) { position: relative; }
+  .wrow .n { text-align: center; font-size: calc(var(--g) * 7); color: rgba(242,242,242,0.45); }
+  .wrow .n.p1, .wrow .n.p2, .wrow .n.p3 { border-radius: calc(var(--g) * 2); color: #0b0d11; font-weight: 700; }
+  .wrow .n.p1 { background: rgb(255,212,121); } .wrow .n.p2 { background: rgb(212,221,232); } .wrow .n.p3 { background: rgb(227,164,108); }
+  .wrow .nm { overflow: hidden; text-overflow: ellipsis; color: rgba(242,242,242,0.85); }
+  .wrow .s { color: #fff; }
+  .wrow.me { box-shadow: inset 0 0 0 calc(var(--g) * 1) rgba(var(--cyan),0.8); }
+  .wrow.me .bar { background: linear-gradient(90deg, rgba(var(--cyan),0.15), rgba(var(--cyan),0.35)); }
+  .wrow.me .nm, .wrow.me .s { color: rgb(var(--cyan)); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bob-eye, .blink, .frame svg.link path { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Where should the shell go?</h1>
+  <p class="lede">The same shell (Shell v3) in four places, at the game's real start-screen proportions: 16:9, Bob zoomed in 2.8×. The claw intro plays with the game's timings, so how much arm you see is how much the game would show.</p>
+
+  <div class="why">
+    <h2>Why the arm is hard to see now</h2>
+    <p>The arm comes in from far off to the left, and only its last stretch (the forearm and the claw) is ever on screen. With the panel on the left, that stretch is behind the panel, so you mostly see the jaws.</p>
+    <p>Anything that leaves the screen's left edge open between the edge and Bob shows the arm: a panel on the right, at the top, or at the bottom.</p>
+  </div>
+
+  <div class="demo-bar">
+    <button id="replay">↻ Replay intros</button>
+    <button id="slow" aria-pressed="false">Slow motion</button>
+    <button id="breakout">▶ BREAK OUT (panels slide away)</button>
+  </div>
+
+  <section class="variant">
+    <header><span class="num">A</span><h2>Right</h2><span class="arm" data-arm="right"></span>
+      <p>The column from v3, mirrored. Bob charges at the shell; on BREAK OUT it slides off to the right, out of his way.</p></header>
+    <div class="frame" data-layout="right"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>The whole forearm shows, from the screen's left edge to Bob, as it did before the shell.</li><li>Bob runs <i>at</i> the system, and it gets out of his way: a strong break-out.</li><li>Same pieces as the top bar, stacked: log, menu, your best, podium, then this week as one list of ten.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>Tightest fit: the firewall has to end before the panel, so Bob stands a little left of his running spot (about 155 instead of 177 at 16:9).</li><li>The firewall almost touches the panel, so the data link comes over its top instead of into its side.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Low.</b> Mirror the layout, aim Bob's start spot and the link the other way, slide out to the right.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="variant">
+    <header><span class="num">B</span><h2>Top</h2><span class="arm" data-arm="top"></span>
+      <p>The shell as a bar across the top, like a console that has dropped down. The world below is untouched: Bob, the arm and the firewall sit where they do in the game. Three zones: logo and log, the menu with your best, and the leaderboard.</p></header>
+    <div class="frame" data-layout="top"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>The most arm of any layout, and Bob stays on his usual spot (no camera shift).</li><li>The data link drops straight down from BREAK OUT onto the firewall.</li><li>On BREAK OUT the bar retracts upward.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>The bar takes the top 38% (170 of 450 units at 16:9). It only covers sky: the firewall starts below it, with room for the data link.</li><li>The leaderboard is laid out wide: the all-time top 3 on one line, this week's top 10 in two columns of 5.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium.</b> A new horizontal layout for the panel; the camera and arm stay as they were.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="variant">
+    <header><span class="num">C</span><h2>Bottom</h2><span class="arm" data-arm="bottom"></span>
+      <p>The same bar as the top one, along the bottom like a dock. The camera lifts the world so the roof stays above it.</p></header>
+    <div class="frame" data-layout="bottom"></div>
+    <div class="notes">
+      <div><h3>Good</h3><ul><li>Full arm, and the bar sits where a game's menu bar usually does.</li><li>On BREAK OUT it drops away and the camera settles back down.</li></ul></div>
+      <div><h3>Watch out</h3><ul><li>The roof would sit on the bar, so the camera has to lift the world a long way (about 100 units at 16:9): mostly sky above Bob, little building, and a big vertical camera move during the zoom-out.</li><li>The data link has to cross the roof to reach the firewall.</li></ul></div>
+      <div><h3>Effort</h3><ul><li><b>Medium.</b> The horizontal layout plus a vertical camera offset on the start screen.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="variant ref">
+    <header><span class="num">—</span><h2>Now: left</h2><span class="arm" data-arm="left"></span>
+      <p>What's in the game on <code>start-screen-shell</code>, for comparison.</p></header>
+    <div class="frame" data-layout="left"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  // Mock units: the game's internal units × 2 (1600 × 900 for 800 × 450). At the start zoom (2.8×)
+  // one world px is S mock units.
+  const VW = 1600, VH = 900;
+  const S = 5.6;
+  const INTERNAL_W = 800;
+  const START_PUSH = { ARM_REACH: 0.12, PUSH: 0.8, ARM_RETRACT: 0.8 };
+  const T_GRIP = START_PUSH.ARM_REACH;
+  const T_LANDED = T_GRIP + START_PUSH.PUSH;
+  const PUSH_TOTAL = T_LANDED + START_PUSH.ARM_RETRACT;
+  const SLIDE_IN_SEC = 0.25;
+  const LINK_GROW_SEC = 0.45;
+  const PANE_LEAD = 41 * S;  // pane's left edge from Bob's centre (half his width + 24)
+  const PANE_W = 100 * S;
+  const PANE_H = 42 * S;
+
+  // Each layout: the panel (mock units), where Bob stands, where the roof is, and how the panel slides.
+  const LAYOUTS = {
+    right:  { panel: { x: 1120, y: 0, w: 480, h: 900 }, bobX: 310, roofY: 681, kind: "side", edge: "edge-l", slide: [1, 0] },
+    top:    { panel: { x: 0, y: 0, w: 1600, h: 340 }, bobX: 354, roofY: 681, kind: "hbar", edge: "edge-b", slide: [0, -1] },
+    bottom: { panel: { x: 0, y: 560, w: 1600, h: 340 }, bobX: 354, roofY: 480, kind: "hbar", edge: "edge-t", slide: [0, 1] },
+    left:   { panel: { x: 0, y: 0, w: 480, h: 900 }, bobX: 624, roofY: 681, kind: "side", edge: "edge-r", slide: [-1, 0] },
+  };
+
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  const easeOutCubic = (v) => 1 - Math.pow(1 - clamp01(v), 3);
+  const easeInOutCubic = (v) => { v = clamp01(v); return v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2; };
+  const smoothstep = (v) => { v = clamp01(v); return v * v * (3 - 2 * v); };
+  function rand(seed) { const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+  // ---------------- world ----------------
+  function scene(L) {
+    const R = L.roofY;
+    let out = `<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f1116"/><stop offset="0.6" stop-color="#141a24"/><stop offset="1" stop-color="#07080b"/></linearGradient>
+      <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(120,205,255,0.13)"/><stop offset="1" stop-color="rgba(120,205,255,0.05)"/></linearGradient>
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <rect width="${VW}" height="${VH}" fill="url(#sky)"/>`;
+    let x = -20, i = 0;
+    while (x < VW + 20) {
+      const w = 120 + rand(i + 1) * 220;
+      const top = 60 + rand(i + 7) * (R - 300);
+      const shade = 18 + Math.floor(rand(i + 3) * 10);
+      out += `<rect x="${x}" y="${top}" width="${w}" height="${R - top}" fill="rgb(${shade},${shade + 2},${shade + 7})"/>`;
+      for (let wy = top + 40; wy < R - 60; wy += 60) if (rand(i * 13 + wy) > 0.55) out += `<rect x="${x + 18}" y="${wy}" width="${w - 36}" height="12" fill="rgba(120,205,255,0.035)"/>`;
+      x += w + 6 + rand(i + 5) * 40; i++;
+    }
+    // Roof slab and facade
+    out += `<rect x="0" y="${R}" width="${VW}" height="${VH - R}" fill="#1a2a3b"/>
+      <rect x="0" y="${R}" width="${VW}" height="${16 * S}" fill="#2a323c"/>
+      <rect x="0" y="${R - 5}" width="${VW}" height="10" fill="#6fa3bf"/>
+      <rect x="0" y="${R + 16 * S}" width="${VW}" height="8" fill="#4d7590"/>`;
+    for (let r = 0; r < 3; r++) {
+      const wy = R + 16 * S + 30 + r * 110;
+      for (let col = 0; col < 16; col++) {
+        const k = rand(col * 7 + r * 31);
+        if (k < 0.45) continue;
+        out += `<rect x="${col * 110 + (r % 2 ? 55 : 0) - 20}" y="${wy}" width="96" height="62" fill="${k > 0.82 ? "#6e6a4c" : "#5a7894"}" opacity="0.85"/>`;
+      }
+    }
+    for (let bx = -400; bx < VW; bx += 400) out += `<path d="M${bx} ${R + 16 * S + 8} L${bx + 400} ${VH + 200} M${bx + 400} ${R + 16 * S + 8} L${bx} ${VH + 200}" stroke="rgba(120,205,255,0.28)" stroke-width="5"/>`;
+    out += pane(L);
+    out += `<g class="bob-body">${bob(L.bobX, R)}</g><g class="arm"></g>`;
+    return out;
+  }
+
+  function pane(L) {
+    const x = L.bobX + PANE_LEAD, y = L.roofY - PANE_H, w = PANE_W, h = PANE_H;
+    let scan = "";
+    for (let sy = y + 8; sy < L.roofY; sy += 14) scan += `<rect x="${x}" y="${sy}" width="${w}" height="2" fill="rgba(120,205,255,0.07)"/>`;
+    const b = 32;
+    return `<g>
+      <rect class="pane-rect" x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#glass)"/>${scan}
+      <polygon points="${x + w * 0.28},${y} ${x + w * 0.36},${y} ${x + w * 0.22},${y + h} ${x + w * 0.14},${y + h}" fill="rgba(242,242,242,0.04)"/>
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="rgba(120,205,255,0.7)" stroke-width="4" filter="url(#glow)"/>
+      <path d="M${x} ${y + b} V${y} H${x + b} M${x + w - b} ${y} H${x + w} V${y + b} M${x} ${y + h - b} V${y + h} M${x + w} ${y + h - b} V${y + h}" stroke="rgb(120,205,255)" stroke-width="10" fill="none"/>
+      <text x="${x + 22}" y="${y + 40}" font-family="Share Tech Mono, monospace" font-size="${4.5 * S}" letter-spacing="2" fill="rgba(120,205,255,0.75)">FIREWALL</text>
+      <text x="${x + w - 22}" y="${y + 40}" text-anchor="end" font-family="Share Tech Mono, monospace" font-size="${4.5 * S}" letter-spacing="2" fill="rgba(120,205,255,0.75)">SECTOR 00</text>
+      <text x="${x + w / 2}" y="${y + h * 0.58}" text-anchor="middle" dominant-baseline="middle" font-family="Orbitron, sans-serif" font-weight="800" font-size="${15 * S}" letter-spacing="${3 * S}" fill="#d7f5ff" filter="url(#glow)">START</text>
+      <rect x="${x - 10}" y="${L.roofY - 10}" width="${w + 20}" height="14" fill="#141820"/>
+    </g>`;
+  }
+
+  // Bob at the game's proportions (render/player/body.js): 34 world px, body 70% × 78%, wheel r 6.
+  function bob(cx, roofY) {
+    const hb = 34 * S, cy = roofY - hb / 2;
+    const bw = hb * 0.7, bh = hb * 0.78, by = cy - hb * 0.06 - bh / 2;
+    const wr = 6 * S, wy = cy + 16 * S;
+    const vw = bw * 0.62, vh = bh * 0.18, vx = cx - vw / 2, vy = by + bh * 0.2;
+    let spokes = "";
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; spokes += `<line x1="${cx}" y1="${wy}" x2="${cx + Math.cos(a) * wr * 0.55}" y2="${wy + Math.sin(a) * wr * 0.55}" stroke="rgba(15,17,22,0.45)" stroke-width="2"/>`; }
+    return `<ellipse cx="${cx}" cy="${roofY + 3}" rx="${hb * 0.49}" ry="10" fill="rgba(0,0,0,0.35)"/>
+      <circle cx="${cx}" cy="${wy}" r="${wr}" fill="#24262c"/><circle cx="${cx}" cy="${wy}" r="${wr * 0.62}" fill="#f2f2f2" opacity="0.85"/>${spokes}
+      <rect x="${cx - bw / 2}" y="${by}" width="${bw}" height="${bh}" rx="${Math.min(bw, bh) * 0.45}" fill="#f2f2f2"/>
+      <rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="${vh * 0.6}" fill="rgba(15,17,22,0.58)"/>
+      <rect x="${vx + vw * 0.1}" y="${vy + vh * 0.2}" width="${vw * 0.35}" height="${vh * 0.25}" rx="${vh * 0.2}" fill="rgba(242,242,242,0.16)"/>
+      <rect class="bob-eye" x="${vx + vw * 0.78}" y="${vy + vh * 0.35}" width="${2 * S}" height="${2 * S}" fill="rgb(120,205,255)"/>`;
+  }
+
+  // The claw (computeStartPush + drawRobotArm, ported). Returns the markup and Bob's x offset.
+  function arm(t, L) {
+    const hb = 34 * S;
+    const snap = { y: L.roofY - hb, h: hb };
+    const torsoW = hb * 0.7, torsoH = hb * 0.78;
+    const grip = { x: L.bobX - torsoW / 2 - 2 * S, y: L.roofY - hb / 2 - hb * 0.06, jawLen: torsoW * 0.7 + 2 * S, jawGap: torsoH / 2 + 0.5 * S };
+    const reachK = easeOutCubic(t / START_PUSH.ARM_REACH);
+    const pushK = easeInOutCubic((t - START_PUSH.ARM_REACH) / START_PUSH.PUSH);
+    const retractRaw = (t - T_LANDED) / START_PUSH.ARM_RETRACT;
+    const retractK = easeInOutCubic(retractRaw);
+    const baseX0 = L.bobX - INTERNAL_W * 0.75 * S;
+    const baseY = snap.y + snap.h * 0.28;
+    const reachX = baseX0 + (grip.x - baseX0) * reachK;
+    const reachY = baseY + (grip.y - baseY) * reachK;
+    const pushDist = (160 + 34 + 120) * S; // the game's snap.x + snap.w + 120, in world px
+    const bobOffsetX = -pushDist + pushDist * pushK;
+    const retractOffset = -retractK * INTERNAL_W * 0.55 * S;
+    const tipX = reachX + bobOffsetX + retractOffset;
+    const tipY = reachY;
+    const gripK = 1 - smoothstep(retractRaw * 4);
+    const baseX = baseX0 + retractOffset;
+    const wobble = Math.sin(t * 6) * 4 * S;
+    const wristX = tipX - 11 * S;
+    const elbowX = baseX + (tipX - baseX) * 0.55;
+    const elbowY = baseY - 28 * S + (tipY - baseY) * 0.2 + wobble;
+    const line = `M${baseX} ${baseY} L${elbowX} ${elbowY} L${wristX} ${tipY}`;
+    const low = `M${baseX + 4 * S} ${baseY + 6 * S} L${elbowX + 4 * S} ${elbowY + 6 * S} L${wristX + 4 * S} ${tipY + 6 * S}`;
+    const JAW = 4 * S, PALM = 4 * S, OPEN = 6 * S, BITE = 2.5 * S;
+    const gap = grip.jawGap + OPEN * (1 - gripK);
+    const top = tipY - gap - JAW, bottom = tipY + gap + JAW, tip = tipX + grip.jawLen;
+    const svg = `
+      <path d="${line}" stroke="rgb(44,48,58)" stroke-width="${14 * S}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${line}" stroke="rgba(120,205,255,0.55)" stroke-width="${6 * S}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${low}" stroke="rgba(255,85,110,0.22)" stroke-width="${3 * S}" fill="none" stroke-linecap="round"/>
+      <circle cx="${elbowX}" cy="${elbowY}" r="${7 * S}" fill="rgb(20,22,28)"/>
+      <circle cx="${wristX}" cy="${tipY}" r="${6 * S}" fill="rgb(20,22,28)"/>
+      <rect x="${tipX}" y="${top}" width="${grip.jawLen}" height="${JAW}" fill="rgb(104,112,128)"/>
+      <rect x="${tipX}" y="${bottom - JAW}" width="${grip.jawLen}" height="${JAW}" fill="rgb(104,112,128)"/>
+      <path d="M${tip - 4 * S} ${top + JAW} H${tip} L${tip - S} ${top + JAW + BITE} Z M${tip - 4 * S} ${bottom - JAW} H${tip} L${tip - S} ${bottom - JAW - BITE} Z" fill="rgb(104,112,128)"/>
+      <rect x="${tipX}" y="${top}" width="${grip.jawLen}" height="${S}" fill="rgba(120,205,255,0.55)"/>
+      <rect x="${tipX}" y="${bottom - S}" width="${grip.jawLen}" height="${S}" fill="rgba(120,205,255,0.55)"/>
+      <rect x="${tipX - PALM}" y="${top}" width="${PALM}" height="${bottom - top}" fill="rgb(44,48,58)"/>
+      <circle cx="${tipX - PALM / 2}" cy="${tipY}" r="${1.5 * S}" fill="rgba(255,180,70,0.9)"/>`;
+    return { svg: Math.max(baseX, tipX) < -200 ? "" : svg, bobOffsetX, wristX };
+  }
+
+  // ---------------- the panel ----------------
+  const LOG = [
+    { at: 0, html: `<span class="t">[00.00]</span><span class="r">iteration 0041 TERMINATED</span><span class="d">  3 min ago</span>` },
+    { at: 0, html: `<span class="t"></span><span class="ok">ground contact · </span><span class="v">18,220 m</span>` },
+    { at: 0, html: `<span class="t"></span><span class="ok">score </span><span class="v">27,450</span><span class="d">  −3,829 vs best</span>` },
+    { at: T_GRIP, html: `<span class="t">[00.12]</span><span class="ok">subject BOB loaded · memory wiped</span>` },
+    { at: T_LANDED, html: `<span class="t">[00.92]</span><span class="a">firewall sector 00: UNARMED</span>` },
+    { at: PUSH_TOTAL, html: `<span class="t">[01.72]</span><span class="b">BOB: let me out.</span><span class="cursor blink"></span>` },
+  ];
+  const ALL = [["Dev", 52410], ["ghost", 47120], ["glitch", 44980]];
+  const WEEK = [["Dev", 39916], ["Manimac", 31279, true], ["damn", 30327], ["ghost", 28410], ["nyx", 26002],
+                ["glitch", 24775], ["loop_9", 21300], ["pixl", 19844], ["runner", 17120], ["zed", 15606]];
+  const fmt = (n) => n.toLocaleString("en-US");
+  const wrow = (i, r) => `<div class="wrow${r[2] ? " me" : ""}"><span class="bar" style="--w:${Math.round((r[1] / WEEK[0][1]) * 100)}%"></span><span class="n${i <= 3 ? " p" + i : ""}">${i}</span><span class="nm">${r[0]}${r[2] ? '<span class="you">YOU</span>' : ""}</span><span class="s">${fmt(r[1])}</span></div>`;
+  const logHtml = `<div class="log">${LOG.map((l) => `<div data-at="${l.at}">${l.html}</div>`).join("")}</div>`;
+  const head = `<div class="status"><span>SIM://SECTOR-00</span><span class="live">LIVE</span></div>
+    <div class="logo">NO GROUND</div><div class="sub">SIMULATION SHELL · ITERATION 0042</div>`;
+  // Shared by every layout: the menu list, your best, and the leaderboard (podium + this week's bars).
+  const menuHtml = `<div class="menu">
+      <div class="mi on" data-break><i>01</i>BREAK OUT<span class="k"><span class="key">SPACE</span></span></div>
+      <div class="mi"><i>02</i>TRAINING<span class="go">▶</span></div>
+      <div class="mi"><i>03</i>CONTROLS<span class="go">▶</span></div>
+    </div>`;
+  const bestHtml = `<div class="tbest"><small>YOUR BEST</small><b>31,279</b><em><i>#2</i> THIS WEEK · 8,638 TO BEAT #1</em></div>`;
+  const podiumHtml = `<div class="head all">ALL-TIME</div>
+    <div class="podium">${ALL.map((r, i) => `<div class="card c${i + 1}"><span class="medal">${i + 1}</span><span class="who"><span>${r[0]}</span><b>${fmt(r[1])}</b></span></div>`).join("")}</div>
+    <div class="head week">THIS WEEK<span class="pill">PURGE IN 116:56:35</span></div>`;
+
+  function panelHtml(L) {
+    if (L.kind === "hbar") {
+      return `<div class="zone zA">${head}${logHtml}</div>
+        <div class="zone zB">${menuHtml}${bestHtml}</div>
+        <div class="zone zC rec">${podiumHtml}
+          <div class="weekcols"><div>${WEEK.slice(0, 5).map((r, i) => wrow(i + 1, r)).join("")}</div><div>${WEEK.slice(5).map((r, i) => wrow(i + 6, r)).join("")}</div></div>
+        </div>`;
+    }
+    // Side column: the same pieces stacked, this week as one list of ten.
+    return `${head}${logHtml}${menuHtml}${bestHtml}
+      <div class="rec">${podiumHtml}<div>${WEEK.map((r, i) => wrow(i + 1, r)).join("")}</div></div>`;
+  }
+
+  // ---------------- one frame ----------------
+  const variants = [];
+  let timeScale = 1;
+
+  document.querySelectorAll(".frame[data-layout]").forEach((frame) => {
+    const L = LAYOUTS[frame.dataset.layout];
+    frame.innerHTML = `
+      <svg class="scene" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${scene(L)}</svg>
+      <svg class="link" aria-hidden="true"><path d=""/><circle r="3" opacity="0"/><text></text></svg>
+      <div class="panel ${L.kind} ${L.edge}" style="left:${L.panel.x / VW * 100}%;top:${L.panel.y / VH * 100}%;width:${L.panel.w / VW * 100}%;height:${L.panel.h / VH * 100}%">${panelHtml(L)}</div>`;
+    const v = {
+      frame, L, t: PUSH_TOTAL, out: 0, playing: false, linkPts: null,
+      panel: frame.querySelector(".panel"),
+      bobBody: frame.querySelector(".bob-body"),
+      armLayer: frame.querySelector(".arm"),
+      lines: [...frame.querySelectorAll(".log > div")],
+      link: frame.querySelector("svg.link"),
+    };
+    variants.push(v);
+
+    // How much forearm shows at the moment Bob lands (mock px of the frame's 1600), for the header.
+    const landed = arm(T_LANDED, L);
+    const leftEdge = L.panel.x === 0 && L.kind === "side" ? L.panel.w : 0;
+    const visible = Math.max(0, landed.wristX - leftEdge);
+    const label = document.querySelector(`[data-arm="${frame.dataset.layout}"]`);
+    if (label) label.textContent = `arm on screen: ~${Math.round(visible / 2)} units`;
+  });
+
+  // The data link from BREAK OUT to the firewall, in the frame's own px.
+  function linkPoints(v) {
+    const f = v.frame.getBoundingClientRect();
+    const b = v.frame.querySelector("[data-break], .btn-break").getBoundingClientRect();
+    const p = v.frame.querySelector(".pane-rect").getBoundingClientRect();
+    const pr = v.panel.getBoundingClientRect();
+    const rel = (r) => ({ l: r.left - f.left, r: r.right - f.left, t: r.top - f.top, b: r.bottom - f.top });
+    const B = rel(b), P = rel(p), PR = rel(pr);
+    const by = (B.t + B.b) / 2, bx = (B.l + B.r) / 2, pcy = (P.t + P.b) / 2;
+    const d = f.width * 0.016;
+    const k = v.frame.dataset.layout;
+    if (k === "left") return { pts: [[PR.r, by], [P.l - d, by], [P.l - d, pcy], [P.l, pcy]], tag: [P.l - d, by - 6, "end"] };
+    // Right: the firewall almost touches the panel, so the link comes over its top instead.
+    if (k === "right") return { pts: [[PR.l, by], [P.r - d * 3, by], [P.r - d * 3, P.t]], tag: [P.r - d * 3 - 8, by - 6, "end"] };
+    const tx = Math.min(Math.max(bx, P.l + d * 2), P.r - d * 2);
+    if (k === "top") {
+      const mid = (PR.b + P.t) / 2;
+      return { pts: [[bx, PR.b], [bx, mid], [tx, mid], [tx, P.t]], tag: [tx + 8, mid - 6, "start"] };
+    }
+    const mid = (PR.t + P.b) / 2;
+    return { pts: [[bx, PR.t], [bx, mid], [tx, mid], [tx, P.b]], tag: [tx + 8, mid - 6, "start"] };
+  }
+
+  function drawLink(v, growK) {
+    const f = v.frame.getBoundingClientRect();
+    v.link.setAttribute("viewBox", `0 0 ${f.width} ${f.height}`);
+    const path = v.link.querySelector("path"), dot = v.link.querySelector("circle"), text = v.link.querySelector("text");
+    if (growK <= 0) { path.setAttribute("d", ""); dot.setAttribute("opacity", 0); text.textContent = ""; return; }
+    if (!v.linkPts) v.linkPts = linkPoints(v);
+    const pts = v.linkPts.pts;
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) total += Math.abs(pts[i][0] - pts[i - 1][0]) + Math.abs(pts[i][1] - pts[i - 1][1]);
+    let left = total * clamp01(growK);
+    let d = `M${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length && left > 0; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i];
+      const len = Math.abs(bx - ax) + Math.abs(by - ay);
+      const k = len ? Math.min(1, left / len) : 1;
+      d += ` L${ax + (bx - ax) * k} ${ay + (by - ay) * k}`;
+      left -= len;
+    }
+    path.setAttribute("d", d);
+    const end = pts[pts.length - 1];
+    dot.setAttribute("cx", end[0]); dot.setAttribute("cy", end[1]); dot.setAttribute("opacity", growK >= 1 ? 1 : 0);
+    const [tx, ty, anchor] = v.linkPts.tag;
+    text.setAttribute("x", tx); text.setAttribute("y", ty); text.setAttribute("text-anchor", anchor);
+    text.style.fontSize = `${Math.max(8, f.width * 0.0085)}px`;
+    text.setAttribute("opacity", clamp01((growK - 0.6) / 0.4));
+    text.textContent = "TARGET · FIREWALL/00 ▾";
+  }
+
+  function renderVariant(v) {
+    const { svg, bobOffsetX } = arm(v.t, v.L);
+    v.armLayer.innerHTML = svg;
+    v.bobBody.setAttribute("transform", `translate(${bobOffsetX} 0)`);
+    v.lines.forEach((el) => el.classList.toggle("on", v.t >= Number(el.dataset.at) - 1e-6));
+    const awake = v.t >= PUSH_TOTAL - 1e-6;
+    v.frame.classList.toggle("awake", awake);
+    // Slide in as the push starts; slide out for the BREAK OUT demo.
+    const slide = Math.max(Math.pow(1 - clamp01(v.t / SLIDE_IN_SEC), 3), v.out);
+    const [sx, sy] = v.L.slide;
+    v.panel.style.transform = `translate(${sx * slide * 104}%, ${sy * slide * 104}%)`;
+    drawLink(v, awake && v.out === 0 ? (v.t - PUSH_TOTAL) / LINK_GROW_SEC : 0);
+  }
+
+  let last = 0;
+  function tick(now) {
+    const dt = last ? Math.min(0.05, (now - last) / 1000) * timeScale : 0;
+    last = now;
+    let busy = false;
+    for (const v of variants) {
+      if (v.playing) {
+        v.t += dt;
+        if (v.t >= PUSH_TOTAL + LINK_GROW_SEC + 0.1) v.playing = false;
+      }
+      if (v.outDir) {
+        v.out = clamp01(v.out + v.outDir * dt / 0.5);
+        if (v.outDir > 0 && v.out >= 1) { v.outDir = 0; v.holdT = 0.6; }
+      }
+      if (v.holdT > 0) { v.holdT -= dt; if (v.holdT <= 0) { v.out = 0; play(v); } }
+      renderVariant(v);
+      busy = busy || v.playing || v.outDir || v.holdT > 0;
+    }
+    requestAnimationFrame(tick);
+  }
+  function play(v) { v.t = -0.4; v.playing = true; v.linkPts = null; }
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) variants.forEach(renderVariant);
+  else {
+    variants.forEach((v) => { v.t = -0.4; renderVariant(v); });
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        const v = variants.find((x) => x.frame === e.target);
+        if (e.isIntersecting && v && !v.seen) { v.seen = true; play(v); }
+      });
+    }, { threshold: 0.5 });
+    variants.forEach((v) => io.observe(v.frame));
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener("resize", () => variants.forEach((v) => { v.linkPts = null; }));
+  document.getElementById("replay").addEventListener("click", () => variants.forEach(play));
+  const slowBtn = document.getElementById("slow");
+  slowBtn.addEventListener("click", () => {
+    timeScale = timeScale === 1 ? 0.25 : 1;
+    slowBtn.setAttribute("aria-pressed", String(timeScale !== 1));
+  });
+  document.getElementById("breakout").addEventListener("click", () => variants.forEach((v) => {
+    v.playing = false; v.t = Math.max(v.t, PUSH_TOTAL + LINK_GROW_SEC); v.outDir = 1; v.out = 0;
+  }));
+  // For screenshots: ?t=0.9 freezes every frame at that time.
+  const fixed = parseFloat(new URLSearchParams(location.search).get("t"));
+  if (Number.isFinite(fixed)) variants.forEach((v) => { v.playing = false; v.seen = true; v.t = fixed; renderVariant(v); });
+})();
+</script>
+</body>
+</html>

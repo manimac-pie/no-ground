@@ -26,27 +26,21 @@ import {
 
 import { drawPlayerShadow, drawPlayer } from "./player/index.js";
 import { drawDashSparks, drawDashWind, updateDashSparks, updateDashWind } from "./player/dashFx.js";
-import { drawControlsButton, drawControlsPanel } from "./hud/controls.js";
 import { drawRestartFlyby } from "./hud/flyby.js";
 import { computeHudDanger, drawDangerVignette, drawHUD, drawScorePopups } from "./hud/hud.js";
-import { drawLeaderboardPanel, hasWeeklyLabel, leaderboardPanelHeight, leaderboardRowHeight } from "./hud/leaderboardPanel.js";
 import { drawPauseOverlay } from "./hud/pause.js";
 import { drawResetGlitch } from "./hud/reset.js";
+import { drawShell, shellBobX, shellSlideK } from "./hud/shell.js";
 import { drawCenterScore } from "./hud/summary.js";
 import {
-  drawTrainingButton, drawTrainingButtons, drawTrainingPrompt, drawTrainingRetryGlitch, drawTrainingWaitDim,
+  drawTrainingButtons, drawTrainingPrompt, drawTrainingRetryGlitch, drawTrainingWaitDim,
 } from "./hud/training.js";
 import { drawStartPrompt } from "./menu.js";
 import { billboardFallK, billboardFallPose, computeDeathCinematic, computeStartPush } from "./camera.js";
 import { drawBreakShards, drawDeathDragSparks, drawRobotArm } from "./effects.js";
 import { applyViewportTransform, ensureCanvasSize, getCanvasRect, isTouchViewport, resetCtx } from "./viewport.js";
-import {
-  getControlsButtonRect,
-  getControlsPanelRect,
-  getTrainingButtonRect,
-  hitAreas,
-  pointInRect,
-} from "../ui/layout.js";
+import { getShellLayout, hitAreas } from "../ui/layout.js";
+import { getLastRun } from "../ui/lastRun.js";
 import { clamp } from "../shared/math.js";
 import { getBoards, getMyBest } from "../leaderboard/state.js";
 import { maybePromptForPendingClaim } from "../leaderboard/claimFlow.js";
@@ -113,6 +107,21 @@ const DIVE_LAND_HEAVY_SEC = 0.3; // state.heavyLandT starts here on a dive landi
 // Touch screen or not (main.js decides): picks "TAP" or key wording in on-screen hints.
 let touchUi = false;
 
+// Start screen shell: uiTime the claw let go of Bob (-1 before), for BREAK OUT's wake-up and the
+// data link. Its options, the pointer and the camera for clicks are reused objects (no per-frame garbage).
+let _shellAwakeT = -1;
+const _shellPointer = { x: 0, y: 0 };
+const _shellOpts = {
+  slideK: 0, pointer: null, touchUi: false, uiTime: 0, pushT: 0, awakeAge: -1,
+  lastRun: null, boards: null, myBest: 0, resetIn: "", nowMs: 0,
+};
+const _startView = { focusX: 0, focusY: 0, zoom: 1, camShift: 0 };
+
+function easeInOutCubic(t) {
+  t = clamp(t, 0, 1);
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
 export function setTouchUi(value) {
   touchUi = value === true;
 }
@@ -178,8 +187,24 @@ export function render(ctx, state) {
   }
 
   const safeOffsetX = isTouchViewport() ? Math.min(W * 0.12, 140) : 0;
+
+  const zoomK = clamp(state.menuZoomK ?? 1, 0, 1);
+  const onStartScreen =
+    !state.running &&
+    !state.gameOver &&
+    state.startReady === true &&
+    !state.menuZooming &&
+    (state.menuZoomK ?? 0) <= 0.001;
+
+  // Start screen: Bob stands right of the shell's column (hud/shell.js), and slides back to his
+  // running spot during the zoom-out.
+  const shell = getShellLayout(W, H);
+  const shellCamK = state.gameOver ? 0 : onStartScreen ? 1 : state.menuZooming ? 1 - easeInOutCubic(zoomK) : 0;
+  const bobScreenX = (player?.x ?? 0) + (player?.w ?? PLAYER_W) / 2 - (camLag - safeOffsetX);
+  const shellShift = shellCamK > 0 ? (shellBobX(W, shell) - bobScreenX) * shellCamK : 0;
+
   // Subtract to push the player further right on screen for mobile-safe UI space.
-  const camShift = camLag - safeOffsetX;
+  const camShift = camLag - safeOffsetX - shellShift;
 
   // Hard reset paint state
   resetCtx(ctx);
@@ -197,7 +222,6 @@ export function render(ctx, state) {
   applyViewportTransform(ctx, W, H, cssW, cssH, dpr);
 
   // Menu zoom (start/restart): zoomed-in on player, easing to 1x when play begins.
-  const zoomK = clamp(state.menuZoomK ?? 1, 0, 1);
   let zoom = MENU_START_ZOOM - (MENU_START_ZOOM - 1) * zoomK;
   if (deathActive || freezeOnDeath) {
     zoom *= 1 + (deathInfo?.zoomBoost || 0);
@@ -236,13 +260,20 @@ export function render(ctx, state) {
       const internalY = (pyCss - oyCss) / s;
       const invZoom = 1 / Math.max(0.001, zoom);
       pointerWorld = {
-        x: focusX + (internalX - focusX) * invZoom,
+        x: focusX + (internalX - focusX) * invZoom + camShift,
         y: focusY + (internalY - focusY) * invZoom,
       };
     }
   }
 
   const startPush = computeStartPush(state, focusX);
+  if (onStartScreen) {
+    _startView.focusX = focusX;
+    _startView.focusY = focusY;
+    _startView.zoom = zoom;
+    _startView.camShift = camShift;
+  }
+  hitAreas.startView = onStartScreen ? _startView : null;
 
   ctx.save();
   // START smash: a short, decaying screen shake (driven by the game's smash timer, so it pauses too).
@@ -305,12 +336,6 @@ export function render(ctx, state) {
   }
 
   const startLookAround = startPush ? startPush.done === true : false;
-  const onStartScreen =
-    !state.running &&
-    !state.gameOver &&
-    state.startReady === true &&
-    !state.menuZooming &&
-    (state.menuZoomK ?? 0) <= 0.001;
   const pose = poseFor(state, deathActive, onStartScreen);
   const renderPlayer = pose.player;
 
@@ -430,45 +455,31 @@ export function render(ctx, state) {
     drawRestartFlyby(ctx, state, COLORS, W, H);
   }
 
-  if (onStartScreen) {
-    resetCtx(ctx);
-    const btnRect = getControlsButtonRect(W, H);
-    const panelRect = getControlsPanelRect(W, H);
-    const hover =
-      state.pointerInViewport === true
-      && pointInRect(state.pointerUiX, state.pointerUiY, btnRect);
-    const boards = getBoards();
-    // THIS WEEK expands the board once there's a weekly rank to show.
-    const canExpand = boards.weekly.length > 0;
-    const weeklyRows = state.leaderboardExpanded ? boards.weeklySlots : 0;
-    const boardW = Math.min(300, W * 0.32);
-    const boardX = W - boardW - 16;
-    const boardY = 18;
-    // As tall as its rows need, but clear of the GAME CONTROLS button below it (rows shrink to fit).
-    const maxH = btnRect.y - 10 - boardY;
-    const weeklyLabel = hasWeeklyLabel(boards, weeklyRows, canExpand);
-    const rowHeight = leaderboardRowHeight(maxH, weeklyRows, weeklyLabel, 22);
-    const boardH = leaderboardPanelHeight(weeklyRows, rowHeight, weeklyLabel);
-    const meta = drawLeaderboardPanel(ctx, boards, getMyBest(), boardX, boardY, boardW, boardH, 1, {
-      glow: true,
-      toggle: canExpand,
-      expanded: state.leaderboardExpanded === true,
-      rowHeight,
-      resetIn: weeklyResetIn(),
-    });
-
-    hitAreas.leaderboardToggle = meta?.toggleRect ?? null;
-    drawControlsButton(ctx, btnRect, state.controlsPanelOpen === true, hover);
-    const trainingRect = getTrainingButtonRect();
-    const trainingHover =
-      state.pointerInViewport === true
-      && pointInRect(state.pointerUiX, state.pointerUiY, trainingRect);
-    drawTrainingButton(ctx, trainingRect, trainingHover, uiTime);
-    if (state.controlsPanelOpen) {
-      drawControlsPanel(ctx, panelRect, COLORS, touchUi);
+  // Start screen: the shell (text on the sky, top left). It slides in as the start push begins and out
+  // to the left with the zoom-out. The flyby covers the screen while it rebuilds.
+  if (!state.gameOver && !state.restartFlybyActive && (onStartScreen || state.menuZooming)) {
+    // Awake from when the claw lets go; it stays awake as the shell slides out after BREAK OUT.
+    if (onStartScreen && startLookAround) {
+      if (_shellAwakeT < 0) _shellAwakeT = uiTime;
+    } else if (onStartScreen) {
+      _shellAwakeT = -1;
     }
-  } else {
-    hitAreas.leaderboardToggle = null;
+    const o = _shellOpts;
+    o.slideK = shellSlideK(state.startPushT || 0, onStartScreen ? null : zoomK);
+    _shellPointer.x = state.pointerUiX;
+    _shellPointer.y = state.pointerUiY;
+    o.pointer = state.pointerInViewport === true ? _shellPointer : null;
+    o.touchUi = touchUi;
+    o.uiTime = uiTime;
+    o.pushT = onStartScreen ? (state.startPushT || 0) : Infinity;
+    o.awakeAge = _shellAwakeT >= 0 ? uiTime - _shellAwakeT : -1;
+    o.lastRun = getLastRun();
+    o.boards = getBoards();
+    o.myBest = getMyBest();
+    o.resetIn = weeklyResetIn();
+    o.nowMs = Date.now();
+    resetCtx(ctx);
+    drawShell(ctx, state, shell, o);
   }
 
   // Pressing RESET: glitch the finished frame out, until the fly-by takes over.

@@ -120,8 +120,7 @@ export function createInitialState() {
     pointerUiX: 0,
     pointerUiY: 0,
     pointerInViewport: false,
-    controlsPanelOpen: false,
-    leaderboardExpanded: false,
+    shellView: "home", // start screen shell: "home" (the leaderboard), "controls" or "training"
 
     player: {
       x: PLAYER_X,
@@ -262,8 +261,7 @@ export function resetRunState(state) {
   state.pointerUiX = 0;
   state.pointerUiY = 0;
   state.pointerInViewport = false;
-  state.controlsPanelOpen = false;
-  state.leaderboardExpanded = false;
+  state.shellView = "home";
 
   state.heavyLandT = 0;
   state.leaderboardReported = false;
