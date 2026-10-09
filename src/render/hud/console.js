@@ -6,8 +6,9 @@
 //          score counting up, and how the run compares to your best and the board.
 //   Right: `records --week` (this week's top 10; a new entry of yours slides up to its rank) and
 //          `records --all-time` (the top 3, names glowing gold).
-// Under the panes, the prompt line: RESET once it's ready, or `register --subject` while the
-// leaderboard name prompt is open. A status bar closes the window.
+// Under the panes, the prompt line: RESET once it's ready, or while this run's record is being
+// claimed `register --operator` / `change --operator` (the name prompt is open) or `file --record`
+// (it goes under the operator's name without asking, leaderboard/operator.js). A status bar closes the window.
 //
 // The game drives the timing (game/index.js): the window slides down as the claw grabs Bob
 // (scoreBoardT), the black box sweeps while the score counts up (scoreTallyT), the records print
@@ -18,6 +19,7 @@ import { DEATH_SUMMARY_START_SEC, RUN_SUMMARY_DROP_SEC } from "../../game/consta
 import { buildSummaryRows, tallyRowSec } from "../../game/score.js";
 import { getLastClaim } from "../../leaderboard/claimFlow.js";
 import { weeklyResetIn } from "../../leaderboard/reset.js";
+import { getOperatorName, isOperatorChangeQueued } from "../../leaderboard/operator.js";
 import { getBoards, getMyBest, getPendingClaim } from "../../leaderboard/state.js";
 import { roundedRectPath } from "../../shared/canvas.js";
 import { clamp, easeOutCubic } from "../../shared/math.js";
@@ -129,7 +131,8 @@ function getBoardData(run) {
   const pending = getPendingClaim();
   const claim = getLastClaim();
   if (_board && _board.boards === boards && _board.pending === pending
-    && _board.claimName === claim.name && _board.claimScore === claim.score && _board.run === run) {
+    && _board.claimName === claim.name && _board.claimScore === claim.score && _board.claimAuto === claim.auto
+    && _board.run === run) {
     return _board;
   }
   const pendingThis = !!pending && pending.score === run.score;
@@ -181,8 +184,9 @@ function getBoardData(run) {
   }
 
   _board = {
-    boards, pending, claimName: claim.name, claimScore: claim.score, run,
-    rows, you, newEntry, standing, registered: claimedThis ? claim.name : "",
+    boards, pending, claimName: claim.name, claimScore: claim.score, claimAuto: claim.auto, run,
+    rows, you, newEntry, standing,
+    registered: claimedThis ? `✓ ${claim.auto ? "record filed" : "operator registered"} · ${claim.name}` : "",
     pendingThis,
     allTime: boards.allTime.slice(0, 3),
     flag: boards.separate ? "--week" : "--top",
@@ -461,7 +465,21 @@ function recordLineCount(board) {
   return 1 + Math.max(1, board.rows.length) + 1 + Math.max(1, board.allTime.length);
 }
 
-// The prompt line. mode: "" (nothing yet), "register" or "reset". The cursor is drawn live.
+// While this run's record is claimed, the prompt line's command: [verb, flag].
+const CLAIM_WORDS = {
+  register: ["register", "--operator"],
+  change: ["change", "--operator"],
+  file: ["file", "--record"],
+};
+const promptWord = (mode) => (CLAIM_WORDS[mode] ? CLAIM_WORDS[mode].join(" ") : "reset");
+
+// How this run's record is being claimed (leaderboard/claimFlow.js).
+function claimMode() {
+  if (!getOperatorName()) return "register";
+  return isOperatorChangeQueued() ? "change" : "file";
+}
+
+// The prompt line. mode: "" (nothing yet), a CLAIM_WORDS key, or "reset". The cursor is drawn live.
 function drawPrompt(ctx, L, mode, hot, touchUi, iter, registered) {
   const y = L.promptY;
   ctx.fillStyle = `rgba(${CYAN},0.18)`;
@@ -478,15 +496,16 @@ function drawPrompt(ctx, L, mode, hot, touchUi, iter, registered) {
   ctx.fillStyle = `rgb(${GREEN})`;
   ctx.fillText(">", x, base);
   let key;
-  if (mode === "register") {
-    parts(ctx, [{ text: "register ", color: BRIGHT }, { text: "--subject", color: `rgb(${CYAN})` }], x + INDENT, base);
-    key = "ENTER";
+  if (CLAIM_WORDS[mode]) {
+    const [verb, flag] = CLAIM_WORDS[mode];
+    parts(ctx, [{ text: `${verb} `, color: BRIGHT }, { text: flag, color: `rgb(${CYAN})` }], x + INDENT, base);
+    key = mode === "file" ? "AUTO" : "ENTER";
   } else {
     const ink = hot ? "rgb(255,110,120)" : `rgb(${CYAN})`;
     const cx = parts(ctx, [{ text: "reset", color: ink }], x + INDENT, base) + 4;
     ctx.font = `7px ${MONO}`;
     ctx.fillStyle = registered ? `rgb(${GREEN})` : DIM;
-    ctx.fillText(registered ? `✓ subject registered · ${registered}` : `iteration ${iter} terminated`, cx + 14, base - 1);
+    ctx.fillText(registered || `iteration ${iter} terminated`, cx + 14, base - 1);
     key = touchUi ? "TAP" : "SPACE";
   }
 
@@ -685,7 +704,7 @@ export function drawEndConsole(ctx, state, W, pointerUi, ready, touchUi) {
   const rowsSettled = v.typed > board.rows.length ? updateSlots(board, dt, skipped) : false;
 
   // The prompt: register while this run's name prompt is up, else RESET.
-  v.mode = !ready ? "" : board.pendingThis ? "register" : "reset";
+  v.mode = !ready ? "" : board.pendingThis ? claimMode() : "reset";
   _promptRect.x = L.x;
   _promptRect.y = L.promptY;
   _promptRect.w = L.w;
@@ -720,8 +739,8 @@ export function drawEndConsole(ctx, state, W, pointerUi, ready, touchUi) {
     ctx.shadowBlur = 0;
     if (v.mode) {
       ctx.font = PROMPT_FONT;
-      const word = v.mode === "register" ? "register --subject" : "reset";
-      const cx = L.x + PAD_X + INDENT + ctx.measureText(word).width + (v.mode === "register" ? 5 : 4);
+      const word = promptWord(v.mode);
+      const cx = L.x + PAD_X + INDENT + ctx.measureText(word).width + (CLAIM_WORDS[v.mode] ? 5 : 4);
       ctx.fillStyle = v.hot ? "rgb(255,110,120)" : `rgb(${CYAN})`;
       ctx.fillRect(cx, L.promptY + 6, 5, 9);
     }

@@ -1,13 +1,16 @@
 // src/render/hud/shell.js
-// The start screen's simulation shell: text straight on the sky down the left side (ui/layout.js
-// getShellLayout places it), with no backdrop: a dark shadow on the text keeps it readable. Top to bottom: status line, NO GROUND, the system's
-// log, the records it prints (all-time top 3, then this week's top 10, one per line), and below the
-// roof line the menu (01 BREAK OUT, 02 TRAINING, 03 CONTROLS). TRAINING and CONTROLS open a sheet in place of the
-// log and the records.
+// The start screen's simulation shell: text straight on the sky (ui/layout.js getShellLayout places
+// it), with no backdrop: a dark shadow on the text keeps it readable. Two pieces:
+// - Down the left side: status line, NO GROUND, the operator's line (the player runs the
+//   simulation; Bob is its subject), the system's log, YOUR BEST, the operator's buttons (TERMINATE
+//   BOB, CHANGE OPERATOR), and below the roof line the menu (01 BREAK OUT, 02 TRAINING, 03 CONTROLS).
+//   TRAINING, CONTROLS, TERMINATE BOB and CHANGE OPERATOR open a sheet in place of the column.
+// - Top right, above the START firewall: the records (the all-time top 3, then this week's top 10
+//   and the time until the week is purged). Your name glows on them.
 //
 // The start push (render/camera.js) times it: the log narrates the claw carrying Bob in (its
-// timestamps are START_PUSH's) while the records type themselves in beside it, and once the claw
-// lets go BREAK OUT (highlighted from the start) gives a short flash. Static pieces are cached
+// timestamps are START_PUSH's) while the records type themselves in, and once the claw lets go
+// BREAK OUT (highlighted from the start) gives a short flash. Static pieces are cached
 // (panelCache.js); while the shell slides they're drawn directly.
 
 import { START_PUSH, START_PUSH_TOTAL } from "../../game/constants.js";
@@ -39,7 +42,6 @@ const LOG_FONT = `10.75px ${MONO}`;
 const REC_FONT = `10.75px ${MONO}`;
 const REC_SMALL_FONT = `10.25px ${MONO}`; // notes (an empty board)
 const LOG_LINE_H = 12;
-const REC_CMD_H = 12.5;
 const REC_ROW_H = 11.5;
 const SLIDE_IN_SEC = 0.25;   // the shell slides in as the start screen begins
 const WAKE_FLASH_SEC = 0.7;  // BREAK OUT flashes as it wakes up
@@ -78,16 +80,28 @@ function setSpacing(ctx, px) {
 
 // o: { slideK, pointer ({ x, y } in UI units, or null), touchUi, uiTime, pushT (seconds into the
 //      start push; Infinity once it's over), awakeAge (seconds since the claw let go, or -1),
-//      lastRun, boards, myBest, resetIn, nowMs }
+//      lastRun, boards, myBest, resetIn, nowMs,
+//      operator ({ name ("" when no one is signed in), queued (CHANGE OPERATOR), termination
+//      ({ name, at } after TERMINATE BOB, else null) }), holdK (HOLD TO TERMINATE BOB, 0..1) }
 export function drawShell(ctx, state, L, o) {
-  const offsetX = -(L.panel.w + 30) * o.slideK;
-  const cached = offsetX === 0;
+  const cached = o.slideK === 0;
   const view = state.shellView || "home";
   const hot = (rect) => !!o.pointer && cached && pointInRect(o.pointer.x, o.pointer.y, rect);
   const awake = o.awakeAge >= 0;
+  const op = o.operator;
+
+  // The records, top right: they slide in and out on the right.
+  const records = buildRecords(o.boards, o.myBest, op);
+  // They type in as the shell appears; during the zoom-out (pushT Infinity) they're all there.
+  const typed = typedLines(records.lines.length, o.pushT);
+  ctx.save();
+  if (o.slideK) ctx.translate((L.records.w + 44) * o.slideK, 0);
+  piece(ctx, cached, "shellRecords", `${rectKey(L.records)}|${o.resetIn}|${typed}|${records.key}`, L.records,
+    (c) => drawRecords(c, L.records, records, typed, o.resetIn));
+  ctx.restore();
 
   ctx.save();
-  if (offsetX) ctx.translate(offsetX, 0);
+  if (o.slideK) ctx.translate(-(L.panel.w + 30) * o.slideK, 0);
 
   // The iteration about to run. Once BREAK OUT has counted it, it's state.iteration (TRAINING isn't counted).
   const counted = state.menuZooming === true && !state.tutorial;
@@ -104,13 +118,31 @@ export function drawShell(ctx, state, L, o) {
     const done = isTrainingDone();
     piece(ctx, cached, "shellSheet", `training|${rectKey(L.sheet)}|${o.touchUi}|${done}|${closeHot}|${beginHot}`, L.sheet,
       (c) => drawTrainingSheet(c, sheetLayout(L), o.touchUi, done, closeHot, beginHot));
+  } else if (view === "terminate") {
+    const closeHot = hot(L.close);
+    const holdHot = hot(L.begin);
+    const iter = formatIteration(state.iteration || 0);
+    // The button fills while it's held, so it's drawn live then.
+    piece(ctx, cached && o.holdK === 0, "shellSheet", `terminate|${rectKey(L.sheet)}|${op.name}|${iter}|${o.myBest}|${closeHot}|${holdHot}`, L.sheet,
+      (c) => drawTerminateSheet(c, sheetLayout(L), op.name, iter, o.myBest, closeHot, holdHot, o.holdK));
+  } else if (view === "operator") {
+    const closeHot = hot(L.close);
+    const beginHot = hot(L.begin);
+    piece(ctx, cached, "shellSheet", `operator|${rectKey(L.sheet)}|${op.name}|${closeHot}|${beginHot}`, L.sheet,
+      (c) => drawChangeSheet(c, sheetLayout(L), op.name, closeHot, beginHot));
   } else {
-    drawLog(ctx, L.log, buildLog(o.lastRun, o.nowMs, Math.floor(L.log.h / LOG_LINE_H)), o.pushT, o.uiTime);
-    const data = buildRecords(o.boards, o.myBest);
-    // The records type in as the shell appears; during the zoom-out (pushT Infinity) they're all there.
-    const typed = typedLines(data.lines.length, o.pushT);
-    piece(ctx, cached, "shellRecords", `${rectKey(L.records)}|${o.resetIn}|${typed}|${data.key}`, L.records,
-      (c) => drawRecords(c, L.records, data, typed, o.resetIn));
+    piece(ctx, cached, "shellOperator", `${rectKey(L.operator)}|${op.name}|${op.queued}`, L.operator,
+      (c) => drawOperatorLine(c, L.operator, op));
+    drawLog(ctx, L.log, buildLog(o.lastRun, o.nowMs, Math.floor(L.log.h / LOG_LINE_H), op), o.pushT, o.uiTime);
+    const best = bestInfo(o.boards, o.myBest, op);
+    piece(ctx, cached, "shellBest", `${rectKey(L.best)}|${best.key}`, L.best, (c) => drawBest(c, L.best, best));
+    if (op.name) {
+      const termHot = hot(L.terminate);
+      const changeHot = hot(L.changeOperator);
+      const box = { x: L.terminate.x, y: L.terminate.y - 4, w: L.changeOperator.x + L.changeOperator.w - L.terminate.x, h: L.terminate.h + 8 };
+      piece(ctx, cached, "shellOpButtons", `${rectKey(box)}|${op.queued}|${termHot}|${changeHot}`, box,
+        (c) => drawOperatorButtons(c, L, op.queued, termHot, changeHot));
+    }
   }
 
   // The menu, just above the roof.
@@ -204,9 +236,22 @@ function agoText(nowMs, endedAt) {
 
 // The log's lines in order: { at (seconds into the push), stamp, parts: [{ text, color }],
 // flavour (dropped first when the log is short of room), cursor }. Lines without a stamp are indented.
-function buildLog(lastRun, nowMs, maxLines) {
+// op: the operator (see drawShell). Straight after TERMINATE BOB (no run since), the log reports that
+// instead of the last run, and Bob has something to say about it.
+function buildLog(lastRun, nowMs, maxLines, op) {
   const lines = [];
-  if (lastRun) {
+  const end = op.termination;
+  const justTerminated = !!end && (!lastRun || !(lastRun.endedAt > end.at));
+  if (justTerminated) {
+    lines.push(
+      { at: 0, stamp: stamp(0), parts: [
+        { text: "subject BOB TERMINATED", color: `rgb(${RED})` },
+        { text: `  ${agoText(nowMs, end.at)}`, color: DIM },
+      ] },
+      ...(end.name ? [{ at: 0, parts: [{ text: `operator ${end.name} signed out`, color: SOFT }] }] : []),
+      { at: 0, parts: [{ text: "BOB rebuilt · iteration 0001", color: SOFT }] },
+    );
+  } else if (lastRun) {
     const best = Number.isFinite(lastRun.best) ? lastRun.best : 0;
     const score = lastRun.score || 0;
     const vsBest = best <= 0 ? null
@@ -230,17 +275,27 @@ function buildLog(lastRun, nowMs, maxLines) {
   } else {
     lines.push({ at: 0, stamp: stamp(0), parts: [{ text: "no previous iterations", color: SOFT }] });
   }
+  if (op.name) {
+    lines.push({ at: T_GRIP, stamp: stamp(T_GRIP), parts: op.queued
+      ? [{ text: `operator ${op.name} · `, color: SOFT }, { text: "change queued", color: `rgb(${AMBER})` }]
+      : [{ text: `operator ${op.name} connected`, color: `rgb(${CYAN})` }] });
+  } else {
+    lines.push(
+      { at: T_GRIP, stamp: stamp(T_GRIP), parts: [{ text: "operator: ", color: SOFT }, { text: "unregistered", color: `rgb(${AMBER})` }] },
+      { at: T_GRIP, parts: [{ text: "reach the top 10 to sign in", color: SOFT }] },
+    );
+  }
   lines.push(
     { at: T_GRIP, stamp: stamp(T_GRIP), flavour: true, parts: [{ text: "subject BOB loaded · memory wiped", color: SOFT }] },
     { at: T_LANDED, stamp: stamp(T_LANDED), flavour: true, parts: [{ text: "firewall sector 00: UNARMED", color: `rgb(${AMBER})` }] },
     { at: T_RELEASED, stamp: stamp(T_RELEASED), cursor: true,
-      parts: [{ text: "BOB: let me out.", color: `rgb(${MAGENTA})` }] },
+      parts: [{ text: justTerminated ? "BOB: told you." : "BOB: let me out.", color: `rgb(${MAGENTA})` }] },
   );
   // Short of room: the flavour lines go first, then the last run's detail lines.
   for (let i = lines.length - 1; i >= 0 && lines.length > maxLines; i--) {
     if (lines[i].flavour) lines.splice(i, 1);
   }
-  while (lines.length > maxLines && lines.length > 2 && !lines[lines.length - 2].stamp) lines.splice(lines.length - 2, 1);
+  while (lines.length > maxLines && lines.length > 2 && !lines[1].stamp) lines.splice(1, 1);
   return lines;
 }
 
@@ -278,38 +333,46 @@ function drawLog(ctx, rect, lines, pushT, uiTime) {
 
 // ---------------- records (the leaderboard, printed by the shell) ----------------
 
-// What the shell prints, as lines in typing order, from getBoards() (leaderboard/state.js):
-//   > records --all-time       then the top 3, one per line
-//   > records --week · purge   then this week's top 10, one per line
+const REC_TITLE_H = 13;
+const REC_SEC_H = 15;
+
+// Your rows: your best's score, filed under the operator's name (so after TERMINATE BOB or CHANGE
+// OPERATOR, the old name's rows aren't yours any more). Before operators there was no name to check:
+// with no one signed in and no TERMINATE BOB since, your best's row is yours by its score alone.
+function isMine(entry, score, op) {
+  if (!(score > 0) || entry.score !== score) return false;
+  return op.name ? entry.name === op.name : !op.termination;
+}
+
+// What the records print, as lines in typing order, from getBoards() (leaderboard/state.js):
+//   RECORDS
+//   ALL-TIME ──────── TOP 3            then the top 3, one per line
+//   THIS WEEK ─── PURGE IN 116:56:35   then this week's top 10, one per line
 // (Without a weekly board from the Worker, the second part is ranks 4-10 of the single list.)
-// Your row is found by score (the board doesn't say which entry is yours). key: for the panel cache.
-function buildRecords(boards, myBest) {
+// key: for the panel cache.
+function buildRecords(boards, myBest, op) {
   const best = Number.isFinite(myBest) ? myBest : 0;
-  const youIn = (entries, score) => (score > 0 ? entries.findIndex((e) => e.score === score) : -1);
-  const lines = [{ kind: "cmd", flag: "--all-time" }];
+  const youIn = (entries, score) => entries.findIndex((e) => isMine(e, score, op));
+  const lines = [{ kind: "title" }, { kind: "sec", text: "ALL-TIME", rgb: GOLD, right: "TOP 3" }];
   const allYou = youIn(boards.allTime, best);
-  boards.allTime.slice(0, 3).forEach((e, i) => lines.push({ kind: "top", rank: i + 1, entry: e, you: i === allYou }));
+  boards.allTime.slice(0, 3).forEach((e, i) => lines.push({ kind: "row", rank: i + 1, entry: e, you: i === allYou }));
   if (boards.allTime.length === 0) lines.push({ kind: "note", text: "no records yet" });
 
-  let rows;
   if (boards.separate) {
     const week = boards.weekly;
     const weekBest = Number.isFinite(boards.weekBest) ? boards.weekBest : 0;
     const you = youIn(week, weekBest);
-    lines.push({ kind: "cmd", flag: "--week", timer: true });
-    rows = week.map((e, i) => ({ kind: "row", rank: i + 1, entry: e, you: i === you }));
-    if (week.length === 0) lines.push({ kind: "note", text: "no runs yet this week · any run makes it" });
-    lines.push(...rows);
+    lines.push({ kind: "sec", text: "THIS WEEK", rgb: CYAN, timer: true });
+    if (week.length === 0) lines.push({ kind: "note", text: "no runs yet · any run makes it" });
+    week.forEach((e, i) => lines.push({ kind: "row", rank: i + 1, entry: e, you: i === you }));
   } else {
     const rest = boards.weekly;
     const you = allYou >= 0 ? -1 : youIn(rest, best);
-    lines.push({ kind: "cmd", flag: "--top" });
-    rows = rest.map((e, i) => ({ kind: "row", rank: boards.weeklyFirstRank + i, entry: e, you: i === you }));
-    lines.push(...rows);
+    lines.push({ kind: "sec", text: "TOP 10", rgb: CYAN, right: "" });
+    rest.forEach((e, i) => lines.push({ kind: "row", rank: boards.weeklyFirstRank + i, entry: e, you: i === you }));
   }
 
-  const key = lines.map((l) => l.kind === "row" || l.kind === "top" ? `${l.kind}:${l.rank}:${l.entry.name}:${l.entry.score}:${l.you}`
-    : `${l.kind}:${l.flag || l.text || ""}`).join("|");
+  const key = lines.map((l) => (l.kind === "row" ? `${l.rank}:${l.entry.name}:${l.entry.score}:${l.you}` : `${l.kind}:${l.text || ""}`)).join("|");
   return { lines, key };
 }
 
@@ -328,34 +391,61 @@ function drawRecords(ctx, r, data, typed, resetIn) {
   ctx.textAlign = "left";
   ctx.shadowColor = TEXT_SHADOW;
   ctx.shadowBlur = 4;
-  const indent = 14;
-  const rowRight = r.x + indent + Math.min(r.w - indent, 226);
+  const right = r.x + r.w;
   let y = r.y;
   for (let i = 0; i < data.lines.length; i++) {
     const line = data.lines[i];
+    const h = line.kind === "title" ? REC_TITLE_H : line.kind === "sec" ? REC_SEC_H : REC_ROW_H;
     if (i < typed) {
-      if (line.kind === "cmd") drawCmd(ctx, r.x, y + 10, line.flag, line.timer ? resetIn : "");
-      else if (line.kind === "note") drawNote(ctx, r.x + indent, y + 9.5, line.text);
-      else drawRecordRow(ctx, line, r.x + indent, rowRight, y + 9.5);
+      if (line.kind === "title") {
+        ctx.font = `700 9px ${ORB}`;
+        setSpacing(ctx, 1.4);
+        ctx.fillStyle = "rgba(242,242,242,0.85)";
+        ctx.fillText("RECORDS", r.x, y + 9);
+        setSpacing(ctx, 0);
+      } else if (line.kind === "sec") {
+        drawRecordsHead(ctx, line, r.x, right, y + 11, line.timer ? resetIn : "");
+      } else if (line.kind === "note") {
+        drawNote(ctx, r.x, y + 9, line.text);
+      } else {
+        drawRecordRow(ctx, line, r.x, right, y + 9);
+      }
     }
-    y += line.kind === "cmd" ? REC_CMD_H : REC_ROW_H;
+    y += h;
   }
   ctx.restore();
 }
 
-// "> records --week · purge in 116:56:35"
-function drawCmd(ctx, x, baseline, flag, timer) {
-  ctx.font = REC_FONT;
-  ctx.fillStyle = `rgba(${CYAN},0.85)`;
-  ctx.fillText("> records ", x, baseline);
-  x += ctx.measureText("> records ").width;
-  ctx.fillStyle = BRIGHT;
-  ctx.fillText(flag, x, baseline);
+// "ALL-TIME ──────── TOP 3" / "THIS WEEK ─── PURGE IN 116:56:35": the heading in its colour, a rule,
+// and on the right a note or the time until the week is purged.
+function drawRecordsHead(ctx, line, left, right, baseline, timer) {
+  ctx.save();
+  ctx.font = `7px ${MONO}`;
+  setSpacing(ctx, 1.2);
+  ctx.textAlign = "left";
+  ctx.fillStyle = `rgba(${line.rgb},0.95)`;
+  ctx.fillText(line.text, left, baseline);
+  const textEnd = left + ctx.measureText(line.text).width;
+  let noteStart = right;
+  ctx.textAlign = "right";
   if (timer) {
-    x += ctx.measureText(flag).width;
-    ctx.fillStyle = DIM;
-    ctx.fillText(` · purge in ${timer}`, x, baseline);
+    ctx.fillStyle = "rgba(242,242,242,0.85)";
+    ctx.fillText(timer, right, baseline);
+    noteStart = right - ctx.measureText(timer).width;
+    ctx.fillStyle = "rgba(242,242,242,0.45)";
+    ctx.fillText("PURGE IN ", noteStart, baseline);
+    noteStart -= ctx.measureText("PURGE IN ").width;
+  } else if (line.right) {
+    ctx.fillStyle = "rgba(242,242,242,0.45)";
+    ctx.fillText(line.right, right, baseline);
+    noteStart = right - ctx.measureText(line.right).width;
   }
+  if (noteStart - 6 > textEnd + 6) {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `rgba(${line.rgb},0.35)`;
+    ctx.fillRect(textEnd + 6, baseline - 2.5, noteStart - 6 - (textEnd + 6), 1);
+  }
+  ctx.restore();
 }
 
 function drawNote(ctx, x, baseline, text) {
@@ -364,7 +454,7 @@ function drawNote(ctx, x, baseline, text) {
   ctx.fillText(text, x, baseline);
 }
 
-// "02 Manimac ◂ you ······ 31,279": rank, name, dot leaders, score.
+// "02 Manimac ◂ you ······ 31,279": rank, name, dot leaders, score. Your name glows.
 function drawRecordRow(ctx, row, left, right, baseline) {
   const you = row.you;
   ctx.font = REC_FONT;
@@ -384,8 +474,17 @@ function drawRecordRow(ctx, row, left, right, baseline) {
   let tag = you ? " ◂ you" : "";
   if (you && ctx.measureText(row.entry.name).width > roomFor(tag)) tag = " ◂";
   const name = fitText(ctx, row.entry.name, roomFor(tag));
-  ctx.fillStyle = you ? `rgb(${CYAN})` : "rgba(242,242,242,0.85)";
-  ctx.fillText(name + tag, nameX, baseline);
+  if (you) {
+    ctx.save();
+    ctx.shadowColor = `rgba(${CYAN},0.9)`;
+    ctx.shadowBlur = 7;
+    ctx.fillStyle = "rgb(191,232,255)";
+    ctx.fillText(name + tag, nameX, baseline);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "rgba(242,242,242,0.85)";
+    ctx.fillText(name, nameX, baseline);
+  }
 
   // Dot leaders between the name and the score.
   const from = nameX + ctx.measureText(name + tag).width + 4;
@@ -395,6 +494,154 @@ function drawRecordRow(ctx, row, left, right, baseline) {
   ctx.fillStyle = you ? `rgba(${CYAN},0.5)` : "rgba(242,242,242,0.22)";
   for (let dx = from; dx < to; dx += 3) ctx.fillRect(dx, baseline - 2.5, 1, 1);
   ctx.restore();
+}
+
+// ---------------- the operator: their line, YOUR BEST, their buttons ----------------
+
+// "> operator MANIMAC @ sector-00", ruled off underneath. CHANGE QUEUED on the right while a change waits.
+function drawOperatorLine(ctx, r, op) {
+  ctx.save();
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  ctx.shadowColor = TEXT_SHADOW;
+  ctx.shadowBlur = 4;
+  ctx.font = `8.5px ${MONO}`;
+  setSpacing(ctx, 0.4);
+  const parts = [
+    { text: "> ", color: `rgba(${CYAN},0.85)` },
+    { text: "operator ", color: SOFT },
+    op.name ? { text: op.name, color: BRIGHT } : { text: "none · unregistered", color: `rgb(${AMBER})` },
+    { text: " @ sector-00", color: DIM },
+  ];
+  let x = r.x;
+  for (const p of parts) {
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.text, x, r.y + 10);
+    x += ctx.measureText(p.text).width;
+  }
+  if (op.queued) {
+    ctx.font = `6.5px ${MONO}`;
+    setSpacing(ctx, 1.2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = `rgb(${AMBER})`;
+    ctx.fillText("CHANGE QUEUED", r.x + r.w, r.y + 10);
+  }
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = `rgba(${CYAN},0.3)`;
+  ctx.fillRect(r.x, r.y + r.h, r.w, 1);
+  ctx.restore();
+}
+
+// YOUR BEST: the score, where it ranks, and how far it is from #1 (with a meter).
+function bestInfo(boards, myBest, op) {
+  const best = Number.isFinite(myBest) && myBest > 0 ? myBest : 0;
+  const all = boards.allTime.findIndex((e) => isMine(e, best, op));
+  const weekBest = Number.isFinite(boards.weekBest) ? boards.weekBest : 0;
+  const week = boards.separate ? boards.weekly.findIndex((e) => isMine(e, weekBest, op)) : -1;
+  const rank = all >= 0 ? ` · #${all + 1} ALL-TIME` : week >= 0 ? ` · #${week + 1} THIS WEEK` : "";
+  const top = boards.allTime[0] ? boards.allTime[0].score : 0;
+  let sub;
+  let pct = -1;
+  if (!op.name) sub = "NO OPERATOR · A TOP 10 RUN SIGNS YOU IN";
+  else if (best <= 0) sub = "NO RUNS YET";
+  else if (top > 0 && best < top) {
+    sub = `${formatNumber(top - best)} TO BEAT #1`;
+    pct = best / top;
+  } else {
+    sub = "TOP OF THE BOARD";
+    pct = 1;
+  }
+  return { best, rank, sub, pct, warn: !op.name, key: `${best}|${rank}|${sub}|${pct}` };
+}
+
+function drawBest(ctx, r, info) {
+  ctx.save();
+  ctx.textBaseline = "alphabetic";
+  ctx.shadowColor = TEXT_SHADOW;
+  ctx.shadowBlur = 4;
+  ctx.fillStyle = "rgba(242,242,242,0.18)";
+  ctx.fillRect(r.x, r.y, r.w, 1);
+  const right = r.x + r.w;
+  ctx.font = `7px ${MONO}`;
+  setSpacing(ctx, 0.8);
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(242,242,242,0.55)";
+  ctx.fillText(`YOUR BEST${info.rank}`, r.x, r.y + 15);
+  ctx.fillStyle = info.warn ? `rgb(${AMBER})` : "rgba(242,242,242,0.55)";
+  ctx.fillText(info.sub, r.x, r.y + 27);
+  if (info.pct >= 0) {
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(242,242,242,0.55)";
+    ctx.fillText(`${Math.round(info.pct * 100)}%`, right, r.y + 27);
+  }
+  ctx.font = `14px ${MONO}`;
+  setSpacing(ctx, 0);
+  ctx.textAlign = "right";
+  ctx.fillStyle = BRIGHT;
+  ctx.fillText(info.best > 0 ? formatNumber(info.best) : "—", right, r.y + 16);
+  if (info.pct >= 0) {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(242,242,242,0.1)";
+    roundRect(ctx, r.x, r.y + 32, r.w, 2.5, 1.25);
+    const g = ctx.createLinearGradient(r.x, 0, right, 0);
+    g.addColorStop(0, `rgba(${CYAN},0.6)`);
+    g.addColorStop(1, `rgb(${AMBER})`);
+    ctx.fillStyle = g;
+    roundRect(ctx, r.x, r.y + 32, Math.max(2.5, r.w * clamp(info.pct, 0, 1)), 2.5, 1.25);
+  }
+  ctx.restore();
+}
+
+// A power symbol, centred on (cx, cy).
+function drawPowerIcon(ctx, cx, cy, rad, color) {
+  ctx.save();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.1;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(cx, cy, rad, -Math.PI / 2 + 0.75, -Math.PI / 2 - 0.75 + Math.PI * 2);
+  ctx.moveTo(cx, cy - rad - 1);
+  ctx.lineTo(cx, cy - 0.5);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// A small outlined button in rgb, on a dark plate (for the sky behind it). Returns nothing.
+function drawSmallButton(ctx, r, label, rgb, hot, icon = null) {
+  ctx.save();
+  if (hot) {
+    ctx.shadowColor = `rgba(${rgb},0.5)`;
+    ctx.shadowBlur = 10;
+  }
+  ctx.fillStyle = hot ? `rgba(${rgb},0.22)` : "rgba(8,6,10,0.72)";
+  roundRect(ctx, r.x, r.y, r.w, r.h, 3);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = `rgba(${rgb},${hot ? 1 : 0.55})`;
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 3);
+  ctx.stroke();
+  ctx.font = `7px ${MONO}`;
+  setSpacing(ctx, 1.1);
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  const textW = ctx.measureText(label).width;
+  const iconW = icon ? 10 : 0;
+  let x = r.x + (r.w - textW - iconW) / 2;
+  const ink = hot ? "#fff" : `rgb(${rgb})`;
+  if (icon) {
+    icon(ctx, x + 3, r.y + r.h / 2, 2.8, ink);
+    x += iconW;
+  }
+  ctx.fillStyle = ink;
+  ctx.fillText(label, x, r.y + r.h / 2 + 2.6);
+  ctx.restore();
+}
+
+// TERMINATE BOB and CHANGE OPERATOR (CANCEL CHANGE while a change is queued).
+function drawOperatorButtons(ctx, L, queued, termHot, changeHot) {
+  drawSmallButton(ctx, L.terminate, "TERMINATE BOB", "255,110,130", termHot, drawPowerIcon);
+  drawSmallButton(ctx, L.changeOperator, queued ? "✕ CANCEL CHANGE" : "CHANGE OPERATOR", AMBER, changeHot);
 }
 
 // ---------------- menu ----------------
@@ -721,5 +968,138 @@ function drawTrainingSheet(ctx, L, touchUi, done, closeHot, beginHot) {
   setSpacing(ctx, 1.4);
   ctx.textAlign = "left";
   ctx.fillText("BEGIN TRAINING", b.x + 25, cy + 3.3);
+  ctx.restore();
+}
+
+// The lines of a TERMINATE BOB / CHANGE OPERATOR sheet, from y: { mark ("x" | "ok" | "to" | ""), text }.
+function drawSheetLines(ctx, x, y, lines) {
+  const MARKS = { x: ["✕", RED], ok: ["✓", GREEN], to: ["→", CYAN] };
+  ctx.font = `8.5px ${MONO}`;
+  setSpacing(ctx, 0.2);
+  ctx.textAlign = "left";
+  for (const line of lines) {
+    const mark = MARKS[line.mark];
+    if (mark) {
+      ctx.fillStyle = `rgb(${mark[1]})`;
+      ctx.fillText(mark[0], x, y);
+    }
+    ctx.fillStyle = line.mark ? "rgba(242,242,242,0.85)" : "rgba(242,242,242,0.5)";
+    ctx.fillText(line.text, x + (line.mark ? 14 : 0), y);
+    y += 13;
+  }
+  setSpacing(ctx, 0);
+}
+
+// TERMINATE BOB: what it does, Bob's answer, and HOLD TO TERMINATE BOB (filling as it's held).
+function drawTerminateSheet(ctx, L, name, iter, myBest, closeHot, holdHot, holdK) {
+  const { x, y, w } = L.body;
+  const best = Number.isFinite(myBest) && myBest > 0 ? formatNumber(myBest) : "—";
+  ctx.save();
+  ctx.shadowColor = TEXT_SHADOW;
+  ctx.shadowBlur = 4;
+  drawSheetHead(ctx, L, "terminate", "subject.BOB", closeHot);
+  drawSectionHead(ctx, "ON TERMINATION", x, x + w, y + 32, RED);
+  drawSheetLines(ctx, x, y + 50, [
+    { mark: "", text: `iterations ${iter} · best ${best}` },
+    { mark: "x", text: `operator ${name} signed out` },
+    { mark: "x", text: "new name only with a top 10 run" },
+    { mark: "x", text: "iteration counter → 0001" },
+    { mark: "ok", text: `records stay under ${name}` },
+    { mark: "ok", text: "personal best kept" },
+  ]);
+
+  const b = L.begin;
+  ctx.font = `8.5px ${MONO}`;
+  ctx.fillStyle = `rgb(${MAGENTA})`;
+  ctx.fillText("BOB: termination will not free me.", x, b.y - 14);
+
+  // HOLD TO TERMINATE BOB
+  ctx.shadowBlur = 0;
+  if (holdHot || holdK > 0) {
+    ctx.shadowColor = `rgba(${RED},0.5)`;
+    ctx.shadowBlur = 14;
+  }
+  const body = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+  body.addColorStop(0, "#3a141c");
+  body.addColorStop(1, "#22090f");
+  ctx.fillStyle = body;
+  roundRect(ctx, b.x, b.y, b.w, b.h, 5);
+  ctx.shadowBlur = 0;
+  if (holdK > 0) {
+    ctx.save();
+    roundedRectPath(ctx, b.x, b.y, b.w, b.h, 5);
+    ctx.clip();
+    const fill = ctx.createLinearGradient(b.x, 0, b.x + b.w, 0);
+    fill.addColorStop(0, `rgba(${RED},0.55)`);
+    fill.addColorStop(1, "rgba(255,140,155,0.9)");
+    ctx.fillStyle = fill;
+    ctx.fillRect(b.x, b.y, b.w * clamp(holdK, 0, 1), b.h);
+    ctx.restore();
+  }
+  ctx.strokeStyle = `rgb(${RED})`;
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 5);
+  ctx.stroke();
+  drawPowerIcon(ctx, b.x + 15, b.y + b.h / 2, 3.4, "#ffd9df");
+  ctx.font = `700 8.5px ${ORB}`;
+  setSpacing(ctx, 1.2);
+  ctx.fillStyle = "#ffd9df";
+  ctx.fillText("HOLD TO TERMINATE BOB", b.x + 25, b.y + b.h / 2 + 3.1);
+  setSpacing(ctx, 0);
+  ctx.font = `7px ${MONO}`;
+  ctx.fillStyle = DIM;
+  ctx.fillText("can't be undone", b.x + b.w + 10, b.y + b.h / 2 + 2.5);
+  ctx.restore();
+}
+
+// CHANGE OPERATOR: what it does, Bob's answer, and QUEUE CHANGE.
+function drawChangeSheet(ctx, L, name, closeHot, beginHot) {
+  const { x, y, w } = L.body;
+  ctx.save();
+  ctx.shadowColor = TEXT_SHADOW;
+  ctx.shadowBlur = 4;
+  drawSheetHead(ctx, L, "queue", "operator.change", closeHot);
+  drawSectionHead(ctx, "CHANGE OPERATOR", x, x + w, y + 32, AMBER);
+  drawSheetLines(ctx, x, y + 50, [
+    { mark: "", text: `current operator ${name}` },
+    { mark: "to", text: "the next top 10 or top 3 run asks for a name" },
+    { mark: "ok", text: "Bob, iterations and best stay" },
+    { mark: "ok", text: `records stay under ${name}` },
+    { mark: "ok", text: `KEEP ${name} on that prompt calls it off` },
+  ]);
+
+  const b = L.begin;
+  ctx.font = `8.5px ${MONO}`;
+  ctx.fillStyle = `rgb(${MAGENTA})`;
+  ctx.fillText("BOB: new name, same cage.", x, b.y - 14);
+
+  // QUEUE CHANGE
+  ctx.shadowBlur = 0;
+  if (beginHot) {
+    ctx.shadowColor = `rgba(${AMBER},0.45)`;
+    ctx.shadowBlur = 14;
+  }
+  const body = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+  body.addColorStop(0, beginHot ? "#3a2c14" : "#2c2210");
+  body.addColorStop(1, beginHot ? "#261c0b" : "#1c1508");
+  ctx.fillStyle = body;
+  roundRect(ctx, b.x, b.y, b.w, b.h, 5);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = `rgb(${AMBER})`;
+  ctx.lineWidth = 1;
+  roundedRectPath(ctx, b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 5);
+  ctx.stroke();
+  const cy = b.y + b.h / 2;
+  ctx.fillStyle = "#ffe2b8";
+  ctx.beginPath();
+  ctx.moveTo(b.x + 12, cy - 4);
+  ctx.lineTo(b.x + 12, cy + 4);
+  ctx.lineTo(b.x + 18.5, cy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.font = `700 9px ${ORB}`;
+  setSpacing(ctx, 1.4);
+  ctx.fillText("QUEUE CHANGE", b.x + 25, cy + 3.3);
+  setSpacing(ctx, 0);
   ctx.restore();
 }

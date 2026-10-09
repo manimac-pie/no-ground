@@ -19,6 +19,8 @@ import {
   HUD_SLIDE_SEC,
   RUN_SUMMARY_DROP_SEC,
   RESET_GLITCH_SEC,
+  TERMINATE_HOLD_SEC,
+  TERMINATE_GLITCH_SEC,
 } from "./constants.js";
 
 import { clamp } from "../shared/math.js";
@@ -40,6 +42,7 @@ import {
 import { getShellLayout, getTrainingExitRect, getTrainingSkipRect, hitAreas, pointInRect } from "../ui/layout.js";
 import { onGameFinished } from "../leaderboard/view.js";
 import { getMyBest } from "../leaderboard/state.js";
+import { getOperatorName, isOperatorChangeQueued, queueOperatorChange, terminateOperator } from "../leaderboard/operator.js";
 import { loadIteration, saveIteration } from "../ui/iteration.js";
 import { saveLastRun } from "../ui/lastRun.js";
 import { getBestRun, saveBestRunIfBetter } from "../ui/bestRun.js";
@@ -280,9 +283,10 @@ export function createGame() {
 
   // TRAINING: EXIT (or Esc) glitches back to the start screen; SKIP goes on to the next lesson.
   // Runs first, so a click on either works while TRAINING is stopped for a move and isn't a jump.
+  // Returns whether Esc was pressed (the start screen's sheets close on it too).
   function updateTrainingButtons(input) {
     const escPressed = input?.consumeEscapePressed?.() === true;
-    if (!trainingButtonsLive(state)) return;
+    if (!trainingButtonsLive(state)) return escPressed;
     let exit = escPressed;
     let skip = false;
     if (!state.paused && !(state.resumeCountdownT > 0) && input?.consumePointerPressed?.() === true) {
@@ -304,10 +308,22 @@ export function createGame() {
     } else if (skip) {
       skipLesson(state);
     }
+    return false;
+  }
+
+  // TERMINATE BOB: the operator signs out and the simulation starts Bob over at iteration 0001.
+  // Records stay on the board under the old name; there's no name again until a record makes one.
+  function terminateBob() {
+    terminateOperator();
+    state.iteration = 0;
+    saveIteration(0);
+    state.shellView = "home";
+    state.terminateHoldT = 0;
+    state.terminateGlitchT = TERMINATE_GLITCH_SEC;
   }
 
   function update(dt, input) {
-    updateTrainingButtons(input);
+    const escPressed = updateTrainingButtons(input);
     if (updatePause(dt, input)) return state;
     // TRAINING stopped for a move: nothing runs until the player gives it, then it's carried out below.
     const trainingMove = waitForMove(state, dt, input);
@@ -486,6 +502,16 @@ export function createGame() {
           state.shellView = "home";
         } else if (view === "training" && pointInRect(x, y, shell.begin)) {
           trainingPressed = true;
+        } else if (view === "home" && getOperatorName() && pointInRect(x, y, shell.terminate)) {
+          state.shellView = "terminate";
+          state.terminateHoldT = 0;
+        } else if (view === "home" && getOperatorName() && pointInRect(x, y, shell.changeOperator)) {
+          // A queued change can be called off from the same button.
+          if (isOperatorChangeQueued()) queueOperatorChange(false);
+          else state.shellView = "operator";
+        } else if (view === "operator" && pointInRect(x, y, shell.begin)) {
+          queueOperatorChange(true);
+          state.shellView = "home";
         }
       } else if (hitAreas.startView) {
         // The START firewall, in world px (the renderer reports the start screen's camera).
@@ -507,6 +533,22 @@ export function createGame() {
         }
       }
     }
+
+    // The start screen's sheets: Esc closes them, and HOLD TO TERMINATE BOB counts while it's held
+    // (letting go drains it quickly).
+    if (onStartScreen && escPressed && state.shellView !== "home") state.shellView = "home";
+    if (onStartScreen && state.shellView === "terminate") {
+      const hold = getShellLayout(INTERNAL_WIDTH, INTERNAL_HEIGHT).begin;
+      const held = input?.pointerDown === true && state.pointerInViewport
+        && pointInRect(state.pointerUiX, state.pointerUiY, hold);
+      state.terminateHoldT = held
+        ? state.terminateHoldT + dt
+        : Math.max(0, state.terminateHoldT - dt * 3);
+      if (state.terminateHoldT >= TERMINATE_HOLD_SEC) terminateBob();
+    } else {
+      state.terminateHoldT = 0;
+    }
+    if (state.terminateGlitchT > 0) state.terminateGlitchT = Math.max(0, state.terminateGlitchT - dt);
 
     if (!state.running) {
       // The death cinematic: a press (once the claw sets off, so a press made as Bob died doesn't

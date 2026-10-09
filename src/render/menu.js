@@ -38,12 +38,16 @@ function paneRgb(red) {
   return red ? "255,110,130" : "120,205,255";
 }
 
+// Once the font has loaded it stays loaded, so stop asking (this runs every frame on the start screen).
+let _fontLoaded = false;
 function fontReady() {
+  if (_fontLoaded) return true;
   try {
-    return document.fonts ? document.fonts.check(PANE_FONT) : true;
+    _fontLoaded = document.fonts ? document.fonts.check(PANE_FONT) : true;
   } catch {
-    return true;
+    _fontLoaded = true;
   }
+  return _fontLoaded;
 }
 
 // Paints the pane at pane-local coordinates (0,0 = top-left of the glass).

@@ -1,12 +1,18 @@
 // src/render/viewport.js
 // Canvas sizing: backing-store resolution, the internal-to-device transform, and paint-state resets.
 
+// Worked out once per resize (setCanvasRect clears it) rather than with a media query every frame.
+let touchViewport = null;
+
 export function isTouchViewport() {
   if (typeof window === "undefined") return false;
-  const touchLike = (navigator.maxTouchPoints || 0) > 0
-    || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-  const phoneish = Math.min(window.innerWidth || 0, window.innerHeight || 0) < 900;
-  return touchLike && phoneish;
+  if (touchViewport === null) {
+    const touchLike = (navigator.maxTouchPoints || 0) > 0
+      || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    const phoneish = Math.min(window.innerWidth || 0, window.innerHeight || 0) < 900;
+    touchViewport = touchLike && phoneish;
+  }
+  return touchViewport;
 }
 
 // Canvas CSS box. main.js measures it on resize and passes it in, because
@@ -15,6 +21,7 @@ let canvasRect = null;
 
 export function setCanvasRect(rect) {
   canvasRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  touchViewport = null;
 }
 
 export function getCanvasRect(canvas) {

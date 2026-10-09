@@ -238,6 +238,11 @@ export const BREAK_SHARDS = {
 
 // Pressing RESET: the simulation glitches the screen out for this long, then the fly-by rebuilds it.
 export const RESET_GLITCH_SEC = 0.35;
+
+// TERMINATE BOB (start screen): how long the button is held to do it, and the glitch that follows
+// (out to black and back).
+export const TERMINATE_HOLD_SEC = 1.2;
+export const TERMINATE_GLITCH_SEC = 0.6;
 export const RESTART_FLYBY_SEC = 0.9;
 export const RESTART_FLYBY_HOLD_SEC = 0.18;
 export const RESTART_FLYBY_FADE_SEC = 0.22;

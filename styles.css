@@ -438,6 +438,19 @@ body.is-running #mobile-controls .control-btn--pause {
   font-size: 12px;
   color: rgba(206, 228, 255, 0.8);
 }
+/* One name per operator: what this name is for (src/leaderboard/claimFlow.js sets the words). */
+#leaderboard-prompt .prompt-note {
+  margin: 0;
+  padding: 8px 12px;
+  font: 12px/1.45 "Share Tech Mono", monospace;
+  color: rgb(255, 180, 70);
+  border: 1px solid rgba(255, 180, 70, 0.35);
+  background: rgba(255, 180, 70, 0.06);
+  border-radius: 10px;
+}
+#leaderboard-prompt .prompt-note:empty {
+  display: none;
+}
 #leaderboard-prompt input {
   width: 100%;
   padding: 14px 12px;

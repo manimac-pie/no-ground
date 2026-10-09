@@ -124,7 +124,11 @@ export function createInitialState() {
     pointerUiX: 0,
     pointerUiY: 0,
     pointerInViewport: false,
-    shellView: "home", // start screen shell: "home" (the leaderboard), "controls" or "training"
+    // start screen shell: "home" (the log), or a sheet: "controls", "training", "terminate" (TERMINATE BOB)
+    // or "operator" (CHANGE OPERATOR)
+    shellView: "home",
+    terminateHoldT: 0,   // seconds HOLD TO TERMINATE BOB has been held
+    terminateGlitchT: 0, // > 0: the glitch after TERMINATE BOB is playing (counts down)
 
     player: {
       x: PLAYER_X,
@@ -270,6 +274,8 @@ export function resetRunState(state) {
   state.pointerUiY = 0;
   state.pointerInViewport = false;
   state.shellView = "home";
+  state.terminateHoldT = 0;
+  state.terminateGlitchT = 0;
 
   state.heavyLandT = 0;
   state.leaderboardReported = false;

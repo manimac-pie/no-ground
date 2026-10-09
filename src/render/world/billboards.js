@@ -52,12 +52,16 @@ const SHARD_SETS_MAX = 4;        // glass billboards holding pre-cut shards at o
 const SHARD_CARRY = [80, 200];
 const PERFECT_FLASH_SEC = 0.16;
 
+// Once the ad font has loaded it stays loaded, so stop asking (this runs per billboard per frame).
+let _fontLoaded = false;
 function fontReady() {
+  if (_fontLoaded) return true;
   try {
-    return document.fonts ? document.fonts.check(`800 12px ${AD_FONT_FAMILY}`) : true;
+    _fontLoaded = document.fonts ? document.fonts.check(`800 12px ${AD_FONT_FAMILY}`) : true;
   } catch {
-    return true;
+    _fontLoaded = true;
   }
+  return _fontLoaded;
 }
 
 export function adCopyFor(seed) {

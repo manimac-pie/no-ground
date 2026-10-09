@@ -23,7 +23,10 @@ export function drawGlow(ctx, x, y, w, h, color = "rgba(120,205,255,0.25)", blur
   ctx.restore();
 }
 
+// One formatter for every call: toLocaleString builds a new one each time, and the HUD formats every frame.
+const NUMBER_FORMAT = new Intl.NumberFormat("en-US");
+
 export function formatNumber(n) {
   if (!Number.isFinite(n)) return "0";
-  return Math.floor(n).toLocaleString("en-US");
+  return NUMBER_FORMAT.format(Math.floor(n));
 }

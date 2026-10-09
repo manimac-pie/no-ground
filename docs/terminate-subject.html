@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Terminate Subject</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" />
+<style>
+  :root {
+    --bg: #07080b;
+    --ink: #f2f2f2;
+    --dim: rgba(242,242,242,0.55);
+    --cyan: 120,205,255;
+    --amber: 255,180,70;
+    --red: 255,85,110;
+    --magenta: 255,90,200;
+    --gold: 255,212,121;
+    --green: 95,227,154;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font: 800 28px Orbitron, sans-serif; letter-spacing: 0.06em; margin: 0 0 6px; }
+  .lede { color: var(--dim); margin: 0 0 20px; max-width: 78ch; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  code { font: 13px "Share Tech Mono", monospace; color: rgb(var(--cyan)); }
+
+  /* ---------------- demo bar ---------------- */
+  .demo-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 10px 0; background: var(--bg); margin-bottom: 14px; }
+  .grp { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .grp > span { font: 12px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgba(var(--amber),0.9); margin-right: 4px; }
+  .demo-bar button {
+    font: 13px "Share Tech Mono", monospace; letter-spacing: 0.06em; cursor: pointer;
+    color: rgb(var(--cyan)); background: rgba(var(--cyan),0.06);
+    border: 1px solid rgba(var(--cyan),0.4); border-radius: 6px; padding: 5px 11px;
+  }
+  .demo-bar button:hover { background: rgba(var(--cyan),0.14); }
+  .demo-bar button[aria-pressed="true"] { background: rgba(var(--cyan),0.24); color: #fff; border-color: rgba(var(--cyan),0.8); }
+  .demo-bar input {
+    font: 13px "Share Tech Mono", monospace; color: #fff; width: 9.5em;
+    background: rgba(var(--cyan),0.06); border: 1px solid rgba(var(--cyan),0.4); border-radius: 6px; padding: 5px 9px;
+  }
+  .hint { font: 12px "Share Tech Mono", monospace; color: var(--dim); margin: 10px 0 0; letter-spacing: 0.04em; }
+
+  /* ---------------- the game's 16:9 view. --g = one internal game unit (800 across) ---------------- */
+  .frame {
+    --g: calc(100cqw / 800);
+    position: relative; aspect-ratio: 16 / 9; container-type: inline-size; overflow: hidden;
+    border-radius: 10px; background: #0f1116;
+    box-shadow: 0 0 0 1px rgba(242,242,242,0.08), 0 20px 60px rgba(0,0,0,0.6);
+    font-family: "Share Tech Mono", Menlo, monospace; user-select: none;
+  }
+  .frame svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .layer { position: absolute; inset: 0; }
+  .a { position: absolute; white-space: nowrap; }
+  .sh { text-shadow: 0 0 calc(var(--g) * 4) rgba(0,0,0,0.95), 0 0 calc(var(--g) * 2) rgba(0,0,0,0.9); }
+  .blink { animation: blink 1.1s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .frame.glitch > * { animation: glitch 0.45s steps(8) forwards; }
+  @keyframes glitch {
+    0% { transform: none; clip-path: inset(0); }
+    15% { transform: translateX(-3%) skewX(10deg); clip-path: inset(10% 0 55% 0); filter: hue-rotate(120deg); }
+    30% { transform: translateX(4%); clip-path: inset(48% 0 12% 0); }
+    45% { transform: translateX(-1%) skewX(-14deg); clip-path: inset(25% 0 30% 0); filter: saturate(3) hue-rotate(-90deg); }
+    60% { transform: translateX(2%); clip-path: inset(70% 0 5% 0); }
+    80% { transform: scaleY(0.04); clip-path: inset(0); opacity: 0.9; }
+    100% { transform: scaleY(0); opacity: 0; }
+  }
+  .frame.boot > * { animation: boot 0.35s steps(5) both; }
+  @keyframes boot { 0% { transform: scaleY(0.02); opacity: 0.4; } 60% { transform: scaleY(1.03); } 100% { transform: none; opacity: 1; } }
+
+  /* menu rows (shell.js drawMenuRow) */
+  .row { position: absolute; border-radius: calc(var(--g) * 4); cursor: pointer; }
+  .row .num { position: absolute; left: calc(var(--g) * 9); top: 50%; transform: translateY(-50%); font-size: calc(var(--g) * 8.5); }
+  .row .lbl { position: absolute; left: calc(var(--g) * 30); top: 50%; transform: translateY(-46%); font: 700 calc(var(--g) * 12.5) Orbitron, sans-serif; letter-spacing: calc(var(--g) * 1.1); }
+  .row .end { position: absolute; right: calc(var(--g) * 8); top: 50%; transform: translateY(-50%); font-size: calc(var(--g) * 8); display: flex; align-items: center; gap: calc(var(--g) * 6); }
+  .row.sel {
+    background: linear-gradient(rgb(150,220,255), rgb(92,182,240));
+    box-shadow: 0 calc(var(--g) * 2) 0 #2a6a94, 0 0 calc(var(--g) * 12) rgba(var(--cyan),0.5);
+    color: #04121d;
+  }
+  .row.sel .num { color: rgba(4,18,29,0.6); }
+  .row.sel .key { background: rgba(4,18,29,0.85); color: rgb(var(--cyan)); padding: 0 calc(var(--g) * 5); border-radius: calc(var(--g) * 2.5); line-height: calc(var(--g) * 12); letter-spacing: calc(var(--g) * 1); }
+  .row.plate {
+    background: rgba(6,9,13,0.88);
+    border: calc(var(--g) * 1) solid rgba(var(--acc),0.35);
+    color: rgba(242,242,242,0.88);
+  }
+  .row.plate::before { content: ""; position: absolute; left: calc(var(--g) * -1); top: calc(var(--g) * -1); bottom: calc(var(--g) * -1); width: calc(var(--g) * 3); background: rgb(var(--acc)); border-radius: calc(var(--g) * 1.5); }
+  .row.plate .num { color: rgba(var(--acc),0.8); }
+  .row.plate .arrow { color: rgba(var(--acc),0.45); font-size: calc(var(--g) * 8); }
+  .row.plate:hover, .row.plate.open { border-color: rgba(var(--acc),0.9); box-shadow: 0 0 calc(var(--g) * 10) rgba(var(--acc),0.45); }
+  .row.plate:hover { color: #fff; }
+  .row.plate.open { background: linear-gradient(rgba(var(--acc),0.16), rgba(var(--acc),0.16)), rgba(6,9,13,0.88); }
+  .row.plate.open .lbl { color: rgb(var(--acc)); }
+  .row.plate:hover .arrow, .row.plate.open .arrow { color: rgb(var(--acc)); }
+  .row .who { color: rgba(var(--acc),0.85); font-size: calc(var(--g) * 8); letter-spacing: calc(var(--g) * 0.4); }
+  .row.terminate .lbl { color: rgba(255,170,182,0.95); }
+
+  /* sheet (shell.js drawSheetHead) */
+  .close { cursor: pointer; color: rgba(242,242,242,0.55); font-size: calc(var(--g) * 6.5); letter-spacing: calc(var(--g) * 1.2); padding: calc(var(--g) * 3) calc(var(--g) * 4); border-radius: calc(var(--g) * 3); }
+  .close:hover { color: #fff; background: rgba(242,242,242,0.08); }
+  .shead { font-size: calc(var(--g) * 7); letter-spacing: calc(var(--g) * 1.2); display: flex; align-items: center; gap: calc(var(--g) * 6); }
+  .shead::after { content: ""; flex: 1; height: calc(var(--g) * 1); background: currentColor; opacity: 0.3; }
+
+  .hold {
+    position: absolute; cursor: pointer; overflow: hidden; touch-action: none;
+    border-radius: calc(var(--g) * 5); border: calc(var(--g) * 1) solid rgb(var(--red));
+    background: linear-gradient(#3a141c, #22090f);
+    font: 700 calc(var(--g) * 9) Orbitron, sans-serif; letter-spacing: calc(var(--g) * 1.4); color: #ffd9df;
+  }
+  .hold:hover { box-shadow: 0 0 calc(var(--g) * 14) rgba(var(--red),0.5); }
+  .hold .fill { position: absolute; inset: 0; width: 0; background: linear-gradient(90deg, rgba(var(--red),0.55), rgba(255,140,155,0.9)); }
+  .hold .txt { position: absolute; left: calc(var(--g) * 25); top: 50%; transform: translateY(-46%); }
+  .hold .ico { position: absolute; left: calc(var(--g) * 10); top: 50%; transform: translateY(-50%); font-size: calc(var(--g) * 10); }
+
+  /* end screen console (console.js) */
+  .win { position: absolute; background: rgba(5,7,10,0.92); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.22); border-radius: calc(var(--g) * 6); box-shadow: 0 calc(var(--g) * 8) calc(var(--g) * 24) rgba(0,0,0,0.6); overflow: hidden; }
+  .keycap { border: calc(var(--g) * 1) solid rgba(var(--k),0.7); border-bottom-width: calc(var(--g) * 2); color: rgb(var(--k)); border-radius: calc(var(--g) * 2.5); padding: 0 calc(var(--g) * 5); line-height: calc(var(--g) * 9); font-size: calc(var(--g) * 7); }
+  .promptline { cursor: pointer; }
+  .promptline:hover { background: rgba(var(--red),0.14); }
+
+  /* the name prompt (styles.css #leaderboard-prompt), in game units */
+  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(4,8,16,0.82); backdrop-filter: blur(6px); z-index: 4; }
+  .panel {
+    width: calc(var(--g) * 330); padding: calc(var(--g) * 20) calc(var(--g) * 24); border-radius: calc(var(--g) * 14);
+    background: rgba(8,12,20,0.98); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.65);
+    box-shadow: 0 calc(var(--g) * 14) calc(var(--g) * 40) rgba(0,0,0,0.75);
+    display: flex; flex-direction: column; gap: calc(var(--g) * 9); text-align: center; font-family: system-ui, sans-serif;
+  }
+  .panel .t { font: 700 calc(var(--g) * 14) Orbitron, sans-serif; letter-spacing: 0.2em; color: #8df3ff; }
+  .panel p { margin: 0; font-size: calc(var(--g) * 8.5); color: rgba(206,228,255,0.8); line-height: 1.45; }
+  .panel .perm { font: calc(var(--g) * 8) "Share Tech Mono", monospace; color: rgb(var(--amber)); letter-spacing: 0.04em; border: calc(var(--g) * 1) solid rgba(var(--amber),0.35); background: rgba(var(--amber),0.06); border-radius: calc(var(--g) * 6); padding: calc(var(--g) * 5) calc(var(--g) * 8); line-height: 1.45; }
+  .panel input {
+    width: 100%; padding: calc(var(--g) * 9) calc(var(--g) * 8); border-radius: calc(var(--g) * 11);
+    border: calc(var(--g) * 1) solid rgba(var(--cyan),0.5); background: rgba(6,10,18,0.85);
+    color: #f6fbff; font: 700 calc(var(--g) * 12) system-ui, sans-serif; text-align: center; letter-spacing: 0.15em;
+  }
+  .panel input:focus { outline: none; border-color: rgba(var(--cyan),0.9); box-shadow: 0 0 calc(var(--g) * 12) rgba(var(--cyan),0.7); }
+  .panel .err { min-height: calc(var(--g) * 11); font-size: calc(var(--g) * 8); color: #ff9b9b; }
+  .panel .acts { display: flex; gap: calc(var(--g) * 7); }
+  .panel button { flex: 1; padding: calc(var(--g) * 8) 0; border-radius: calc(var(--g) * 12); font: 700 calc(var(--g) * 8.5) Orbitron, sans-serif; letter-spacing: 0.25em; cursor: pointer; }
+  .panel .ok { background: linear-gradient(120deg, rgba(139,242,255,0.95), rgba(48,115,255,0.95)); color: #031026; border: calc(var(--g) * 1) solid rgba(255,255,255,0.4); box-shadow: 0 0 calc(var(--g) * 11) rgba(var(--cyan),0.75); }
+  .panel .skip { background: rgba(10,10,16,0.9); border: calc(var(--g) * 1) solid rgba(var(--cyan),0.45); color: #cfe4ff; }
+
+  /* ---------------- notes ---------------- */
+  .caption { font: 13px "Share Tech Mono", monospace; color: rgba(var(--amber),0.95); letter-spacing: 0.08em; margin: 14px 0 0; min-height: 1.5em; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px 32px; margin-top: 36px; color: rgba(242,242,242,0.85); }
+  .notes h3 { font: 600 13px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgb(var(--amber)); margin: 0 0 8px; text-transform: uppercase; }
+  .notes ul, .notes ol { margin: 0; padding-left: 18px; }
+  .notes li { margin: 4px 0; }
+  .notes .q { color: var(--ink); }
+  .notes .rec { color: rgb(var(--green)); }
+</style>
+</head>
+<body>
+<main>
+  <h1>TERMINATE SUBJECT</h1>
+  <p class="lede">
+    <b>One name per subject.</b> The first time a score makes the board, the game asks for a name, and that name is final.
+    Every record after that is filed under it, with no prompt. To use a different name, the player
+    <b>terminates</b> the subject from the start screen. The simulation wipes them and starts a new subject, back at iteration 0001.
+    Click through it below: open <code>04 TERMINATE</code>, hold the button, then BREAK OUT and register the new subject.
+  </p>
+
+  <div class="demo-bar">
+    <div class="grp" id="scenes">
+      <span>SCREEN</span>
+      <button data-scene="home">1 Start · registered</button>
+      <button data-scene="sheet">2 Terminate sheet</button>
+      <button data-scene="fresh">3 After terminate</button>
+      <button data-scene="first">4 End · first record</button>
+      <button data-scene="auto">5 End · later record</button>
+    </div>
+    <div class="grp">
+      <span>NAME</span>
+      <input id="name-in" maxlength="10" value="MANIMAC" aria-label="Subject name for the preview" />
+    </div>
+    <div class="grp" id="scopes">
+      <span>TERMINATE WIPES</span>
+      <button data-scope="iter">name + iterations</button>
+      <button data-scope="name">name only</button>
+      <button data-scope="all">everything</button>
+    </div>
+  </div>
+
+  <div class="frame" id="frame">
+    <svg class="scene" id="scene" viewBox="0 0 800 450" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <div class="layer" id="ui"></div>
+  </div>
+  <p class="caption" id="caption"></p>
+
+  <div class="notes">
+    <div>
+      <h3>The rules</h3>
+      <ul>
+        <li>The subject starts out as <b>BOB</b>, unregistered. The first score that makes the board opens the prompt, now titled <b>REGISTER SUBJECT</b> and with a line saying the name is permanent.</li>
+        <li>Once registered, the name is stored on the device. A later score that makes the board is claimed straight away, and the end screen's prompt line says <code>✓ record filed · NAME</code>.</li>
+        <li>SKIP on the first prompt still works: the subject stays BOB, and the next record asks again.</li>
+        <li><code>04 TERMINATE</code> only shows once there's a name. It opens a sheet in place of the log, like TRAINING and CONTROLS, showing the subject's file and what gets wiped.</li>
+        <li>Terminating needs a <b>1.2 s hold</b>, so a stray click can't do it. The screen glitches out, and the log opens on <code>subject NAME TERMINATED</code>.</li>
+        <li>The old name's records <b>stay on the board</b>. They just stop being marked <code>◂ you</code>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>In the story</h3>
+      <ul>
+        <li>The name replaces BOB in the log: <code>subject MANIMAC loaded</code>, <code>MANIMAC: let me out.</code> The system has filed Bob under the name you gave it.</li>
+        <li>Terminating is the system's action, so the sheet is written in its voice: <code>&gt; terminate subject.MANIMAC</code>, a file, then a list of what it wipes.</li>
+        <li>Red is the colour of TERMINATED in the log already, so row 04 and the hold button use it too.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Still to decide</h3>
+      <ol>
+        <li class="q">What does terminate wipe? <span class="rec">Suggested: name + iteration counter</span>, keeping the personal best. Try the three options in the bar.</li>
+        <li class="q">Should the Worker enforce it too? <span class="rec">Suggested: game only to start.</span> The Worker could store each device's name and refuse a different one, but then you'd have to deploy it.</li>
+        <li class="q">Should the name replace BOB in the log, or should Bob stay Bob? <span class="rec">Suggested: replace it.</span> Then "terminate" clearly means you, not the character.</li>
+        <li class="q">Should 04 TERMINATE also go on the end screen? <span class="rec">Suggested: no.</span> The end screen is about the run, and RESET is already there.</li>
+      </ol>
+    </div>
+    <div>
+      <h3>Where it would go in the code</h3>
+      <ul>
+        <li><code>src/leaderboard/subject.js</code> (new): the registered name in localStorage, plus <code>terminateSubject()</code>.</li>
+        <li><code>src/leaderboard/claimFlow.js</code>: with a name stored, claim without opening the prompt.</li>
+        <li><code>index.html</code>: the prompt's new title and the permanent-name line.</li>
+        <li><code>src/ui/layout.js</code>: a 4th menu row at y 422, plus the hold button's rect.</li>
+        <li><code>src/render/hud/shell.js</code>: the row, the sheet and the log lines.</li>
+        <li><code>src/ui/iteration.js</code>: <code>saveIteration(0)</code> on terminate.</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const NAME_RE = /^[A-Za-z0-9 _\-.]{1,10}$/;
+  const HOLD_SEC = 1.2;
+
+  // ---------- demo state ----------
+  const S = {
+    scene: "home",
+    name: "MANIMAC",   // the registered name, or null (subject BOB, unregistered)
+    iteration: 42,     // runs finished
+    best: 31279,
+    scope: "iter",
+    terminated: null,  // { name, iterations, best } right after a terminate
+    filed: "",         // the end screen's ✓ line: "registered" or "filed"
+  };
+
+  const $ = (s) => document.querySelector(s);
+  const ui = $("#ui");
+  const frame = $("#frame");
+  const g = (n) => `calc(${n} * var(--g))`;
+  const pos = (x, y, w, h) => `left:${g(x)};top:${g(y)};${w != null ? `width:${g(w)};` : ""}${h != null ? `height:${g(h)};` : ""}`;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const fmt = (n) => Math.floor(n).toLocaleString("en-US");
+  const iter4 = (n) => String(Math.max(0, n)).padStart(4, "0");
+  const subject = () => S.name || "BOB";
+
+  const C = {
+    cyan: "rgb(120,205,255)", red: "rgb(255,85,110)", amber: "rgb(255,180,70)", magenta: "rgb(255,90,200)",
+    green: "rgb(95,227,154)", gold: "rgb(255,212,121)", dim: "rgba(242,242,242,0.32)", soft: "rgba(242,242,242,0.62)", bright: "rgba(255,255,255,0.95)",
+  };
+  const PODIUM = ["rgb(255,212,121)", "rgb(212,221,232)", "rgb(227,164,108)"];
+
+  // ---------- boards ----------
+  // "OLD" stands for the subject's name before a terminate (its rows stay, unmarked).
+  function boards() {
+    const me = S.name;
+    const old = S.terminated ? S.terminated.name : null;
+    const allTime = [
+      { name: "GLITCH", score: 48210 },
+      { name: me || old || "MANIMAC", score: 31279, mine: !!me },
+      { name: "nyx", score: 27004 },
+    ];
+    const week = [
+      { name: "vex", score: 22118 },
+      { name: "ORB.9", score: 19840 },
+      { name: me || old || "MANIMAC", score: 17602, mine: !!me },
+      { name: "kai_", score: 15530 },
+      { name: "sol", score: 13002 },
+      { name: "r00t", score: 12999 },
+      { name: "pixel", score: 11020 },
+      { name: "dash-", score: 9870 },
+      { name: "lumen", score: 8406 },
+      { name: "zero.k", score: 7215 },
+    ];
+    return { allTime, week };
+  }
+
+  // ---------- the world ----------
+  function drawScene(dead) {
+    let s = `<defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#070b18"/><stop offset="0.55" stop-color="#151232"/><stop offset="1" stop-color="#2b1636"/>
+      </linearGradient>
+      <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#18222d"/><stop offset="1" stop-color="#0c1117"/></linearGradient>
+      <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a1a2c"/><stop offset="1" stop-color="#140c16"/></linearGradient>
+    </defs>
+    <rect width="800" height="450" fill="url(#sky)"/>`;
+    // far skyline
+    let x = -10, seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    while (x < 820) {
+      const w = 26 + rnd() * 50, h = 90 + rnd() * 170;
+      s += `<rect x="${x}" y="${330 - h}" width="${w}" height="${h + 130}" fill="#11152a" opacity="${0.75 + rnd() * 0.25}"/>`;
+      for (let wy = 330 - h + 10; wy < 330; wy += 14) for (let wx = x + 5; wx < x + w - 6; wx += 9)
+        if (rnd() < 0.12) s += `<rect x="${wx}" y="${wy}" width="3" height="4" fill="rgba(255,200,140,0.35)"/>`;
+      x += w + 4 + rnd() * 8;
+    }
+    // the starter roof (top edge at y 341) and its face
+    s += `<rect x="-10" y="341" width="560" height="120" fill="url(#face)"/>
+      <rect x="-10" y="341" width="560" height="6" fill="rgba(44,60,72,0.98)"/>
+      <rect x="-10" y="341" width="560" height="1.2" fill="rgba(150,235,255,0.55)"/>`;
+    for (let wy = 356; wy < 450; wy += 15) for (let wx = 4; wx < 540; wx += 13)
+      if (rnd() < 0.3) s += `<rect x="${wx}" y="${wy}" width="6" height="7" fill="rgba(255,214,150,${0.15 + rnd() * 0.35})"/>`;
+    // next roof: glass
+    s += `<rect x="600" y="372" width="260" height="90" fill="url(#glass)"/><rect x="600" y="372" width="260" height="5" fill="rgba(62,52,70,0.95)"/>`;
+    if (!dead) {
+      // the START firewall and Bob
+      s += `<rect x="470" y="262" width="22" height="79" rx="2" fill="rgba(255,90,200,0.12)" stroke="rgba(255,110,180,0.75)" stroke-width="1.2"/>
+        <text x="481" y="305" fill="rgba(255,150,200,0.9)" font-family="Orbitron" font-weight="700" font-size="7" text-anchor="middle" transform="rotate(-90 481 302)">START</text>
+        <!-- Bob as render/player/body.js draws him (34 px hitbox), at the start screen's 2.8x zoom, wheel on the roof -->
+        <g transform="translate(378 279.4) scale(2.8)">
+          <circle cx="0" cy="16" r="6" fill="rgba(36,38,44,0.95)"/>
+          <circle cx="0" cy="16" r="3.72" fill="rgba(242,242,242,0.85)"/>
+          <g stroke="rgba(15,17,22,0.45)" stroke-width="1" fill="none">
+            <circle cx="0" cy="16" r="1.8"/>
+            <path d="M0 16h3.3M0 16l1.65 2.86M0 16l-1.65 2.86M0 16h-3.3M0 16l-1.65-2.86M0 16l1.65-2.86"/>
+          </g>
+          <rect x="-11.9" y="-15.3" width="23.8" height="26.52" rx="10.71" fill="#f2f2f2"/>
+          <rect x="-7.38" y="-10" width="14.76" height="4.77" rx="2.39" fill="rgba(15,17,22,0.58)"/>
+          <rect x="-5.9" y="-9.05" width="5.17" height="2" rx="1" fill="rgba(242,242,242,0.16)"/>
+          <rect x="4.13" y="-8.33" width="2" height="2" fill="rgba(120,205,255,0.95)"/>
+        </g>`;
+    } else {
+      s += `<rect width="800" height="450" fill="rgba(80,0,20,0.18)"/>`;
+    }
+    $("#scene").innerHTML = s;
+  }
+
+  // ---------- start screen ----------
+  function header(iterText) {
+    return `
+      <div class="a sh" style="${pos(14, 6)};font-size:${g(8)};letter-spacing:${g(1.6)};color:rgba(242,242,242,0.42);line-height:${g(12)}">SIM://SECTOR-00</div>
+      <div class="a sh" style="left:${g(14)};width:${g(304)};top:${g(6)};text-align:right;font-size:${g(8)};letter-spacing:${g(1.6)};color:rgba(242,242,242,0.42);line-height:${g(12)}"><span style="color:${C.cyan};text-shadow:0 0 ${g(5)} ${C.cyan}">●</span> LIVE</div>
+      <div class="a" style="${pos(14, 20)};font:800 ${g(28)} Orbitron,sans-serif;letter-spacing:${g(1.4)};color:#fff;text-shadow:${g(-1)} 0 rgba(255,85,110,0.7), ${g(1)} 0 rgba(120,205,255,0.7), 0 0 ${g(8)} rgba(0,0,0,0.9)">NO GROUND</div>
+      <div class="a sh" style="${pos(14, 52)};font-size:${g(8)};letter-spacing:${g(1.3)};color:rgba(120,205,255,0.75)">SIMULATION SHELL · ITERATION ${iterText}</div>`;
+  }
+
+  function logLines(lines) {
+    return lines.map((l, i) => `
+      <div class="a sh" style="${pos(14, 68 + i * 12)};font-size:${g(10.75)};line-height:${g(12)}">
+        <span style="color:${C.dim};display:inline-block;width:${g(50)}">${l.stamp || ""}</span>${l.parts.map((p) => `<span style="color:${p.c}">${esc(p.t)}</span>`).join("")}${l.cursor ? `<span class="blink" style="display:inline-block;width:${g(6)};height:${g(9)};background:${C.cyan};margin-left:${g(4)};vertical-align:${g(-1)}"></span>` : ""}
+      </div>`).join("");
+  }
+
+  function recordRow(y, rank, e, you, left = 28, right = 254, font = 10.75, lh = 11.5) {
+    const rankC = you ? C.cyan : rank <= 3 ? PODIUM[rank - 1] : "rgba(242,242,242,0.38)";
+    const nameC = you ? C.cyan : "rgba(242,242,242,0.85)";
+    const dotC = you ? "rgba(120,205,255,0.5)" : "rgba(242,242,242,0.22)";
+    return `<div class="a sh" style="${pos(left, y, right - left, lh)};display:flex;align-items:baseline;gap:${g(4)};font-size:${g(font)};line-height:${g(lh)}">
+      <span style="color:${rankC}">${String(rank).padStart(2, "0")}</span>
+      <span style="color:${nameC}">${esc(e.name)}${you ? " ◂ you" : ""}</span>
+      <span style="flex:1;border-bottom:${g(1)} dotted ${dotC};transform:translateY(${g(-2.5)})"></span>
+      <span style="color:${you ? C.cyan : "#fff"}">${fmt(e.score)}</span>
+    </div>`;
+  }
+
+  function records() {
+    const b = boards();
+    let y = 144, h = "";
+    const cmd = (flag, timer) => {
+      h += `<div class="a sh" style="${pos(14, y)};font-size:${g(10.75)};line-height:${g(12.5)}"><span style="color:rgba(120,205,255,0.85)">&gt; records </span><span style="color:${C.bright}">${flag}</span>${timer ? `<span style="color:${C.dim}"> · purge in 116:56:35</span>` : ""}</div>`;
+      y += 12.5;
+    };
+    cmd("--all-time");
+    b.allTime.forEach((e, i) => { h += recordRow(y, i + 1, e, e.mine); y += 11.5; });
+    cmd("--week", true);
+    b.week.forEach((e, i) => { h += recordRow(y, i + 1, e, e.mine); y += 11.5; });
+    return h;
+  }
+
+  function menuRow(y, num, label, o = {}) {
+    const cls = o.selected ? "row sel" : `row plate${o.open ? " open" : ""}${o.cls ? ` ${o.cls}` : ""}`;
+    const end = o.selected
+      ? `<span class="key">SPACE</span>`
+      : `${o.who ? `<span class="who">${esc(o.who)}</span>` : ""}<span class="arrow">${o.open ? "▼" : "▶"}</span>`;
+    return `<div class="${cls}" data-act="${o.act || ""}" style="${pos(14, y, 222, 21)};--acc:${o.acc || "120,205,255"}">
+      <span class="num">${num}</span><span class="lbl">${label}</span><span class="end">${end}</span></div>`;
+  }
+
+  function startScreen() {
+    const sheet = S.scene === "sheet";
+    const fresh = S.scene === "fresh";
+    const nextIter = iter4(S.iteration + 1);
+    let h = header(nextIter);
+
+    if (sheet) {
+      h += terminateSheet();
+    } else {
+      let lines;
+      if (fresh && S.terminated) {
+        const t = S.terminated;
+        lines = [
+          { stamp: "[00.00]", parts: [{ t: `subject ${t.name} TERMINATED`, c: C.red }, { t: "  just now", c: C.dim }] },
+          { parts: [{ t: `${t.iterations} iterations · best ${fmt(t.best)} · `, c: C.soft }, { t: "records kept", c: C.bright }] },
+          { parts: [{ t: S.scope === "name" ? "iteration counter kept" : "iteration counter reset", c: C.soft }] },
+          { stamp: "[00.45]", parts: [{ t: `subject ${subject()} loaded · `, c: C.soft }, { t: "unregistered", c: C.amber }] },
+          { stamp: "[01.10]", parts: [{ t: "firewall sector 00: UNARMED", c: C.amber }] },
+          { stamp: "[01.60]", parts: [{ t: `${subject()}: let me out.`, c: C.magenta }], cursor: true },
+        ];
+      } else {
+        lines = [
+          { stamp: "[00.00]", parts: [{ t: `iteration ${iter4(S.iteration)} TERMINATED`, c: C.red }, { t: "  3 min ago", c: C.dim }] },
+          { parts: [{ t: "ground contact · ", c: C.soft }, { t: "4,812 m", c: C.bright }] },
+          { parts: [{ t: "score ", c: C.soft }, { t: "9,624", c: C.bright }, { t: "  −1,203 vs best", c: C.dim }] },
+          { stamp: "[00.45]", parts: [{ t: `subject ${subject()} loaded · memory wiped`, c: C.soft }] },
+          { stamp: "[01.10]", parts: [{ t: "firewall sector 00: UNARMED", c: C.amber }] },
+          { stamp: "[01.60]", parts: [{ t: `${subject()}: let me out.`, c: C.magenta }], cursor: true },
+        ];
+      }
+      h += logLines(lines) + records();
+    }
+
+    h += menuRow(356, "01", "BREAK OUT", { selected: true, act: "break" });
+    h += menuRow(378, "02", "TRAINING", { acc: "95,227,154" });
+    h += menuRow(400, "03", "CONTROLS", { acc: "255,180,70" });
+    if (S.name) h += menuRow(422, "04", "TERMINATE", { acc: "255,85,110", act: "sheet", open: sheet, who: S.name, cls: "terminate" });
+    return h;
+  }
+
+  function terminateSheet() {
+    const x = 14, y = 70, w = 304, right = x + w;
+    const t = (yy, html, style = "") => `<div class="a sh" style="${pos(x, yy)};${style}">${html}</div>`;
+    let h = "";
+    // head: "> terminate subject.NAME" and ✕ CLOSE
+    h += t(y + 2, `<span style="color:rgba(120,205,255,0.85)">&gt; terminate </span><span style="color:${C.bright}">subject.${esc(S.name)}</span>`, `font-size:${g(8.5)};letter-spacing:${g(0.4)}`);
+    h += `<div class="a close sh" data-act="close" style="left:${g(right - 54)};top:${g(y + 1)}">✕ CLOSE</div>`;
+    h += `<div class="a" style="${pos(x, y + 18, w, 1)};background:rgba(242,242,242,0.1)"></div>`;
+
+    // the subject's file
+    h += `<div class="a shead sh" style="${pos(x, y + 26, w)};color:${C.amber}">SUBJECT FILE</div>`;
+    const file = [
+      ["name", esc(S.name), C.bright],
+      ["registered", "iteration 0007", C.soft],
+      ["iterations", iter4(S.iteration), C.soft],
+      ["best", fmt(S.best), C.bright],
+      ["on the board", "all-time #2 · week #3", C.gold],
+    ];
+    file.forEach(([k, v, c], i) => {
+      h += `<div class="a sh" style="${pos(x, y + 40 + i * 12, w, 12)};display:flex;align-items:baseline;gap:${g(4)};font-size:${g(9)};line-height:${g(12)}">
+        <span style="color:${C.dim}">${k}</span><span style="flex:1;border-bottom:${g(1)} dotted rgba(242,242,242,0.18);transform:translateY(${g(-2.5)})"></span><span style="color:${c}">${v}</span></div>`;
+    });
+
+    // what the termination does
+    const wipe = [
+      { x: true, t: "name released · the next record asks for a new one" },
+      S.scope === "name"
+        ? { x: false, t: `iteration counter kept · next is ${iter4(S.iteration + 1)}` }
+        : { x: true, t: "iteration counter reset to 0001" },
+      S.scope === "all"
+        ? { x: true, t: "personal best and last-run log cleared" }
+        : { x: false, t: `personal best kept · ${fmt(S.best)}` },
+      { x: false, t: `board records stay, still named ${S.name}` },
+    ];
+    const wy = y + 40 + file.length * 12 + 10;
+    h += `<div class="a shead sh" style="${pos(x, wy, w)};color:${C.red}">ON TERMINATION</div>`;
+    wipe.forEach((r, i) => {
+      h += `<div class="a sh" style="${pos(x, wy + 14 + i * 12.5)};font-size:${g(8.75)};line-height:${g(12.5)}">
+        <span style="color:${r.x ? C.red : C.green};display:inline-block;width:${g(14)}">${r.x ? "✕" : "✓"}</span><span style="color:${r.x ? "rgba(255,210,216,0.9)" : C.soft}">${esc(r.t)}</span></div>`;
+    });
+
+    // the system's warning, then HOLD TO TERMINATE
+    h += t(y + 214, `<span style="color:${C.magenta}">${esc(S.name)}: </span><span style="color:${C.soft}">you can't delete me. I'll just come back.</span>`, `font-size:${g(8.5)}`);
+    h += `<div class="hold" id="hold" style="${pos(x, 309, 222, 24)}"><div class="fill" id="fill"></div><span class="ico">⏻</span><span class="txt">HOLD TO TERMINATE</span></div>`;
+    h += t(316, `<span style="color:${C.dim}">can't be undone</span>`, `left:${g(244)};font-size:${g(7.5)}`);
+    return h;
+  }
+
+  // ---------- end screen ----------
+  function endScreen() {
+    const first = S.scene === "first";
+    const X = 14, Y = 14, W = 772, H = 236, RIGHT_W = 262, BAR = 13, PROMPT = 20, STATUS = 11;
+    const paneY = Y + BAR, paneH = H - BAR - PROMPT - STATUS;
+    const lx = X + 12, rx = X + W - RIGHT_W + 12, rRight = X + W - 12;
+    const score = first ? 12480 : 14120;
+    const rank = 1 + boards().week.filter((e) => e.score > score).length;
+    const row = (x, y, html, size = 8) => `<div class="a" style="${pos(x, y)};font-size:${g(size)};line-height:${g(11)}">${html}</div>`;
+    const sp = (t, c) => `<span style="color:${c}">${t}</span>`;
+    let h = `<div class="win" style="${pos(X, Y, W, H)}"></div>`;
+
+    // title bar
+    h += `<div class="a" style="${pos(X, Y, W, BAR)};border-bottom:${g(1)} solid rgba(120,205,255,0.16);background:rgba(120,205,255,0.05)"></div>`;
+    h += row(X + 38, Y + 1, sp(`system://sector-00 · iteration ${iter4(S.iteration)} · subject ${esc(subject())}`, C.soft), 6.5);
+    h += row(X + 10, Y + 1, `${sp("●", C.red)} ${sp("●", C.amber)} ${sp("●", C.green)}`, 6);
+    h += row(X + W - 70, Y + 1, `${sp("●", C.red)} ${sp("CONTAINED", C.red)}`, 6.5);
+    // the panes' divider
+    h += `<div class="a" style="${pos(X + W - RIGHT_W, paneY, 1, paneH)};background:rgba(120,205,255,0.16)"></div>`;
+
+    // left pane: the log, blackbox, tally
+    let y = paneY + 7;
+    h += row(lx, y, `${sp("[00.98]", C.dim)} ${sp(`iteration ${iter4(S.iteration)} TERMINATED`, C.red)} ${sp("· ground contact · 6,240 m", C.soft)}`); y += 14;
+    h += row(lx, y, `${sp("&gt;", C.green)} ${sp("blackbox", C.bright)} ${sp("--replay", C.cyan)}`); y += 12;
+    const lanes = [["backflips", "255,165,80", 6], ["billboards broken", "255,110,180", 9], ["ads avoided", "200,240,100", 4], ["close calls", "120,255,170", 3], ["buildings bypassed", "150,170,255", 14]];
+    let seed = 3;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    lanes.forEach(([label, rgb, n]) => {
+      h += row(lx + 10, y, `${sp(label, `rgba(${rgb},0.9)`)} ${sp(n, C.bright)}`, 7);
+      let cells = "";
+      for (let i = 0; i < 64; i++) {
+        const on = rnd() < n / 40;
+        cells += `<span style="display:inline-block;width:${g(4)};height:${g(5)};margin-right:${g(1.2)};background:${on ? `rgb(${rgb})` : "rgba(242,242,242,0.07)"}"></span>`;
+      }
+      h += `<div class="a" style="${pos(lx + 112, y + 3)};line-height:0">${cells}</div>`;
+      y += 11;
+    });
+    y += 6;
+    h += row(lx, y, `${sp("&gt;", C.green)} ${sp("tally", C.bright)}`); y += 12;
+    h += `<div class="a" style="${pos(lx + 10, y)};font-size:${g(20)};line-height:${g(22)};color:#fff">${fmt(score)} <span style="font-size:${g(8)};color:${first ? C.cyan : C.dim};text-shadow:${first ? `0 0 ${g(6)} ${C.cyan}` : "none"}">${first ? "FIRST RECORD" : `−${fmt(S.best - score)} vs best ${fmt(S.best)}`}</span></div>`;
+    y += 24;
+    h += row(lx + 10, y, first
+      ? sp(`week #${rank} · ${S.filed ? `filed under ${esc(subject())}` : "subject unregistered · naming…"}`, S.filed ? C.green : C.amber)
+      : sp(`week #${rank} · filed under ${esc(subject())} automatically`, C.green));
+
+    // right pane: records
+    const b = boards();
+    let week = b.week.slice();
+    const mine = { name: first ? (S.filed ? subject() : "________") : subject(), score, mine: true, fresh: true };
+    // a new entry lands in place; the old subject's rows stay, unmarked
+    week = week.map((e) => ({ ...e, mine: e.mine && !first }));
+    week.push(mine);
+    week.sort((a, b2) => b2.score - a.score);
+    week = week.slice(0, 10);
+    let ry = paneY + 7;
+    h += row(rx, ry, `${sp("&gt;", C.green)} ${sp("records", C.bright)} ${sp("--week", C.cyan)} ${sp("· purge in 116:56:35", C.dim)}`); ry += 11;
+    week.forEach((e, i) => {
+      h += recordRow(ry, i + 1, e, e.mine && (e.fresh || !first), rx + 10, rRight, 8, 11);
+      if (e.fresh) h += `<div class="a" style="${pos(rx + 2, ry, rRight - rx + 6, 11)};background:rgba(120,205,255,0.1);border-left:${g(2)} solid ${C.cyan}"></div>`;
+      ry += 11;
+    });
+    ry += 5;
+    h += row(rx, ry, `${sp("&gt;", C.green)} ${sp("records", C.bright)} ${sp("--all-time", C.cyan)}`); ry += 11;
+    b.allTime.forEach((e, i) => {
+      h += `<div class="a" style="${pos(rx + 10, ry, rRight - rx - 10, 11)};display:flex;gap:${g(4)};font-size:${g(8)};line-height:${g(11)}">
+        ${sp(`★${i + 1}`, C.gold)}<span style="color:${C.gold};text-shadow:0 0 ${g(5)} rgba(255,212,121,0.6)">${esc(e.name)}${e.mine && !first ? " ◂ you" : ""}</span><span style="flex:1;border-bottom:${g(1)} dotted rgba(255,212,121,0.25);transform:translateY(${g(-2.5)})"></span>${sp(fmt(e.score), "#fff")}</div>`;
+      ry += 11;
+    });
+
+    // the prompt line
+    const py = Y + H - STATUS - PROMPT;
+    h += `<div class="a" style="${pos(X, py, W, 1)};background:rgba(120,205,255,0.18)"></div>`;
+    const registering = first && !S.filed;
+    const msg = registering ? ""
+      : S.filed === "registered" ? `✓ subject registered · ${esc(subject())}`
+        : `✓ record filed · ${esc(subject())}`;
+    h += `<div class="a ${registering ? "" : "promptline"}" data-act="${registering ? "" : "reset"}" style="${pos(X + 1, py + 1, W - 2, PROMPT - 1)}">
+      <div class="a" style="${pos(12, 3.5)};font-size:${g(9.5)};line-height:${g(13)}">${sp("&gt;", C.green)} ${registering
+        ? `${sp("register", C.bright)} ${sp("--subject", C.cyan)}`
+        : `${sp("reset", C.cyan)} <span style="font-size:${g(7)};color:${C.green};margin-left:${g(14)}">${msg}</span>`}</div>
+      <div class="a" style="right:${g(12)};top:${g(4.5)}"><span class="keycap" style="--k:120,205,255">${registering ? "ENTER" : "SPACE"}</span></div>
+    </div>`;
+    // status bar
+    h += `<div class="a" style="${pos(X, Y + H - STATUS, W, STATUS)};background:rgba(120,205,255,0.06)"></div>`;
+    h += row(X + 12, Y + H - STATUS, sp(`[sim] ${esc(subject())} · contained · best ${fmt(S.best)}`, C.dim), 6.5);
+
+    if (registering) h += namePrompt();
+    return h;
+  }
+
+  function namePrompt() {
+    return `<div class="overlay"><div class="panel">
+      <div class="t">REGISTER SUBJECT</div>
+      <p>Your first record. Name this subject (1–10 characters: letters, numbers, space, _ - .)</p>
+      <input id="claim-in" maxlength="10" autocomplete="off" value="${esc($("#name-in").value)}" aria-label="Subject name" />
+      <div class="perm">⚠ One name per subject: every record this subject sets is filed under it.<br>To change it later, use 04 TERMINATE on the start screen.</div>
+      <div class="err" id="claim-err"></div>
+      <div class="acts"><button class="ok" data-act="submit">SUBMIT</button><button class="skip" data-act="skip">SKIP</button></div>
+    </div></div>`;
+  }
+
+  // ---------- render ----------
+  const CAPTIONS = {
+    home: "Registered: the subject's name runs through the log, and 04 TERMINATE shows under the menu. Click it.",
+    sheet: "The sheet opens over the log. Press and hold the red button for 1.2 s; letting go early cancels.",
+    fresh: "A new subject: BOB again, unregistered, with no 04 row. The old name's records stay on the board, unmarked. Click BREAK OUT.",
+    first: "The first record of a new subject opens the prompt, with the permanent-name warning. Submit a name.",
+    auto: "A later record: no prompt. The score goes on the board under the registered name. Click the prompt line to reset.",
+  };
+
+  function render() {
+    const end = S.scene === "first" || S.scene === "auto";
+    drawScene(end);
+    ui.innerHTML = end ? endScreen() : startScreen();
+    document.querySelectorAll("#scenes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scene === S.scene)));
+    document.querySelectorAll("#scopes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scope === S.scope)));
+    $("#caption").textContent = CAPTIONS[S.scene];
+    if (S.scene === "sheet") wireHold();
+    const ci = $("#claim-in");
+    if (ci) {
+      ci.focus();
+      ci.addEventListener("keydown", (e) => { if (e.key === "Enter") submitClaim(); });
+    }
+  }
+
+  function go(scene, fx) {
+    S.scene = scene;
+    if (fx) {
+      frame.classList.remove("boot");
+      void frame.offsetWidth;
+      frame.classList.add("boot");
+    }
+    render();
+  }
+
+  // Each demo button sets up a state that fits its screen.
+  function jump(scene) {
+    const n = $("#name-in").value.trim() || "MANIMAC";
+    S.filed = "";
+    if (scene === "home" || scene === "sheet" || scene === "auto") {
+      S.name = n; S.terminated = null; S.iteration = 42; S.best = 31279;
+      if (scene === "auto") S.filed = "filed";
+    } else if (scene === "fresh") {
+      S.name = null; S.terminated = { name: n, iterations: 42, best: 31279 };
+      S.iteration = S.scope === "name" ? 42 : 0; S.best = S.scope === "all" ? 0 : 31279;
+    } else if (scene === "first") {
+      S.name = null; S.terminated = { name: n, iterations: 42, best: 31279 };
+      S.iteration = S.scope === "name" ? 43 : 1; S.best = S.scope === "all" ? 12480 : 31279;
+    }
+    go(scene);
+  }
+
+  function submitClaim() {
+    const v = $("#claim-in").value.trim();
+    if (!NAME_RE.test(v)) { $("#claim-err").textContent = "Enter 1–10 chars: letters, numbers, space, _ - ."; return; }
+    S.name = v;
+    $("#name-in").value = v;
+    S.filed = "registered";
+    render();
+  }
+
+  // ---------- hold to terminate ----------
+  function wireHold() {
+    const btn = $("#hold"), fill = $("#fill");
+    let k = 0, holding = false, last = 0, raf = 0;
+    const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      k = holding ? Math.min(1, k + dt / HOLD_SEC) : Math.max(0, k - dt * 3);
+      fill.style.width = `${k * 100}%`;
+      if (k >= 1) return terminate();
+      if (holding || k > 0) raf = requestAnimationFrame(tick);
+    };
+    const start = (e) => { e.preventDefault(); holding = true; last = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); };
+    const stop = () => { holding = false; };
+    btn.addEventListener("pointerdown", start);
+    btn.addEventListener("pointerup", stop);
+    btn.addEventListener("pointerleave", stop);
+    btn.addEventListener("pointercancel", stop);
+  }
+
+  function terminate() {
+    S.terminated = { name: S.name, iterations: S.iteration, best: S.best };
+    S.name = null;
+    if (S.scope !== "name") S.iteration = 0;
+    if (S.scope === "all") S.best = 0;
+    frame.classList.remove("boot");
+    frame.classList.add("glitch");
+    setTimeout(() => {
+      frame.classList.remove("glitch");
+      go("fresh", true);
+    }, 520);
+  }
+
+  // ---------- clicks ----------
+  ui.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-act]");
+    if (!t || !t.dataset.act) return;
+    const act = t.dataset.act;
+    if (act === "sheet") go(S.scene === "sheet" ? "home" : "sheet");
+    else if (act === "close") go("home");
+    else if (act === "break") {
+      // One run later: a registered subject's record is filed straight away; a new one is asked to register.
+      S.iteration += 1;
+      S.filed = S.name ? "filed" : "";
+      if (!S.name && S.best === 0) S.best = 12480;
+      go(S.name ? "auto" : "first", true);
+    }
+    else if (act === "submit") submitClaim();
+    else if (act === "skip") { S.filed = ""; go("fresh", true); }
+    else if (act === "reset") { S.terminated = S.name ? null : S.terminated; go(S.name ? "home" : "fresh", true); }
+  });
+
+  document.querySelectorAll("#scenes button").forEach((b) => b.addEventListener("click", () => jump(b.dataset.scene)));
+  document.querySelectorAll("#scopes button").forEach((b) => b.addEventListener("click", () => { S.scope = b.dataset.scope; render(); }));
+  $("#name-in").addEventListener("input", (e) => {
+    const v = e.target.value.trim();
+    if (S.name && NAME_RE.test(v)) { S.name = v; render(); }
+  });
+
+  // Fonts change the text widths, so draw again once they're in. #sheet etc. opens on that screen.
+  const hashScene = location.hash.slice(1);
+  if (CAPTIONS[hashScene]) jump(hashScene);
+  else render();
+  if (document.fonts) document.fonts.ready.then(render);
+})();
+</script>
+</body>
+</html>

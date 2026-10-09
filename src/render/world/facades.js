@@ -172,11 +172,19 @@ export function drawFacade(ctx, seed, bodyX, bodyY, bodyW, bodyH, safe, t, viewW
   ctx.restore();
 }
 
-// Roof colours for the glass style.
+// Roof colours for the glass style. Built once per palette, so drawing a roof doesn't copy COLORS every frame.
+const _roofColors = new WeakMap(); // COLORS -> { safe, glass }
+
 export function facadeRoofColors(COLORS, safe) {
-  return safe
-    ? { ...COLORS, roofTop: "rgba(44,60,72,0.98)", roofSide: "rgba(30,44,56,0.98)", platformEdge: "rgba(150,235,255,0.55)" }
-    : { ...COLORS, roofTop: "rgba(62,52,70,0.95)", roofSide: "rgba(32,26,38,0.95)" };
+  let pair = _roofColors.get(COLORS);
+  if (!pair) {
+    pair = {
+      safe: { ...COLORS, roofTop: "rgba(44,60,72,0.98)", roofSide: "rgba(30,44,56,0.98)", platformEdge: "rgba(150,235,255,0.55)" },
+      glass: { ...COLORS, roofTop: "rgba(62,52,70,0.95)", roofSide: "rgba(32,26,38,0.95)" },
+    };
+    _roofColors.set(COLORS, pair);
+  }
+  return safe ? pair.safe : pair.glass;
 }
 
 // Crown LED strip just under the roof edge (drawn after the roof).

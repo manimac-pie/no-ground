@@ -12,6 +12,8 @@ import {
   MENU_START_ZOOM,
   HUD_SLIDE_SEC,
   RESET_GLITCH_SEC,
+  TERMINATE_HOLD_SEC,
+  TERMINATE_GLITCH_SEC,
   DIVE_LAND_SHAKE_SEC,
   DIVE_LAND_SHAKE_PX,
   DIVE_LAND_SHAKE_FULL_DROP,
@@ -43,6 +45,7 @@ import { getShellLayout, hitAreas } from "../ui/layout.js";
 import { getLastRun } from "../ui/lastRun.js";
 import { clamp } from "../shared/math.js";
 import { getBoards, getMyBest } from "../leaderboard/state.js";
+import { getOperatorName, getTermination, isOperatorChangeQueued } from "../leaderboard/operator.js";
 import { maybePromptForPendingClaim } from "../leaderboard/claimFlow.js";
 import { weeklyResetIn } from "../leaderboard/reset.js";
 
@@ -113,8 +116,9 @@ let _shellAwakeT = -1;
 const _shellPointer = { x: 0, y: 0 };
 const _shellOpts = {
   slideK: 0, pointer: null, touchUi: false, uiTime: 0, pushT: 0, awakeAge: -1,
-  lastRun: null, boards: null, myBest: 0, resetIn: "", nowMs: 0,
+  lastRun: null, boards: null, myBest: 0, resetIn: "", nowMs: 0, operator: null, holdK: 0,
 };
+const _shellOperator = { name: "", queued: false, termination: null };
 const _startView = { focusX: 0, focusY: 0, zoom: 1, camShift: 0 };
 
 function easeInOutCubic(t) {
@@ -478,8 +482,19 @@ export function render(ctx, state) {
     o.myBest = getMyBest();
     o.resetIn = weeklyResetIn();
     o.nowMs = Date.now();
+    _shellOperator.name = getOperatorName();
+    _shellOperator.queued = isOperatorChangeQueued();
+    _shellOperator.termination = getTermination();
+    o.operator = _shellOperator;
+    o.holdK = clamp((state.terminateHoldT || 0) / TERMINATE_HOLD_SEC, 0, 1);
     resetCtx(ctx);
     drawShell(ctx, state, shell, o);
+  }
+
+  // TERMINATE BOB: the screen glitches out to black and comes back with Bob at iteration 0001.
+  if (state.terminateGlitchT > 0) {
+    const t = 1 - state.terminateGlitchT / TERMINATE_GLITCH_SEC;
+    drawResetGlitch(ctx, 1 - Math.abs(2 * t - 1));
   }
 
   // Pressing RESET: glitch the finished frame out, until the fly-by takes over.

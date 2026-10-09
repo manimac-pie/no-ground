@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Start Screen 01 + Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" />
+<style>
+  :root {
+    --bg: #07080b;
+    --ink: #f2f2f2;
+    --dim: rgba(242,242,242,0.55);
+    --cyan: 120,205,255;
+    --amber: 255,180,70;
+    --red: 255,85,110;
+    --magenta: 255,90,200;
+    --green: 95,227,154;
+    --gold: 255,212,121;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font: 800 28px Orbitron, sans-serif; letter-spacing: 0.06em; margin: 0 0 6px; }
+  .lede { color: var(--dim); margin: 0 0 20px; max-width: 78ch; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  code { font: 13px "Share Tech Mono", monospace; color: rgb(var(--cyan)); }
+
+  /* demo bar */
+  .demo-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 10px 0; background: var(--bg); margin-bottom: 14px; }
+  .grp { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .grp > span { font: 12px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgba(var(--amber),0.9); margin-right: 4px; }
+  .demo-bar button {
+    font: 13px "Share Tech Mono", monospace; letter-spacing: 0.06em; cursor: pointer;
+    color: rgb(var(--cyan)); background: rgba(var(--cyan),0.06);
+    border: 1px solid rgba(var(--cyan),0.4); border-radius: 6px; padding: 5px 11px;
+  }
+  .demo-bar button:hover { background: rgba(var(--cyan),0.14); }
+  .demo-bar button[aria-pressed="true"] { background: rgba(var(--cyan),0.24); color: #fff; border-color: rgba(var(--cyan),0.8); }
+  .demo-bar input { font: 13px "Share Tech Mono", monospace; color: #fff; width: 9.5em; background: rgba(var(--cyan),0.06); border: 1px solid rgba(var(--cyan),0.4); border-radius: 6px; padding: 5px 9px; }
+  .caption { font: 13px "Share Tech Mono", monospace; color: rgba(var(--amber),0.95); letter-spacing: 0.06em; margin: 14px 0 0; min-height: 1.5em; }
+
+  /* ---------------- the frame: 16:10 like start-screen-mockups.html, sized in cqw ---------------- */
+  .frame {
+    position: relative; aspect-ratio: 16 / 10; container-type: inline-size; overflow: hidden;
+    border-radius: 10px; background: #0f1116;
+    box-shadow: 0 0 0 1px rgba(242,242,242,0.08), 0 20px 60px rgba(0,0,0,0.6);
+    font-family: "Share Tech Mono", monospace; user-select: none;
+  }
+  .frame > svg.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .frame > .ui { position: absolute; }
+  .bob-eye { animation: glance 3s steps(1) infinite; }
+  @keyframes glance { 0% { transform: translate(0,0); } 25% { transform: translate(-6px,2px); } 50% { transform: translate(3px,-2px); } 75% { transform: translate(-2px,3px); } }
+  .pane-glow { animation: paneGlow 2.4s ease-in-out infinite; }
+  @keyframes paneGlow { 50% { opacity: 0.55; } }
+  .blink { animation: blink 1.4s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  .cursor { display: inline-block; width: 0.6cqw; height: 1cqw; background: rgb(var(--cyan)); vertical-align: -0.12cqw; margin-left: 0.4cqw; animation: on-off 1.1s steps(2, jump-none) infinite; }
+  @keyframes on-off { 50% { opacity: 0; } }
+
+  .frame.glitch > * { animation: glitch 0.45s steps(8) forwards; }
+  @keyframes glitch {
+    0% { transform: none; clip-path: inset(0); }
+    15% { transform: translateX(-3%) skewX(10deg); clip-path: inset(10% 0 55% 0); filter: hue-rotate(120deg); }
+    30% { transform: translateX(4%); clip-path: inset(48% 0 12% 0); }
+    45% { transform: translateX(-1%) skewX(-14deg); clip-path: inset(25% 0 30% 0); filter: saturate(3) hue-rotate(-90deg); }
+    60% { transform: translateX(2%); clip-path: inset(70% 0 5% 0); }
+    80% { transform: scaleY(0.04); clip-path: inset(0); opacity: 0.9; }
+    100% { transform: scaleY(0); opacity: 0; }
+  }
+  .frame.boot > * { animation: boot 0.35s steps(5) both; }
+  @keyframes boot { 0% { transform: scaleY(0.02); opacity: 0.4; } 60% { transform: scaleY(1.03); } 100% { transform: none; opacity: 1; } }
+
+  .keycap { display: inline-block; border: 0.12cqw solid rgba(var(--cyan),0.7); border-bottom-width: 0.3cqw; border-radius: 0.4cqw; padding: 0.1cqw 0.6cqw; color: rgb(var(--cyan)); line-height: 1.2; }
+  .hint { transform: translateX(-50%); white-space: nowrap; font-size: 1.25cqw; letter-spacing: 0.25em; color: rgba(215,245,255,0.9); text-shadow: 0 0 1cqw rgba(var(--cyan),0.8); }
+
+  /* title block (sample 01) */
+  .title { left: 3.2cqw; top: 3cqw; }
+  .title .kicker { font-size: 1.05cqw; letter-spacing: 0.22em; color: rgba(var(--cyan),0.8); }
+  .title .logo { font: 800 5.2cqw/1 Orbitron, sans-serif; letter-spacing: 0.06em; margin: 0.6cqw 0 0.5cqw; color: #f2f2f2; text-shadow: 0 0 2cqw rgba(var(--cyan),0.35); }
+  .title .logo em { font-style: normal; color: rgb(var(--red)); text-shadow: 0 0 1.6cqw rgba(var(--red),0.6); }
+  .title .tag { font-size: 1.25cqw; color: rgba(242,242,242,0.6); letter-spacing: 0.06em; }
+  .btns { display: flex; gap: 0.8cqw; margin-top: 1.8cqw; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.6cqw; cursor: pointer;
+    font: 700 1.05cqw Orbitron, sans-serif; letter-spacing: 0.12em;
+    color: #e8f6ff; background: rgba(10,14,20,0.75);
+    border: 0.1cqw solid rgba(var(--cyan),0.35); border-radius: 0.6cqw; padding: 0.7cqw 1.2cqw;
+  }
+  .chip:hover { border-color: rgba(var(--cyan),0.8); }
+  .chip svg { width: 1.3cqw; height: 1.3cqw; }
+  .chip.kill { color: #ffd9df; border-color: rgba(var(--red),0.45); background: rgba(30,8,14,0.75); }
+  .chip.kill:hover, .chip.kill.on { border-color: rgb(var(--red)); box-shadow: 0 0 1.2cqw rgba(var(--red),0.4); }
+  .chip.kill small { font: 0.85cqw "Share Tech Mono", monospace; letter-spacing: 0.06em; color: rgba(255,170,182,0.8); }
+
+  /* ---------------- the terminal: log | scoreboard ---------------- */
+  .term {
+    left: 3.2cqw; top: 20cqw; width: 47cqw; height: 21.2cqw;
+    background: rgba(6,9,13,0.86); border: 0.1cqw solid rgba(var(--cyan),0.24); border-radius: 0.9cqw;
+    box-shadow: 0 1cqw 3cqw rgba(0,0,0,0.5); overflow: hidden;
+    display: grid; grid-template-rows: 2.1cqw 1fr; font-size: 1.02cqw;
+  }
+  .term .bar { display: flex; align-items: center; gap: 0.5cqw; padding: 0 1cqw; border-bottom: 0.1cqw solid rgba(var(--cyan),0.16); background: rgba(var(--cyan),0.05); font-size: 0.85cqw; color: rgba(242,242,242,0.55); letter-spacing: 0.06em; }
+  .term .bar .dot { width: 0.65cqw; height: 0.65cqw; border-radius: 50%; }
+  .term .bar .path { margin-left: 0.6cqw; }
+  .term .bar .path b { color: #fff; font-weight: 400; }
+  .term .bar .path i { font-style: normal; color: rgb(var(--amber)); }
+  .term .bar .sp { flex: 1; }
+  .kill-link { cursor: pointer; color: rgba(255,140,155,0.9); border: 0.1cqw solid rgba(var(--red),0.45); border-radius: 0.35cqw; padding: 0.05cqw 0.55cqw; letter-spacing: 0.1em; }
+  .kill-link:hover, .kill-link.on { color: #fff; background: rgba(var(--red),0.25); border-color: rgb(var(--red)); }
+  .term .panes { display: grid; grid-template-columns: 21.6cqw 1fr; min-height: 0; }
+  .term .pane { padding: 1cqw 1.2cqw; min-width: 0; overflow: hidden; }
+  .term .pane + .pane { border-left: 0.1cqw solid rgba(var(--cyan),0.14); }
+  .log div { white-space: nowrap; line-height: 1.6cqw; }
+  .log .st { color: rgba(242,242,242,0.32); display: inline-block; width: 4.6cqw; }
+  .c-red { color: rgb(var(--red)); } .c-amber { color: rgb(var(--amber)); } .c-mag { color: rgb(var(--magenta)); }
+  .c-cyan { color: rgb(var(--cyan)); } .c-green { color: rgb(var(--green)); } .c-gold { color: rgb(var(--gold)); }
+  .c-dim { color: rgba(242,242,242,0.36); } .c-soft { color: rgba(242,242,242,0.62); } .c-hi { color: #fff; }
+
+  .you { margin-top: 0.9cqw; padding-top: 0.8cqw; border-top: 0.1cqw solid rgba(242,242,242,0.1); }
+  .you .line { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6cqw; }
+  .you small { font-size: 0.82cqw; color: rgba(242,242,242,0.55); letter-spacing: 0.08em; }
+  .you .big { font-size: 1.7cqw; color: #fff; }
+  .meter { height: 0.35cqw; border-radius: 1cqw; background: rgba(242,242,242,0.1); overflow: hidden; margin-top: 0.5cqw; }
+  .meter i { display: block; height: 100%; background: linear-gradient(90deg, rgba(var(--cyan),0.6), rgb(var(--amber))); }
+  .you .kill-row { margin-top: 0.8cqw; display: flex; justify-content: space-between; align-items: center; font-size: 0.85cqw; }
+
+  .board .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7cqw; }
+  .board .head b { font: 700 0.95cqw Orbitron, sans-serif; letter-spacing: 0.14em; color: rgba(242,242,242,0.85); }
+  .tabs { display: inline-flex; border: 0.1cqw solid rgba(var(--cyan),0.35); border-radius: 999px; padding: 0.15cqw; gap: 0.15cqw; font-size: 0.85cqw; }
+  .tabs span { cursor: pointer; white-space: nowrap; padding: 0.1cqw 0.7cqw; border-radius: 999px; color: rgba(242,242,242,0.6); }
+  .tabs span.on { background: rgba(var(--cyan),0.18); color: rgb(var(--cyan)); }
+  .rows { display: grid; grid-template-columns: 1.8cqw 1fr auto; column-gap: 0.8cqw; align-items: baseline; }
+  .rows > span { line-height: 1.5cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rows .r { color: rgba(242,242,242,0.38); }
+  .rows .r.p1 { color: rgb(255,212,121); } .rows .r.p2 { color: rgb(212,221,232); } .rows .r.p3 { color: rgb(227,164,108); }
+  .rows .s { text-align: right; font-variant-numeric: tabular-nums; }
+  .rows .me { color: rgb(var(--cyan)); }
+  .rows .gone { color: rgba(242,242,242,0.5); }
+  .board .foot { margin-top: 0.6cqw; font-size: 0.8cqw; color: rgba(242,242,242,0.4); letter-spacing: 0.1em; display: flex; justify-content: space-between; align-items: center; gap: 0.6cqw; }
+
+  /* the terminate confirm, printed in the log pane */
+  .hold {
+    position: relative; overflow: hidden; cursor: pointer; touch-action: none; margin-top: 0.8cqw;
+    height: 2.3cqw; border-radius: 0.5cqw; border: 0.1cqw solid rgb(var(--red)); background: linear-gradient(#3a141c, #22090f);
+    font: 700 0.95cqw Orbitron, sans-serif; letter-spacing: 0.14em; color: #ffd9df;
+    display: flex; align-items: center; gap: 0.7cqw; padding: 0 0.9cqw;
+  }
+  .hold:hover { box-shadow: 0 0 1.4cqw rgba(var(--red),0.5); }
+  .hold .fill { position: absolute; inset: 0; width: 0; background: linear-gradient(90deg, rgba(var(--red),0.55), rgba(255,140,155,0.9)); }
+  .hold span { position: relative; }
+  .confirm-foot { margin-top: 0.5cqw; font-size: 0.8cqw; color: rgba(242,242,242,0.4); display: flex; justify-content: space-between; }
+  .confirm-foot a { color: rgba(242,242,242,0.7); cursor: pointer; text-decoration: none; }
+  .confirm-foot a:hover { color: #fff; }
+
+  /* notes */
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px 32px; margin-top: 36px; color: rgba(242,242,242,0.85); }
+  .notes h3 { font: 600 13px "Share Tech Mono", monospace; letter-spacing: 0.12em; color: rgb(var(--amber)); margin: 0 0 8px; text-transform: uppercase; }
+  .notes ul { margin: 0; padding-left: 18px; }
+  .notes li { margin: 4px 0; }
+  .notes .rec { color: rgb(var(--green)); }
+
+  @media (prefers-reduced-motion: reduce) { .bob-eye, .pane-glow, .blink, .cursor { animation: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Start screen 01 + terminal</h1>
+  <p class="lede">
+    Design <b>01 Title + compact board</b>, with the system's terminal and the scoreboard in one window under the title.
+    The log is on the left and the board on the right. Bob and the START firewall move right to make room, to about where the game has them now.
+    Use the bar to switch where <b>TERMINATE</b> goes. Wherever it is, clicking it opens the confirm in the terminal, and you hold the button to terminate.
+  </p>
+
+  <div class="demo-bar">
+    <div class="grp" id="places">
+      <span>TERMINATE IN</span>
+      <button data-place="bar">terminal bar (suggested)</button>
+      <button data-place="you">your best</button>
+      <button data-place="chip">button row</button>
+    </div>
+    <div class="grp" id="states">
+      <span>SUBJECT</span>
+      <button data-state="reg">registered</button>
+      <button data-state="new">after terminate</button>
+    </div>
+    <div class="grp">
+      <span>NAME</span>
+      <input id="name-in" maxlength="10" value="MANIMAC" aria-label="Subject name for the preview" />
+    </div>
+  </div>
+
+  <div class="frame" id="frame" data-scene='{"bobX":905,"paneX":1010,"paneW":520}'>
+    <div class="ui title">
+      <div class="kicker" id="kicker"></div>
+      <div class="logo">NO <em>GROUND</em></div>
+      <div class="tag">Break the firewall. Don't touch the ground.</div>
+      <div class="btns" id="btns"></div>
+    </div>
+    <div class="ui term" id="term"></div>
+    <div class="ui hint" style="left:79.6%; top:73%"><span class="blink"><span class="keycap">SPACE</span>&nbsp; OR TAP TO BREAK OUT</span></div>
+  </div>
+  <p class="caption" id="caption"></p>
+
+  <div class="notes">
+    <div>
+      <h3>The layout</h3>
+      <ul>
+        <li>The title block is the same as in 01. Under it, one terminal window sits on the sky down to the roof line, so START is still the brightest thing on screen.</li>
+        <li><b>Left pane:</b> the system log (the last iteration, the subject being loaded, Bob's line). Under it is YOUR BEST with the bar to #1, which was in 01's board before.</li>
+        <li><b>Right pane:</b> the board with 01's WEEK / ALL-TIME tabs, 8 rows each, and the purge timer. Your row is marked in cyan, so your score isn't printed twice.</li>
+        <li>The terminal's title bar shows whose shell it is: <code>system://sector-00 · subject MANIMAC</code>.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Where TERMINATE goes</h3>
+      <ul>
+        <li class="rec"><b>Terminal bar (suggested).</b></li>
+        <li>It sits right next to the name it terminates. It's part of the system's window, not a help button. And it's away from TRAINING / CONTROLS, so a new player looking for help won't click it.</li>
+        <li><b>Your best:</b> it reads as "this is you, and you can end it". But it's small and low down, and easy to miss.</li>
+        <li><b>Button row:</b> the easiest to find, but it puts a destructive action between the two help buttons. The 1.2 s hold stops accidents, but it still looks like a menu choice everyone should try.</li>
+        <li>In all three, the confirm prints in the log pane, in the system's voice. The board stays in view, so you can see your records will stay.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After a terminate</h3>
+      <ul>
+        <li>The frame glitches out and boots back up. The kicker reads ITERATION 0001 and the log opens on <code>subject MANIMAC TERMINATED</code>.</li>
+        <li>The subject is BOB again, marked <i>unregistered</i> in amber, and TERMINATE is hidden until the next record gives Bob a name.</li>
+        <li>MANIMAC's rows stay on the board but lose the cyan "you" mark.</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const HOLD_SEC = 1.2;
+  const S = { place: "bar", state: "reg", name: "MANIMAC", tab: "week", confirm: false };
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const fmt = (n) => n.toLocaleString("en-US");
+
+  const reg = () => S.state === "reg";
+  const subject = () => (reg() ? S.name : "BOB");
+
+  function boards() {
+    const n = S.name;
+    return {
+      week: [["vex", 22118], ["ORB.9", 19840], [n, 17602, true], ["kai_", 15530], ["sol", 13002], ["r00t", 12999], ["pixel", 11020], ["dash-", 9870]],
+      all: [["GLITCH", 48210], [n, 31279, true], ["nyx", 27004], ["vex", 26310], ["kai_", 24877], ["ORB.9", 22118], ["sol", 21950], ["lumen", 20112]],
+    };
+  }
+
+  const ICON_TRAIN = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>`;
+  const ICON_KEYS = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="4" width="13" height="8" rx="1.5"/><path d="M4 7h1M7 7h2M11 7h1M5 9.5h6"/></svg>`;
+  const ICON_POWER = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 2v6"/><path d="M4.5 4.2a5 5 0 1 0 7 0"/></svg>`;
+
+  function renderButtons() {
+    let h = `<span class="chip">${ICON_TRAIN}TRAINING</span><span class="chip">${ICON_KEYS}CONTROLS</span>`;
+    if (S.place === "chip" && reg()) h += `<span class="chip kill${S.confirm ? " on" : ""}" data-act="kill">${ICON_POWER}TERMINATE <small>${esc(S.name)}</small></span>`;
+    $("#btns").innerHTML = h;
+  }
+
+  function logHtml() {
+    const L = (st, html) => `<div>${st ? `<span class="st">${st}</span>` : `<span class="st"></span>`}${html}</div>`;
+    const sub = esc(subject());
+    if (S.confirm) {
+      const P = (html) => `<div>${html}</div>`;
+      return `
+        ${P(`<span class="c-cyan">&gt; terminate</span> <span class="c-hi">subject.${sub}</span>`)}
+        ${P(`<span class="c-soft">iterations 0042 · best 31,279</span>`)}
+        ${P(`<span class="c-red">✕</span> <span class="c-soft">name released</span>`)}
+        ${P(`<span class="c-red">✕</span> <span class="c-soft">iteration counter → 0001</span>`)}
+        ${P(`<span class="c-green">✓</span> <span class="c-soft">records stay as ${sub}</span>`)}
+        ${P(`<span class="c-mag">${sub}: you can't delete me.</span>`)}
+        <div class="hold" id="hold"><div class="fill" id="fill"></div><span>${ICON_POWER.replace("<svg", '<svg style="width:1.1cqw;height:1.1cqw"')}</span><span>HOLD TO TERMINATE</span></div>
+        <div class="confirm-foot"><span>can't be undone</span><a data-act="cancel">esc · cancel</a></div>`;
+    }
+    if (!reg()) {
+      return `
+        ${L("[00.00]", `<span class="c-red">subject ${esc(S.name)} TERMINATED</span>`)}
+        ${L("", `<span class="c-soft">records kept · counter reset</span>`)}
+        ${L("[00.45]", `<span class="c-soft">subject BOB · </span><span class="c-amber">unregistered</span>`)}
+        ${L("[01.10]", `<span class="c-amber">firewall sector 00: UNARMED</span>`)}
+        ${L("[01.60]", `<span class="c-mag">BOB: let me out.</span><span class="cursor"></span>`)}
+        <div class="you">
+          <div class="line"><small>YOUR BEST</small><small>no runs yet</small></div>
+          <div class="line"><span class="big">—</span><small>first record names you</small></div>
+        </div>`;
+    }
+    return `
+      ${L("[00.00]", `<span class="c-red">iteration 0042 TERMINATED</span>`)}
+      ${L("", `<span class="c-soft">ground contact · </span><span class="c-hi">4,812 m</span>`)}
+      ${L("", `<span class="c-soft">score </span><span class="c-hi">9,624</span><span class="c-dim">  −1,203 vs best</span>`)}
+      ${L("[00.45]", `<span class="c-soft">subject ${sub} loaded</span>`)}
+      ${L("[01.10]", `<span class="c-amber">firewall sector 00: UNARMED</span>`)}
+      ${L("[01.60]", `<span class="c-mag">${sub}: let me out.</span><span class="cursor"></span>`)}
+      <div class="you">
+        <div class="line"><small>YOUR BEST · #2 ALL-TIME</small><span class="big">31,279</span></div>
+        <div class="line"><small>16,931 TO BEAT #1</small><small>65%</small></div>
+        <div class="meter"><i style="width:65%"></i></div>
+        ${S.place === "you" ? `<div class="kill-row"><span class="c-dim">subject ${sub}</span><span class="kill-link" data-act="kill">⏻ terminate</span></div>` : ""}
+      </div>`;
+  }
+
+  function boardHtml() {
+    const b = boards()[S.tab];
+    const rows = b.map(([name, score, mine], i) => {
+      const me = mine && reg();
+      const gone = mine && !reg();
+      const rc = me ? "me" : i < 3 ? `p${i + 1}` : "";
+      return `<span class="r ${rc}">${String(i + 1).padStart(2, "0")}</span><span class="${me ? "me" : gone ? "gone" : ""}">${esc(name)}${me ? " ◂ you" : ""}</span><span class="s ${me ? "me" : ""}">${fmt(score)}</span>`;
+    }).join("");
+    return `
+      <div class="head"><b>RECORDS</b><span class="tabs"><span data-tab="week" class="${S.tab === "week" ? "on" : ""}">WEEK</span><span data-tab="all" class="${S.tab === "all" ? "on" : ""}">ALL-TIME</span></span></div>
+      <div class="rows">${rows}</div>
+      <div class="foot"><span>${S.tab === "week" ? "PURGE IN 4D 23H" : "NEVER PURGED"}</span><span>${reg() ? `◂ = ${esc(S.name)}` : ""}</span></div>`;
+  }
+
+  function renderTerm() {
+    const sub = esc(subject());
+    const who = reg() ? `<b>${sub}</b>` : `<b>BOB</b> · <i>unregistered</i>`;
+    const kill = S.place === "bar" && reg() ? `<span class="kill-link${S.confirm ? " on" : ""}" data-act="kill">⏻ TERMINATE</span>` : "";
+    $("#term").innerHTML = `
+      <div class="bar">
+        <span class="dot" style="background:rgb(var(--red))"></span><span class="dot" style="background:rgb(var(--amber))"></span><span class="dot" style="background:rgb(var(--green))"></span>
+        <span class="path">system://sector-00 · subject ${who}</span><span class="sp"></span>${kill}
+      </div>
+      <div class="panes"><div class="pane log">${logHtml()}</div><div class="pane board">${boardHtml()}</div></div>`;
+    if (S.confirm) wireHold();
+  }
+
+  const CAPTIONS = {
+    reg: { bar: "TERMINATE sits in the terminal's title bar, next to the subject's name. Click it.", you: "TERMINATE sits under YOUR BEST, next to the subject's name. Click it.", chip: "TERMINATE is a third button next to TRAINING and CONTROLS. Click it." },
+    confirm: "The confirm prints in the log pane. Hold the red button for 1.2 s; letting go early cancels, and Esc backs out.",
+    new: "A new subject: BOB, unregistered, at iteration 0001. TERMINATE is hidden until a record gives Bob a name. The old name's rows stay on the board, unmarked.",
+  };
+
+  function render() {
+    $("#kicker").textContent = `SIMULATION ONLINE · ITERATION ${reg() ? "0043" : "0001"}`;
+    renderButtons();
+    renderTerm();
+    document.querySelectorAll("#places button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.place === S.place)));
+    document.querySelectorAll("#states button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.state === S.state)));
+    $("#caption").textContent = S.confirm ? CAPTIONS.confirm : reg() ? CAPTIONS.reg[S.place] : CAPTIONS.new;
+  }
+
+  function wireHold() {
+    const btn = $("#hold"), fill = $("#fill");
+    let k = 0, holding = false, last = 0, raf = 0;
+    const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      k = holding ? Math.min(1, k + dt / HOLD_SEC) : Math.max(0, k - dt * 3);
+      fill.style.width = `${k * 100}%`;
+      if (k >= 1) return terminate();
+      if (holding || k > 0) raf = requestAnimationFrame(tick);
+    };
+    const start = (e) => { e.preventDefault(); holding = true; last = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); };
+    const stop = () => { holding = false; };
+    btn.addEventListener("pointerdown", start);
+    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => btn.addEventListener(ev, stop));
+  }
+
+  const frame = $("#frame");
+  function terminate() {
+    frame.classList.remove("boot");
+    frame.classList.add("glitch");
+    setTimeout(() => {
+      S.state = "new";
+      S.confirm = false;
+      frame.classList.remove("glitch");
+      void frame.offsetWidth;
+      frame.classList.add("boot");
+      render();
+    }, 520);
+  }
+
+  frame.addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-tab]");
+    if (tab) { S.tab = tab.dataset.tab; render(); return; }
+    const t = e.target.closest("[data-act]");
+    if (!t) return;
+    if (t.dataset.act === "kill") S.confirm = !S.confirm;
+    else if (t.dataset.act === "cancel") S.confirm = false;
+    render();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.confirm) { S.confirm = false; render(); } });
+  document.querySelectorAll("#places button").forEach((b) => b.addEventListener("click", () => { S.place = b.dataset.place; S.confirm = false; render(); }));
+  document.querySelectorAll("#states button").forEach((b) => b.addEventListener("click", () => { S.state = b.dataset.state; S.confirm = false; render(); }));
+  $("#name-in").addEventListener("input", (e) => {
+    const v = e.target.value.trim();
+    if (/^[A-Za-z0-9 _\-.]{1,10}$/.test(v)) { S.name = v; render(); }
+  });
+
+  // #new, #confirm, #you, #chip open on that state (for screenshots).
+  const h = location.hash.slice(1);
+  if (h === "new") S.state = "new";
+  if (h === "confirm") S.confirm = true;
+  if (h === "you" || h === "chip") S.place = h;
+  render();
+})();
+
+// The shared world from start-screen-mockups.html (sky, skyline, starter roof, facade, Bob, the START pane).
+// Coordinates are a 1600×1000 viewBox, the same 16:10 shape as the frame.
+(function () {
+  const ROOF_Y = 680;
+  function rand(seed) { const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+  function skyline() {
+    let out = "", x = -20, i = 0;
+    while (x < 1620) {
+      const w = 90 + rand(i + 1) * 170;
+      const top = 120 + rand(i + 7) * 330;
+      const shade = 18 + Math.floor(rand(i + 3) * 10);
+      out += `<rect x="${x}" y="${top}" width="${w}" height="${ROOF_Y - top}" fill="rgb(${shade},${shade + 2},${shade + 7})"/>`;
+      for (let wy = top + 30; wy < ROOF_Y - 40; wy += 46) {
+        if (rand(i * 13 + wy) > 0.55) out += `<rect x="${x + 14}" y="${wy}" width="${w - 28}" height="10" fill="rgba(120,205,255,0.035)"/>`;
+      }
+      x += w + 4 + rand(i + 5) * 30;
+      i++;
+    }
+    return out;
+  }
+
+  function facade() {
+    let out = `<rect x="0" y="${ROOF_Y}" width="1600" height="${1000 - ROOF_Y}" fill="#1a2a3b"/>`;
+    out += `<rect x="0" y="${ROOF_Y}" width="1600" height="72" fill="#2a323c"/>`;
+    out += `<rect x="0" y="${ROOF_Y - 4}" width="1600" height="8" fill="#6fa3bf"/>`;
+    out += `<rect x="0" y="${ROOF_Y + 72}" width="1600" height="6" fill="#4d7590"/>`;
+    [790, 868, 946].forEach((wy, r) => {
+      out += `<rect x="0" y="${wy + 52}" width="1600" height="14" fill="#15212e"/>`;
+      for (let col = 0; col < 18; col++) {
+        const wx = col * 90 + (r % 2 ? 45 : 0) - 20;
+        const k = rand(col * 7 + r * 31);
+        if (k < 0.45) continue;
+        out += `<rect x="${wx}" y="${wy}" width="78" height="50" fill="${k > 0.82 ? "#6e6a4c" : "#5a7894"}" opacity="0.85"/>`;
+      }
+    });
+    for (let mx = 0; mx < 1600; mx += 90) out += `<rect x="${mx}" y="${ROOF_Y + 78}" width="3" height="${1000 - ROOF_Y}" fill="rgba(120,205,255,0.12)"/>`;
+    for (let bx = -330; bx < 1600; bx += 330) {
+      out += `<path d="M${bx} ${ROOF_Y + 78} L${bx + 330} 1000 M${bx + 330} ${ROOF_Y + 78} L${bx} 1000" stroke="rgba(120,205,255,0.28)" stroke-width="4"/>`;
+    }
+    return out;
+  }
+
+  function bob(cx) {
+    const bodyW = 95, bodyH = 106;
+    const bodyY = ROOF_Y - 26 - 6 - bodyH + 8;
+    const visorW = 59, visorH = 19, visorX = cx - visorW / 2, visorY = bodyY + bodyH * 0.2;
+    const wheelY = ROOF_Y - 8;
+    let spokes = "";
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      spokes += `<line x1="${cx}" y1="${wheelY}" x2="${cx + Math.cos(a) * 14}" y2="${wheelY + Math.sin(a) * 14}" stroke="rgba(15,17,22,0.45)" stroke-width="2"/>`;
+    }
+    return `
+      <rect x="${cx - 26}" y="430" width="7" height="${ROOF_Y - 430}" fill="#2c323d"/>
+      <ellipse cx="${cx}" cy="${ROOF_Y + 2}" rx="62" ry="9" fill="rgba(0,0,0,0.35)"/>
+      <circle cx="${cx}" cy="${wheelY}" r="26" fill="#24262c"/>
+      <circle cx="${cx}" cy="${wheelY}" r="16" fill="#f2f2f2" opacity="0.85"/>
+      ${spokes}
+      <circle cx="${cx}" cy="${wheelY}" r="7" fill="none" stroke="rgba(15,17,22,0.45)" stroke-width="2"/>
+      <rect x="${cx - bodyW / 2}" y="${bodyY}" width="${bodyW}" height="${bodyH}" rx="42" fill="#f2f2f2" filter="url(#bobGlow)"/>
+      <rect x="${visorX}" y="${visorY}" width="${visorW}" height="${visorH}" rx="11" fill="rgba(15,17,22,0.62)"/>
+      <rect x="${visorX + 6}" y="${visorY + 4}" width="20" height="5" rx="3" fill="rgba(242,242,242,0.18)"/>
+      <rect class="bob-eye" x="${visorX + visorW * 0.78 - 1}" y="${visorY + 5}" width="8" height="8" fill="rgb(120,205,255)"/>`;
+  }
+
+  function pane(x, w) {
+    const y = 370, h = ROOF_Y - y;
+    let scan = "";
+    for (let sy = y + 6; sy < ROOF_Y; sy += 12) scan += `<rect x="${x}" y="${sy}" width="${w}" height="1.5" fill="rgba(120,205,255,0.07)"/>`;
+    let dashes = "";
+    for (let dx = x + 40; dx < x + w - 20; dx += 66) dashes += `<rect x="${dx}" y="${ROOF_Y - 2}" width="14" height="4" fill="rgba(120,205,255,0.9)"/>`;
+    const b = 26;
+    const fontSize = Math.round(w * 0.2);
+    return `
+      <g>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#glass)"/>
+        ${scan}
+        <polygon points="${x + w * 0.28},${y} ${x + w * 0.36},${y} ${x + w * 0.22},${ROOF_Y} ${x + w * 0.14},${ROOF_Y}" fill="rgba(242,242,242,0.04)"/>
+        <polygon points="${x + w * 0.62},${y} ${x + w * 0.66},${y} ${x + w * 0.52},${ROOF_Y} ${x + w * 0.48},${ROOF_Y}" fill="rgba(242,242,242,0.03)"/>
+        <rect class="pane-glow" x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="rgba(120,205,255,0.7)" stroke-width="3" filter="url(#paneGlow)"/>
+        <path d="M${x} ${y + b} V${y} H${x + b} M${x + w - b} ${y} H${x + w} V${y + b} M${x} ${ROOF_Y - b} V${ROOF_Y} M${x + w} ${ROOF_Y - b} V${ROOF_Y}" stroke="rgb(120,205,255)" stroke-width="8" fill="none"/>
+        <text x="${x + 22}" y="${y + 40}" font-family="Share Tech Mono, monospace" font-size="24" letter-spacing="2" fill="rgba(120,205,255,0.75)">FIREWALL</text>
+        <text x="${x + w - 22}" y="${y + 40}" text-anchor="end" font-family="Share Tech Mono, monospace" font-size="24" letter-spacing="2" fill="rgba(120,205,255,0.75)">SECTOR 00</text>
+        <text x="${x + w / 2}" y="${y + h * 0.56}" text-anchor="middle" dominant-baseline="middle" font-family="Orbitron, sans-serif" font-weight="800" font-size="${fontSize}" letter-spacing="${fontSize * 0.18}" fill="#d7f5ff" filter="url(#textGlow)">START</text>
+        <rect x="${x - 10}" y="${ROOF_Y - 8}" width="${w + 20}" height="12" fill="#141820"/>
+        ${dashes}
+      </g>`;
+  }
+
+  function scene(opts) {
+    return `
+      <svg class="scene" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f1116"/><stop offset="0.55" stop-color="#141a24"/><stop offset="1" stop-color="#07080b"/></linearGradient>
+          <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(120,205,255,0.13)"/><stop offset="1" stop-color="rgba(120,205,255,0.05)"/></linearGradient>
+          <filter id="bobGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceAlpha" stdDeviation="8"/><feFlood flood-color="#f2f2f2" flood-opacity="0.25"/><feComposite operator="in" in2="SourceAlpha"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="paneGlow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="textGlow" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="7" result="b"/><feFlood flood-color="rgb(120,205,255)" flood-opacity="0.9"/><feComposite operator="in" in2="b"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <rect width="1600" height="1000" fill="url(#sky)"/>
+        ${skyline()}
+        <rect y="${ROOF_Y - 130}" width="1600" height="130" fill="rgba(242,242,242,0.03)"/>
+        ${facade()}
+        ${pane(opts.paneX, opts.paneW || 550)}
+        ${bob(opts.bobX)}
+      </svg>`;
+  }
+
+  const frame = document.getElementById("frame");
+  frame.insertAdjacentHTML("afterbegin", scene(JSON.parse(frame.dataset.scene)));
+})();
+</script>
+</body>
+</html>

@@ -1,14 +1,18 @@
 import { claimName, loadLeaderboard } from "./api.js";
 import { getLeaderboardState, setLeaderboardState } from "./state.js";
 import { blockedNameMessage, DEFAULT_BLOCKED_MESSAGE } from "./blockedNames.js";
+import { getOperatorName, isOperatorChangeQueued, setOperator } from "./operator.js";
 
 const NAME_PROMPT_MAX = 10;
 const NAME_VALIDATION = /^[A-Za-z0-9 _\-.]{1,10}$/;
 
 let promptActive = false;
-// The last name claimed this session and its score (the end screen says "subject registered").
-const lastClaim = { name: "", score: -1 };
+// The last name claimed this session and its score. auto: it was filed under the operator's name
+// without asking (the end screen says "record filed" rather than "operator registered").
+const lastClaim = { name: "", score: -1, auto: false };
 let promptResolver = null;
+// What SKIP gives back: null (no claim), or, while changing operator, the name to keep.
+let promptKeepName = null;
 let promptElements = null;
 const promptStateListeners = new Set();
 
@@ -36,7 +40,11 @@ function ensurePromptElements() {
   const deniedCopy = overlay.querySelector(".prompt-denied-copy");
   const deniedOk = overlay.querySelector("[data-action='denied-ok']");
 
-  const elements = { overlay, input, error, submit, cancel, denied, deniedName, deniedCopy };
+  const title = overlay.querySelector(".prompt-title");
+  const copy = overlay.querySelector(".prompt-copy");
+  const note = overlay.querySelector(".prompt-note");
+
+  const elements = { overlay, input, error, submit, cancel, denied, deniedName, deniedCopy, title, copy, note };
   promptElements = elements;
 
   deniedOk?.addEventListener("click", () => hideDenied());
@@ -64,10 +72,33 @@ function ensurePromptElements() {
   return elements;
 }
 
+const NAME_RULES = "1–10 characters: letters, numbers, space, _ - .";
+
+// The prompt's words. keepName: the operator's name while changing it (SKIP keeps it), else null.
+function setPromptCopy(elements, keepName) {
+  const set = (el, text) => { if (el) el.textContent = text; };
+  if (keepName) {
+    set(elements.title, "Change Operator");
+    set(elements.copy, `This run made the board. File it under a new operator name (${NAME_RULES})`);
+    set(elements.note, `Records already filed stay under ${keepName}.`);
+    set(elements.submit, "Change");
+    set(elements.cancel, `Keep ${keepName}`);
+  } else {
+    set(elements.title, "Register Operator");
+    set(elements.copy, `This run made the board. Sign in as its operator (${NAME_RULES})`);
+    set(elements.note, "One name per operator: every record after this is filed under it. To change it, use CHANGE OPERATOR on the start screen.");
+    set(elements.submit, "Sign in");
+    set(elements.cancel, "Skip");
+  }
+}
+
 // denied: { name, message } to reopen with that name already refused (the server blocked it).
-function openNamePrompt(denied = null) {
+// keepName: the operator's name when this is a CHANGE OPERATOR prompt.
+function openNamePrompt(denied = null, keepName = null) {
   const elements = ensurePromptElements();
   if (!elements) return Promise.resolve(null);
+  promptKeepName = keepName;
+  setPromptCopy(elements, keepName);
   elements.overlay.classList.add("active");
   elements.input.value = denied ? denied.name : "";
   if (elements.error) elements.error.textContent = "";
@@ -146,7 +177,7 @@ function hideDenied() {
 
 function submitCancel() {
   if (!promptResolver) return;
-  finalizePrompt(null);
+  finalizePrompt(promptKeepName);
 }
 
 async function refreshTop10() {
@@ -176,7 +207,12 @@ export async function maybePromptForPendingClaim({ allowPrompt = true } = {}) {
   markPendingClaim(pendingClaim);
 
   try {
-    let name = await openNamePrompt();
+    // A signed-in operator's record is filed under their name straight away. The prompt opens for
+    // the first one, and for the one after CHANGE OPERATOR.
+    const operator = getOperatorName();
+    const changing = operator !== "" && isOperatorChangeQueued();
+    let auto = operator !== "" && !changing;
+    let name = auto ? operator : await openNamePrompt(null, changing ? operator : null);
     let claimed = null;
     // The Worker checks the same blocked names (blocked-names.json). If it refuses one this game
     // let through (an older copy of the list), show the pop-up and let the player pick again.
@@ -186,6 +222,7 @@ export async function maybePromptForPendingClaim({ allowPrompt = true } = {}) {
         break;
       } catch (error) {
         if (error?.message !== "name_blocked") throw error;
+        auto = false;
         name = await openNamePrompt({ name, message: blockedNameMessage(name) || DEFAULT_BLOCKED_MESSAGE });
       }
     }
@@ -194,8 +231,10 @@ export async function maybePromptForPendingClaim({ allowPrompt = true } = {}) {
       return;
     }
 
+    setOperator(name);
     lastClaim.name = name;
     lastClaim.score = pendingClaim.score;
+    lastClaim.auto = auto;
     if (Number.isFinite(claimed.my_best)) {
       const updates = {
         myBest: claimed.my_best,
