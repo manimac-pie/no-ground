@@ -2,6 +2,7 @@
 // Single render orchestrator (prevents duplicate draws + state leaks).
 
 import { isSummaryShowing } from "../game/state.js";
+import { START_PANE_H, START_PANE_W, START_PANE_Y, startPaneX } from "../game/firewall.js";
 import {
   world,
   DASH_MAX_CAM_LAG,
@@ -116,9 +117,10 @@ let _shellAwakeT = -1;
 const _shellPointer = { x: 0, y: 0 };
 const _shellOpts = {
   slideK: 0, pointer: null, touchUi: false, uiTime: 0, pushT: 0, awakeAge: -1,
-  lastRun: null, boards: null, myBest: 0, resetIn: "", nowMs: 0, operator: null, holdK: 0,
+  lastRun: null, boards: null, myBest: 0, resetIn: "", nowMs: 0, operator: null, holdK: 0, hint: null,
 };
 const _shellOperator = { name: "", queued: false, termination: null };
+const _startHint = { x: 0, y: 0, w: 220, h: 18 };
 const _startView = { focusX: 0, focusY: 0, zoom: 1, camShift: 0 };
 
 function easeInOutCubic(t) {
@@ -278,6 +280,11 @@ export function render(ctx, state) {
     _startView.camShift = camShift;
   }
   hitAreas.startView = onStartScreen ? _startView : null;
+  // SPACE OR TAP TO BREAK OUT sits under the START firewall, on the roof's edge (hud/shell.js draws it).
+  const paneMidX = startPaneX(state) + START_PANE_W / 2;
+  _startHint.x = focusX + (paneMidX - camShift - focusX) * zoom - _startHint.w / 2;
+  _startHint.y = focusY + (START_PANE_Y + START_PANE_H - focusY) * zoom + 12;
+  hitAreas.startHint = onStartScreen ? _startHint : null;
 
   ctx.save();
   // START smash: a short, decaying screen shake (driven by the game's smash timer, so it pauses too).
@@ -487,6 +494,7 @@ export function render(ctx, state) {
     _shellOperator.termination = getTermination();
     o.operator = _shellOperator;
     o.holdK = clamp((state.terminateHoldT || 0) / TERMINATE_HOLD_SEC, 0, 1);
+    o.hint = _startHint;
     resetCtx(ctx);
     drawShell(ctx, state, shell, o);
   }

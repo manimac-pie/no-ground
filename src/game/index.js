@@ -492,9 +492,7 @@ export function createGame() {
         jumpPressed = false;
         state.jumpBuffer = 0;
         input?.suppressPointerJump?.();
-        if (pointInRect(x, y, shell.breakOut)) {
-          startPromptPressed = true;
-        } else if (pointInRect(x, y, shell.training)) {
+        if (pointInRect(x, y, shell.training)) {
           state.shellView = view === "training" ? "home" : "training";
         } else if (pointInRect(x, y, shell.controls)) {
           state.shellView = view === "controls" ? "home" : "controls";
@@ -509,10 +507,18 @@ export function createGame() {
           // A queued change can be called off from the same button.
           if (isOperatorChangeQueued()) queueOperatorChange(false);
           else state.shellView = "operator";
-        } else if (view === "operator" && pointInRect(x, y, shell.begin)) {
+        } else if (view === "operator" && pointInRect(x, y, shell.hold)) {
           queueOperatorChange(true);
           state.shellView = "home";
+        } else if ((view === "terminate" || view === "operator") && pointInRect(x, y, shell.cancel)) {
+          state.shellView = "home";
         }
+      } else if (hitAreas.startHint && pointInRect(x, y, hitAreas.startHint)) {
+        // SPACE OR TAP TO BREAK OUT, under the firewall.
+        startPromptPressed = true;
+        jumpPressed = false;
+        state.jumpBuffer = 0;
+        input?.suppressPointerJump?.();
       } else if (hitAreas.startView) {
         // The START firewall, in world px (the renderer reports the start screen's camera).
         const v = hitAreas.startView;
@@ -538,7 +544,7 @@ export function createGame() {
     // (letting go drains it quickly).
     if (onStartScreen && escPressed && state.shellView !== "home") state.shellView = "home";
     if (onStartScreen && state.shellView === "terminate") {
-      const hold = getShellLayout(INTERNAL_WIDTH, INTERNAL_HEIGHT).begin;
+      const hold = getShellLayout(INTERNAL_WIDTH, INTERNAL_HEIGHT).hold;
       const held = input?.pointerDown === true && state.pointerInViewport
         && pointInRect(state.pointerUiX, state.pointerUiY, hold);
       state.terminateHoldT = held
